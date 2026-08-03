@@ -58,9 +58,10 @@ Completed 2026-08-03.
 - [x] Readers: `roster.py`, `macunkoy.py`, `teknopark.py`, `izin.py`
 - [x] `merge.py` — interval union, cross-site repair (ADR-001, ADR-003)
 - [x] `rules/worktime.py` — midnight crossing, gross/net, residual break
-- [x] Report sheets 1–4 per `OUTPUT-SPEC.md §2`, plus a `Kontrol` sheet
-- [x] `cli.py`: `python -m mesai rapor --ay 2026-05 --girdi <klasör>`
-- [x] 65 unit tests, all passing
+- [x] Report sheets per `OUTPUT-SPEC.md §2` — six of them, including
+      `Sorulacaklar` (per-person worklist) and `Kontrol` (reconciliation)
+- [x] `cli.py` plus `rapor.cmd` — runs without activating the conda environment
+- [x] 96 unit tests, all passing
 - [x] Determinism verified: two runs produce 23 273 identical cells
 - [x] Reconciliation invariant holds: Σ per-person gross == Σ accepted intervals
 - [ ] **Remaining:** HR spot-checks three people against the source files
@@ -117,7 +118,7 @@ Blocked on Q5–Q8. Covers `PRODUCT.md` §2–§4 and the colour-coded holiday r
 - [ ] `rules/calendar.py`, `rules/shifts.py`, `rules/overtime.py`,
       `rules/multinet.py`
 - [ ] Sheets `Fazla Mesai`, `Haftalık FM`, `Multinet`, `Vardiya`, `Resmi Tatil`,
-      `Hafta Tatili`, `Kontrol`
+      `Hafta Tatili` (`Kontrol` already exists)
 - [ ] Validate a full month of Multinet entitlements against HR's manual figures
 
 ## Phase 3 — Leave, excused absence, assignments
@@ -176,8 +177,23 @@ of validated output first.
 
 ## 5. Open questions
 
-Resolve with HR / the project owner. When one is answered, write an ADR and remove
-it from this list.
+**This is the single list of everything not yet decided.** Every `Qn` reference
+elsewhere in the repo points here.
+
+How to read it:
+
+- Numbers are **chronological** — the order the question surfaced, not priority.
+  Letters (`Q4a`, `Q4c`) are follow-ups to the question they hang off.
+- **Bold** rows are the ones that block something real.
+- `Blocks` says what is stuck waiting for the answer.
+- When a question is answered it moves to the **Resolved** table above with the
+  answer, and if the answer was a choice between options it also gets an ADR in
+  `DECISIONS.md`. Questions are never deleted — a future reader needs to know it was
+  asked.
+
+Four are worth chasing first: **Q4** (is a whole site's attendance missing),
+**Q18** (hire/termination dates), **Q16** (holiday calendar), **Q5/Q6** (the
+overtime rules Phase 2 cannot start without).
 
 ### Resolved
 
@@ -203,12 +219,11 @@ it from this list.
 | Q4a | Confirm the nine name-variant pairs in `DATA-SOURCES.md §6.1` are the same people, so they can be frozen into the alias table | Phase 1 | A wrong alias merges two people's payroll hours |
 | Q4c | `İBRAHİM KAYRA SINAMA`, personnel no `9001` — the only leave-export person absent from the roster. Is the `9xxx` range interns or contractors? | Phase 1 | May indicate a whole employee category the roster omits |
 | **Q18** | **Can the roster be re-exported with `İşe Giriş Tarihi` and `İşten Çıkış Tarihi`?** | Phase 1 accuracy, Phase 4 safety | Turns "hired later / left earlier / data missing" from inference into fact. Also prevents Phase 4 mailing a leaver. ADR-011 |
-| **Q19** | **Can HR export the same four files for July 2026?** | Phase 1 validation | May is atypical (14 working days, 7-day holiday block) and its roster is 3 months stale. A contemporaneous month is needed before any figure is trusted. Also tests format stability (Q10). ADR-012 |
 | Q5 | Is the standard day really 8 h 15 net (09:00 span − 45 min)? | Phase 2 | Drives every overtime figure |
 | Q6 | Overtime week boundary (Mon–Sun?); does shortfall offset excess within a week; gross or net; behaviour exactly at 3 h and 7.5 h | Phase 2 | Multinet entitlement is money |
 | Q7 | Exact entry-time windows for automatic shift assignment; `2. Vardiya` does not exist yet — when? | Phase 2 | Misassigned shift ⇒ wrong expected hours |
 | Q8 | How is pay-vs-time-off compensation for holiday work decided, and where does that input come from? | Phase 2 | Not derivable from any current export |
-| Q11 | Should `ZİYARETÇİ*` / `GEÇİCİ*` badges be reported anywhere, or dropped entirely? | Phase 1 | Currently dropped from the summary |
+| Q11 | Should `ZİYARETÇİ*` / `GEÇİCİ*` / `STJ*` badges be reported anywhere, or dropped entirely? Interns do work, but the badge is numbered rather than named | Phase 1 | 420 of 1 208 Macunköy rows. Currently dropped from the summary |
 | Q12 | Who may receive the full workbook? Is per-department splitting required? | Phase 1 output | Personal data of 162 people in one file |
 | Q13 | Does `Eğitim İzni` (training, 25 rows) count as worked time, like remote work does? | Phase 1 | Same shape of question as Q2; not yet asked |
 | Q20 | **37 `Uzaktan Çalışma` records overlap a badge record on the same day.** Did the person cancel the remote day and come in, or work partly from each? | Phase 1 accuracy | Overlap is counted once, so no inflation — but the declared hours may be standing in for real ones |
