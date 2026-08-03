@@ -76,7 +76,23 @@ pip install -e . --no-deps
 python -m pytest
 ```
 
-Son satır **81 passed** demeli. Demiyorsa kurulum bozuk, aşağıdaki tabloya bak.
+Son satır **96 passed** demeli. Demiyorsa kurulum bozuk, aşağıdaki tabloya bak.
+
+### Yeni bilgisayarda: git'ten gelmeyen iki dosya
+
+Klonlamak yetmiyor, ikisini elden almak gerekiyor:
+
+| Dosya | Nereden |
+| --- | --- |
+| `config/personel.yaml` | Çalışan bir kurulumdan kopyala. Gerçek isim eşleştirmeleri içerdiği için git'te yok |
+| `data/personel/` içindeki çalışan listesi | İK'dan / mevcut kurulumdan |
+
+`personel.yaml` olmadan program çalışır ama **sessizce eksik çalışır**: soyadı
+değişmiş ya da ilk adı kısaltılmış kişiler raporda ikiye bölünür ve hiçbir uyarı
+çıkmaz.
+
+Kontrol yolu: raporu üret, `Kontrol` sayfasının **6. bölümüne** bak. Orada
+eşleştirmeler listeliyse yüklü, boşsa eksik.
 
 Notlar:
 

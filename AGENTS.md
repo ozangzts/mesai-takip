@@ -113,6 +113,15 @@ The pseudonym → real mapping lives in `docs/ISIM-ESLESMELERI.local.md`, which
 | `config/personel.yaml` | Its aliases must match the source files' real spellings exactly | `config/personel.example.yaml` |
 | `docs/ISIM-ESLESMELERI.local.md` | It *is* the mapping | nothing |
 
+**A fresh clone is therefore incomplete and fails silently.** The committed example
+has an empty alias table, so the five real cases (four married surnames, one
+abbreviated given name) stop resolving and those people appear as two rows each —
+with no warning, because an unresolved variant is indistinguishable from two
+different employees. `config/personel.yaml` has to be copied across by hand.
+
+The check is the report's `Kontrol` sheet, section 6: it lists every alias in effect.
+Empty there means the table did not load.
+
 **Before committing**, re-check that no real name, address, login or number leaked
 in. Load the real roster, collect every name variant from all four sources, and grep
 the staged files for them — a one-off script, not part of the pipeline. A doc example

@@ -36,6 +36,21 @@ exclude_prefixes:
 #
 # Her kayıt raporun "Kontrol" sayfasında listelenir ki İK gözden geçirebilsin.
 # Yanlış bir eşleştirme iki kişinin bordro saatlerini birleştirir — onaylatın.
+#
+# ┌───────────────────────────────────────────────────────────────────────────┐
+# │ DİKKAT — bu liste BOŞ ve öyle kalmalı, ama üretimde BOŞ DEĞİL.             │
+# │                                                                            │
+# │ Mayıs/Haziran 2026 verisinde 5 gerçek eşleştirme var: 4 evlilik soyadı,    │
+# │ 1 kısaltılmış ilk ad. Bunlar buraya yazılamaz (gerçek isim).               │
+# │                                                                            │
+# │ Yeni bir bilgisayarda kurulum yapıyorsan: bu dosyayı kopyalamak YETMEZ.    │
+# │ Çalışan bir kurulumdan `config/personel.yaml` dosyasını da al — git ile    │
+# │ değil, elden. Almazsan o 5 kişi raporda İKİYE BÖLÜNMÜŞ görünür ve hiçbir   │
+# │ hata mesajı çıkmaz.                                                        │
+# │                                                                            │
+# │ Kontrol yolu: raporun "Kontrol" sayfası, 6. bölüm. Orada 5 satır           │
+# │ görüyorsan eşleştirmeler yüklü demektir. Boşsa eksik.                      │
+# └───────────────────────────────────────────────────────────────────────────┘
 aliases:
   # Evlilik soyadı: mesai dosyasında kızlık, izin dosyasında evlilik soyadı
   # "AYŞE DENEME": "AYŞE DENEME ÖRNEK"
