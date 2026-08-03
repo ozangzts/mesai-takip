@@ -127,11 +127,28 @@ gross   12 h 36 m          not 13 h 21 m
 Merging touching intervals (`a.end == b.start`) is intentional: an exit at one
 gate and an entry at another in the same minute is one continuous presence.
 
-### 4.2 Gaps are not removed
+### 4.2 Union, not "earliest entry to latest exit"
 
-If a person has `08:00–12:00` and `13:00–17:00`, the union is two intervals
-totalling 8 h. The one-hour gap is genuinely not worked. Only §5 handles the
-implicit lunch break for people who never badge out.
+The tempting shortcut — take the earliest entry and the latest exit of the day — is
+wrong, and measurably so.
+
+If a person has `08:00–12:00` and `13:00–17:00`, the union is two intervals totalling
+**8 h**. Earliest-to-latest would say `08:00 → 17:00` = **9 h**, paying for an hour
+nobody worked.
+
+Measured on May 2026: **171 person-days have more than one interval, and the shortcut
+would add 159 h 11 m** across them. Worst single day:
+`07:30–08:00` + `12:37–19:10` → union 7 h 03, shortcut 11 h 40, a 4 h 37 error.
+
+Where the two coincide — and this is the case that makes the shortcut *feel* right —
+is when the intervals genuinely overlap. 138 May person-days had two sites' records
+collapse into a single merged interval; for those, the union **is** earliest entry to
+latest exit. Example: entering at Macunköy `07:51` and leaving Teknopark `18:00` with
+overlapping coverage yields one interval of 10 h 08.
+
+So: union gives the intuitive answer whenever the intuition is correct, and the
+correct answer when it is not. Only §5 handles the implicit lunch break for people
+who never badge out.
 
 ### 4.3 Cross-site repair of a one-sided record
 

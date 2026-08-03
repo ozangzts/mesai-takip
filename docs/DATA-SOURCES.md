@@ -444,22 +444,56 @@ All nine go into `config/personel.yaml` as explicit aliases (ADR-004). They are
 **not** matched automatically — the list above was produced by a one-off diagnostic
 script, reviewed by a human, and frozen into config. No fuzzy matcher ships.
 
-**C — 24 people with genuinely no attendance record.** Their personnel numbers span
-the whole range in use, from the low 1000s to one in the 9000s. The individual list
-is deliberately **not reproduced here** — this file is committed; run the diagnostic
-to regenerate it locally when you need it.
+**C — people with genuinely no attendance record.** Measured with the pipeline's own
+resolved identities (an earlier diagnostic without alias resolution overstated this):
 
-The "recent hire" hypothesis was tested and **disproved**: across the highest ~40
-personnel numbers, roughly half have attendance records and half do not, interleaved
-with no pattern (`n VAR, n+1 YOK, n+2 VAR, n+3 VAR, …`). Hire date does not explain
-the gap.
+| | May 2026 | June 2026 |
+| --- | --- | --- |
+| No badge record at all, only a leave record | **21** | **13** |
+| of which home facility is `MACUNKÖY TESİSİ` | **20** | **13** |
+| Only one-sided Macunköy rows, nothing usable | 5 | 5 |
+| of which absent from the roster | 5 | 5 |
 
-Some cases are explicable individually — one person is on paid parental leave for the
-entire month, so an absence is expected. Others are not: someone with 5.5 days of
-annual leave and no attendance at all leaves ~15 working days unaccounted for.
+Two different problems sit in that table.
 
-Still open (Q4). Do not report these people as "worked 0 hours" — report them as
+**The one that matters: 20 Macunköy-based employees never badged at all.** They are on
+the roster, they filed leave, and the attendance export has nothing for them. June
+repeats it with 13 — every one of them Macunköy-based. Hire date does not explain it
+(the "recent hire" hypothesis was tested against the personnel-number range and
+disproved). This is Q4, and the question is for IT: **does the Macunköy export cover
+every terminal and every employee at that site?**
+
+**The minor one: 5 people with only one-sided Macunköy rows.** All 5 are absent from
+the roster, so probable leavers or contractors. Do not confuse these with the 54
+people who have *no complete pair* in the Macunköy file — 49 of those have a Teknopark
+record for the same period, so their real day is captured and the Macunköy row is
+just a site visit. See §6.4.
+
+Individual cases within the 21 vary: one person is on paid parental leave for the
+whole month, so absence is expected. Another has 5.5 days of annual leave and no
+attendance at all, leaving ~15 working days unaccounted for.
+
+Do not report any of these people as "worked 0 hours" — report them as
 **"no attendance data"**, which is a different statement.
+
+### 6.4 One-sided Macunköy records are mostly a site-visit artefact
+
+The Macunköy terminal records visits by Teknopark staff as well as its own site's
+attendance. A visit often produces a single punch — badge in at the gate, leave by
+another route — so a one-sided row is normal there, not a defect.
+
+| | May 2026 | June 2026 |
+| --- | --- | --- |
+| People with **no** complete pair in the Macunköy file | 54 | 50 |
+| of which `DEICO TESİS` (Teknopark-based) | 47 | 43 |
+| of which `MACUNKÖY TESİSİ` | **0** | **0** |
+| **have a Teknopark record too** → real day captured | **49** | **45** |
+| no Teknopark record either → hours genuinely missing | 5 | 5 |
+| People with both complete and one-sided rows | 42 | 61 |
+
+Not one Macunköy-based employee falls in this group, in either month. That is the
+evidence for the site-visit reading, and it is why these rows are a minor issue while
+§6.1 group C is not.
 
 ### 6.2 Calendar coverage — resolved
 

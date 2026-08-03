@@ -100,10 +100,16 @@ source system's own totals. The export format is stable month to month.
 - **`STJ*` intern badges** are a third family of shared badge alongside
   `ZİYARETÇİ*`/`GEÇİCİ*`. All three together are 420 of 1 208 Macunköy rows.
 - **`İREM ÖRNEK` holds two roster accounts** after a surname change. ADR-013.
-- **All 55 people whose Macunköy records are exclusively one-sided are
-  `DEICO TESİS` staff** — not one is Macunköy-based. This sharpens Q4: the Macunköy
-  terminal records site *visits*, which naturally produce one-sided punches; the
-  real gap is 31 of those people having no Teknopark record either.
+- **One-sided Macunköy records are mostly harmless.** 54 people have no complete
+  pair in that file, and 47 of them are `DEICO TESİS` staff — the Macunköy terminal
+  is recording site *visits*, which naturally produce a single punch. **49 of the 54
+  have a Teknopark record for the same period**, so their real working day is
+  captured; only 5 do not, and all 5 are absent from the roster (probable leavers or
+  contractors). An earlier estimate of 31 was wrong — it came from a diagnostic
+  script that did not apply alias resolution.
+- **The real gap is on the Macunköy side, not Teknopark.** 20 employees whose home
+  facility is `MACUNKÖY TESİSİ` have leave records and zero badge records. Same shape
+  in June: 13 people, all Macunköy-based. That is Q4.
 - **37 remote-work records overlap a badge record** on the same day. Hours are
   counted once, but HR should know.
 
@@ -215,7 +221,7 @@ overtime rules Phase 2 cannot start without).
 
 | # | Question | Blocks | Why it matters |
 | --- | --- | --- | --- |
-| **Q4** | **26 people have May leave records but no usable attendance record.** Plus: of the 55 people whose Macunköy records are *exclusively* one-sided, **31 have no Teknopark record either** — so their working time is nowhere. Every one of those 55 is `DEICO TESİS`; not one is Macunköy-based. Question for IT: **does the Teknopark export cover all `DEICO TESİS` staff?** | Phase 1 sign-off | **The most important open question.** The Macunköy terminal records site *visits* (hence one-sided punches); the gap is on the Teknopark side. Until answered, no total is final |
+| **Q4** | **20 `MACUNKÖY TESİSİ` employees have leave records but not a single badge record** (13 in June, same pattern). They are on the roster, they took leave, they never badged. Question for IT: **does the Macunköy export cover every terminal and every employee at that site?** | Phase 1 sign-off | **The most important open question.** These people's entire month is missing. Until answered, no Macunköy total is final |
 | Q4a | Confirm the nine name-variant pairs in `DATA-SOURCES.md §6.1` are the same people, so they can be frozen into the alias table | Phase 1 | A wrong alias merges two people's payroll hours |
 | Q4c | `İBRAHİM KAYRA SINAMA`, personnel no `9001` — the only leave-export person absent from the roster. Is the `9xxx` range interns or contractors? | Phase 1 | May indicate a whole employee category the roster omits |
 | **Q18** | **Can the roster be re-exported with `İşe Giriş Tarihi` and `İşten Çıkış Tarihi`?** | Phase 1 accuracy, Phase 4 safety | Turns "hired later / left earlier / data missing" from inference into fact. Also prevents Phase 4 mailing a leaver. ADR-011 |
@@ -225,7 +231,7 @@ overtime rules Phase 2 cannot start without).
 | Q8 | How is pay-vs-time-off compensation for holiday work decided, and where does that input come from? | Phase 2 | Not derivable from any current export |
 | Q11 | Should `ZİYARETÇİ*` / `GEÇİCİ*` / `STJ*` badges be reported anywhere, or dropped entirely? Interns do work, but the badge is numbered rather than named | Phase 1 | 420 of 1 208 Macunköy rows. Currently dropped from the summary |
 | Q12 | Who may receive the full workbook? Is per-department splitting required? | Phase 1 output | Personal data of 162 people in one file |
-| Q13 | Does `Eğitim İzni` (training, 25 rows) count as worked time, like remote work does? | Phase 1 | Same shape of question as Q2; not yet asked |
+| Q13 | **Does `Eğitim İzni` (training) count as worked time, like remote work does?** 25 records / 7 people in May, 14 / 8 in June. The records carry real hours (`07:30–11:30`, `12:15–16:30`), so if the answer is yes they can be counted the same way remote work is — no assumption needed | Phase 1 | Same shape as Q2, which was answered yes. Currently counted as absence, so anyone on training looks like they worked less |
 | Q20 | **37 `Uzaktan Çalışma` records overlap a badge record on the same day.** Did the person cancel the remote day and come in, or work partly from each? | Phase 1 accuracy | Overlap is counted once, so no inflation — but the declared hours may be standing in for real ones |
 | **Q21** | **Source files are uploaded to Google Drive each month. Which integration?** Manual (today), Drive for Desktop (drive letter, no code change), Drive API (headless, adds a network dependency), or the existing `Y:` network share. Also: is the folder per-month? Who has access to it? | Phase 4 | Decided 2026-08-03 to stay **manual for now**; folder layout and access are still unknown. See README "İleride: Drive otomasyonu" |
 | Q16 | Confirm the May 2026 public holidays: 1 May, 19 May, and the Kurban Bayramı block (25 May bridge, 26 May half-day, 27–29 May) | Phase 2 | Inferred from the data, not stated by HR. Drives holiday pay |
