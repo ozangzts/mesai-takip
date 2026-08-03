@@ -7,7 +7,7 @@ file as part of that work.
 | --- | --- | --- |
 | 0 | Understand the data, agree the plan | **Done** — 2026-08-03 |
 | 1 | Total hours worked per employee per month | **Done** — 2026-08-03 |
-| 1b | Validate against a contemporaneous month (July) | Blocked on Q19 |
+| 1b | Validate against a second month | **Done** — June 2026 runs clean |
 | 2 | Overtime, shifts, Multinet, holidays | Blocked on Q5–Q8, Q16 |
 | 3 | Leave integration, excused absence, assignments | Not started |
 | 4a | Drive ingestion automation | **Deferred** — manual by decision, 2026-08-03 (Q21) |
@@ -68,17 +68,27 @@ Completed 2026-08-03.
 Input files are located by glob pattern rather than fixed name, so a Drive-synced
 folder can be pointed at directly — the Phase 4 automation needs no renaming step.
 
-### May 2026 run
+### Two months generated
 
-| | |
-| --- | --- |
-| People in the report | 171 |
-| with attendance data | 145 |
-| without attendance data | 26 (Q4) |
-| not in the roster (probable leavers) | 11 |
-| Person-days | 1 823 |
-| Total gross | 17 009:01 |
-| Anomalies | 242, of which 175 excluded from totals |
+| | May 2026 | June 2026 |
+| --- | --- | --- |
+| People in the report | 171 | 163 |
+| with attendance data | 145 | 145 |
+| without attendance data (Q4) | 26 | 18 |
+| not in the roster (probable leavers) | 11 | 9 |
+| Person-days | 1 823 | 2 820 |
+| Total gross | 17 009:01 | 26 964:33 |
+| Anomalies | 245 (175 excluded) | 421 (269 excluded) |
+| Reconciliation | TAMAM | TAMAM |
+| Teknopark block totals matching | 110 / 110 | 110 / 110 |
+
+June is the more representative month: May had only 14 expected working days because
+of the seven-day holiday block, June has ~22. That is the whole difference in gross
+hours — not a data problem.
+
+June also settled Q10 and Q19: **the readers needed no changes.** 2 557 Teknopark
+rows instead of 1 607, same irregular block structure, all 110 blocks matching the
+source system's own totals. The export format is stable month to month.
 
 ### What the build found that analysis had not
 
@@ -182,6 +192,8 @@ it from this list.
 | Q4d | 20 roster employees appear in no May file at all | **Hired after May.** They get no row in a May report. ADR-011 |
 | Q1 | Is the 76-person overlap genuine dual-site presence? | **Yes.** The IAS roster's `Tesis` field settles it: 75 of the 79 people in both files are based at `DEICO TESİS`, and **no** Macunköy-based employee appears in both. `DATA-SOURCES.md §3b`, ADR-010 |
 | Q17 | Where do employee e-mail addresses come from for Phase 4? | The IAS roster — populated for all 181 employees. 84 % of people with attendance records are covered; the remaining 26 fall under Q4 |
+| Q10 | Is the export format stable month to month? | **Yes.** June 2026 parsed with no reader changes: 2 557 Teknopark rows across 110 blocks, all 110 matching the file's own totals; reconciliation TAMAM |
+| Q19 | Can HR export a second month to validate against? | **Done** — June 2026 was available and runs clean. A third month is no longer needed to prove the readers generalise |
 
 ### Open
 
@@ -196,7 +208,6 @@ it from this list.
 | Q6 | Overtime week boundary (Mon–Sun?); does shortfall offset excess within a week; gross or net; behaviour exactly at 3 h and 7.5 h | Phase 2 | Multinet entitlement is money |
 | Q7 | Exact entry-time windows for automatic shift assignment; `2. Vardiya` does not exist yet — when? | Phase 2 | Misassigned shift ⇒ wrong expected hours |
 | Q8 | How is pay-vs-time-off compensation for holiday work decided, and where does that input come from? | Phase 2 | Not derivable from any current export |
-| Q10 | Is May 2026 representative? Does the export format change month to month? | Phase 1 | Readers must generalise |
 | Q11 | Should `ZİYARETÇİ*` / `GEÇİCİ*` badges be reported anywhere, or dropped entirely? | Phase 1 | Currently dropped from the summary |
 | Q12 | Who may receive the full workbook? Is per-department splitting required? | Phase 1 output | Personal data of 162 people in one file |
 | Q13 | Does `Eğitim İzni` (training, 25 rows) count as worked time, like remote work does? | Phase 1 | Same shape of question as Q2; not yet asked |
