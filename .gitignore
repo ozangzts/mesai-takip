@@ -1,0 +1,55 @@
+# --- Personal data: NEVER commit -------------------------------------------
+# Source exports contain names, badge IDs, daily movements and medical/parental
+# leave records for ~162 identifiable employees. See AGENTS.md §2.3.
+#
+# `data/` holds both inputs (data/raw/<YYYY-MM>/) and generated reports
+# (data/out/<YYYY-MM>/). Neither belongs in git.
+data/
+
+# Belt and braces: no spreadsheet or document anywhere, except the two
+# whitelisted locations below.
+*.xlsx
+*.xls
+*.docx
+
+# Vendor reference material — no employee data, useful to future readers.
+!docs/reference/*.xlsx
+!docs/reference/*.docx
+# Test fixtures use synthetic names only.
+!tests/fixtures/*.xlsx
+
+# Excel lock files
+~$*
+
+# --- Files that must hold REAL employee names -------------------------------
+# The alias table has to match the spellings in the source files exactly, so it
+# cannot be pseudonymised. Committed as personel.example.yaml instead.
+config/personel.yaml
+
+# Pseudonym -> real name mapping for the docs. Internal only.
+*.local.md
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Secrets ----------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- Editors / OS -----------------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

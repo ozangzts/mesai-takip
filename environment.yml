@@ -1,0 +1,39 @@
+# Conda ortam tanımı.
+#
+#   conda env create -f environment.yml
+#   conda activate mesai
+#   pip install -e . --no-deps
+#
+# Bağımlılıklar burada SABİTLENMİŞ sürümlerle duruyor; pyproject.toml'da ise
+# aralık olarak ("openpyxl>=3.1"). İkisi çelişmiyor, farklı işler yapıyor:
+#
+#   pyproject.toml  -> paket NEYE ihtiyaç duyar (aralık, kurulabilirlik için)
+#   environment.yml -> ortam TAM OLARAK neyden oluşur (sabit, tekrar üretmek için)
+#
+# Neden sabitliyoruz: bu araç bordroya giden sayılar üretiyor ve ayda bir
+# zamanlanmış görev olarak çalışacak (ADR-005). openpyxl'in bir sonraki sürümü
+# tarih ayrıştırmasını veya birleşik hücre davranışını değiştirirse çıktı sessizce
+# değişebilir. Sabit sürüm, altı ay sonra aynı girdiyle aynı raporu almayı garanti
+# eder.
+#
+# Sürüm yükseltirken: değiştir, `pytest` çalıştır, sonra Mayıs raporunu yeniden
+# üretip Kontrol sayfasındaki mutabakatın hâlâ TAMAM olduğunu doğrula.
+
+name: mesai
+
+channels:
+  - conda-forge
+
+dependencies:
+  # 3.11+ gerekiyor (StrEnum kullanılıyor). Kod 3.14.6 üzerinde doğrulandı;
+  # 3.12 conda-forge'da en oturmuş sürüm. Kurulumdan sonra `pytest` ile teyit et.
+  - python=3.12
+
+  # Çalışma zamanı bağımlılıkları — çıktıyı etkiledikleri için sabit.
+  - openpyxl=3.1.5
+  - pyyaml=6.0.3
+
+  # Geliştirme aracı — rapor çıktısını etkilemez, o yüzden aralık yeterli.
+  - pytest>=8.0
+
+  - pip

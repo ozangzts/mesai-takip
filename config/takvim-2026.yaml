@@ -1,0 +1,22 @@
+# Public holidays and weekly rest days.
+#
+# STATUS: the 2026-05 entries were INFERRED from the data, not supplied by HR.
+# See docs/DATA-SOURCES.md §6.2 and open question Q16 in docs/ROADMAP.md.
+#
+# In Phase 1 these dates are used ONLY to label the "Gün" column in the daily
+# detail sheet. No hours calculation depends on them. Do not let a Phase 2 rule
+# consume this file until HR confirms it.
+
+weekly_rest_days: [saturday, sunday]
+
+holidays:
+  2026-05-01: "Emek ve Dayanışma Günü"
+  2026-05-19: "Atatürk'ü Anma, Gençlik ve Spor Bayramı"
+  2026-05-25: "Toplu İzin (köprü)"          # INFERRED
+  2026-05-26: "Kurban Bayramı Arefesi"      # INFERRED - half day
+  2026-05-27: "Kurban Bayramı 1. Gün"       # INFERRED
+  2026-05-28: "Kurban Bayramı 2. Gün"       # INFERRED
+  2026-05-29: "Kurban Bayramı 3. Gün"       # INFERRED
+
+half_days:
+  - 2026-05-26

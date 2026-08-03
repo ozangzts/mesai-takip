@@ -1,0 +1,65 @@
+# Working-time parameters. See docs/DOMAIN-RULES.md.
+# Every threshold in the system lives here. Changing a rule must be a YAML edit,
+# never a code edit.
+
+normal_shift:
+  start: "07:30"
+  end: "16:30"
+
+break:
+  # Unpaid break per day, and the window in which a gap counts as that break.
+  minutes: 45
+  window_from: "11:00"
+  window_to: "14:30"
+  # Days shorter than this get no break deduction at all.
+  min_workday_hours: 6.0
+
+plausibility:
+  # An interval shorter than this is kept but flagged.
+  min_minutes: 5
+  # An interval longer than this is excluded and flagged. Also the ceiling for
+  # accepting a midnight-crossing repair.
+  max_shift_hours: 16.0
+
+# Input file discovery. The CLI globs these patterns in the input directory, so
+# a Drive-synced folder can be pointed at directly. First match wins.
+sources:
+  # Employee roster. Globs are case-insensitive on Windows, but Turkish characters
+  # are not folded — so "çalışan" needs its own entry alongside "calisan".
+  # If none of these match, a single .xlsx alone in the roster folder is accepted;
+  # the reader then validates the layout, so a wrong file fails loudly.
+  roster:
+    - "*calisan*.xlsx"
+    - "*çalışan*.xlsx"
+    - "*personel*.xlsx"
+    - "SYST03*.xlsx"
+  izin:
+    - "*IZIN*.xlsx"
+    - "*İZİN*.xlsx"
+  macunkoy:
+    - "*Macunköy*.xlsx"
+    - "*Macunkoy*.xlsx"
+  teknopark:
+    - "*Teknopark*.xlsx"
+
+# Leave types from the HCM export that are actually worked time, not absence.
+# See ADR-007.
+worked_leave_types:
+  - "Uzaktan Çalışma"
+
+# ---------------------------------------------------------------------------
+# Phase 2 parameters. Defined but NOT yet used by any code — the rules they
+# drive are blocked on Q5-Q8 in docs/ROADMAP.md. Do not wire these up until
+# HR has confirmed them.
+# ---------------------------------------------------------------------------
+overtime:
+  expected_daily_net_hours: 8.25   # UNCONFIRMED - Q5
+  week_starts: "monday"            # UNCONFIRMED - Q6
+  multinet:
+    - {from_hours: 3.0, to_hours: 7.5, count: 1}
+    - {from_hours: 7.5, to_hours: null, count: 2}
+
+shifts:  # UNCONFIRMED - Q7
+  - {name: "Normal Mesai", entry_from: "05:00", entry_to: "11:59", start: "07:30", end: "16:30"}
+  - {name: "1. Vardiya",   entry_from: "12:00", entry_to: "20:59", start: "16:00", end: "01:00"}
+  - {name: "2. Vardiya",   entry_from: "21:00", entry_to: "04:59", start: "00:00", end: "08:00"}

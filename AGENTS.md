@@ -1,0 +1,335 @@
+# AGENTS.md — Working Agreement for AI Agents
+
+> **This file is the entry point for any agent working on this repository.**
+> Read it fully before touching anything. Then read the doc in `docs/` that
+> matches your task.
+
+---
+
+## 0. Keep this file up to date
+
+**You are required to update this file (and the relevant doc in `docs/`) whenever
+you change something it describes.** This is not optional housekeeping — the next
+agent has no memory of your session and will act on whatever is written here.
+
+Update when you:
+
+- add, remove, or rename a module, config key, or CLI command
+- change a business rule (work hours, overtime, Multinet, shift boundaries)
+- discover a new quirk or defect in a source Excel file
+- make a decision that a future agent could plausibly reverse by accident
+- complete a roadmap phase
+
+Where things go:
+
+| What changed | Update |
+| --- | --- |
+| Business rule | `docs/DOMAIN-RULES.md` |
+| Source file structure or quirk | `docs/DATA-SOURCES.md` |
+| Module layout, data flow | `docs/ARCHITECTURE.md` |
+| A choice with alternatives | `docs/DECISIONS.md` (append a new ADR, never edit an old one) |
+| Output workbook layout | `docs/OUTPUT-SPEC.md` |
+| Phase status | `docs/ROADMAP.md` |
+| Anything an agent needs day one | this file |
+
+If a change spans several, update all of them. Stale docs here are worse than no
+docs, because they are trusted.
+
+---
+
+## 1. What this project is
+
+DEICO's HR team receives raw badge-terminal exports every month and currently
+turns them into a payroll-facing overtime report **by hand**. This repository
+automates that: read the raw exports, compute per-employee working time, and
+write one clean Excel workbook.
+
+The long-term target is defined by the customer requirements in
+`docs/PRODUCT.md` (derived from `MEYER Programı Toplantı İçeriği 1.docx`):
+overtime tracking, automatic shift detection, Multinet entitlement, holiday work,
+and eventually automated e-mail delivery of per-employee summaries.
+
+**Scope right now is deliberately narrow — see `docs/ROADMAP.md`.** Phase 1 is
+*total hours worked per employee per month*, nothing else. Do not implement
+Phase 2+ rules unless asked, but *do* leave seams for them.
+
+---
+
+## 2. Non-negotiable constraints
+
+### 2.1 No AI at runtime — ever
+
+The pipeline must be **fully deterministic**. No LLM call, no heuristic that
+"usually works", no fuzzy guessing in the hot path. Same input file → byte-identical
+output, every time.
+
+Reason: these numbers feed payroll and will later be e-mailed directly to employees.
+A wrong number is a real problem for a real person. Everything must be reproducible
+and auditable by a human with a calculator.
+
+Practical consequences:
+
+- Name matching uses an explicit alias table, not fuzzy string distance.
+  If a name does not resolve, it goes to the anomaly sheet — it is **not** guessed.
+- Missing punches are never invented. See ADR-003.
+- Any rule with a threshold lives in `config/`, not hard-coded in a module.
+
+### 2.2 Never silently drop or fabricate a record
+
+Every input row must end up in exactly one of: a computed total, or the anomaly
+report. A row that vanishes is a bug. A row that gets an invented value is a
+worse bug. When in doubt, surface it to the human.
+
+### 2.3 This repository handles personal data
+
+The source files contain real names, badge IDs, departments, daily movements, and
+medical/parental leave records for ~162 identifiable employees. Treat accordingly:
+
+- `data/` is git-ignored. **Never commit a real export.**
+- Never send file contents to an external service.
+
+### No real employee data in committed files — including docs and tests
+
+This repository has a GitHub remote. Every committed file must be safe to publish.
+
+**Names, e-mail addresses, logins, personnel numbers and card numbers in `docs/`,
+`tests/` and code comments are pseudonyms.** Surnames are drawn from an obviously
+synthetic set (`DENEME`, `ÖRNEK`, `NUMUNE`, `TASLAK`, `MİSAL`, `SINAMA`) and numbers
+sit outside the real range (`88xx`, `9xxx`, `SN1000xx`).
+
+The pseudonyms **preserve structure**, which is why the examples still teach what
+they need to: a Turkish-character pair still differs only in that character
+(`AYŞE DENEMEÇİ` / `AYŞE DENEMECİ`), a middle-name pair still differs only in the
+middle name (`AHMET SINAMA` / `AHMET CAN SINAMA`), a married-surname pair still
+differs only in the added surname (`SEDA DENEME` / `SEDA DENEME ÖRNEK`).
+
+The pseudonym → real mapping lives in `docs/ISIM-ESLESMELERI.local.md`, which
+`.gitignore` keeps out of the repository (`*.local.md`).
+
+**Two files cannot be pseudonymised and are therefore git-ignored:**
+
+| File | Why | Committed instead |
+| --- | --- | --- |
+| `config/personel.yaml` | Its aliases must match the source files' real spellings exactly | `config/personel.example.yaml` |
+| `docs/ISIM-ESLESMELERI.local.md` | It *is* the mapping | nothing |
+
+**Before committing**, re-check that no real name, address, login or number leaked
+in. Load the real roster, collect every name variant from all four sources, and grep
+the staged files for them — a one-off script, not part of the pipeline. A doc example
+never needs a real person to make its point.
+
+### 2.4 Turkish text will break naive code
+
+- `"İ".lower()` in Python returns `"i̇"` (i + U+0307 combining dot), **not** `"i"`.
+  `"I".lower()` returns `"i"`, but Turkish wants `"ı"`. Never use bare
+  `.lower()` / `.upper()` / `.casefold()` on employee names. Use the
+  normalization helper in `src/mesai/normalize.py`.
+- Always read and write files as UTF-8 explicitly.
+- Sheet names, column headers, and report labels are **Turkish** and stay Turkish —
+  HR reads them. Only code, comments, and `docs/` are English.
+- Input filenames contain non-ASCII characters (`Macunköy Mayıs Mesai
+  giriş-çıkış.xlsx`); always quote paths in shell commands.
+
+---
+
+## 3. Repository layout
+
+Planned structure (see `docs/ARCHITECTURE.md` for the reasoning):
+
+```
+mesai-takip/
+├── AGENTS.md                  # you are here
+├── README.md                  # human-facing, Turkish
+├── pyproject.toml
+├── config/
+│   ├── settings.yaml          # shifts, lunch, thresholds, Multinet rules
+│   ├── takvim-2026.yaml       # public holidays, weekend definition
+│   └── personel.yaml          # alias map, exclusions, per-person overrides
+├── data/                      # GIT-IGNORED
+│   ├── personel/              # employee roster — NOT month-specific
+│   ├── raw/2026-05/           # monthly exports, one month per folder
+│   └── out/2026-05/           # generated workbooks
+├── docs/
+│   ├── PRODUCT.md             # what the customer asked for
+│   ├── DATA-SOURCES.md        # anatomy + defects of every input file
+│   ├── DOMAIN-RULES.md        # the actual business math
+│   ├── ARCHITECTURE.md        # modules, data flow, why
+│   ├── OUTPUT-SPEC.md         # the report workbook, sheet by sheet
+│   ├── DECISIONS.md           # ADR log
+│   └── ROADMAP.md             # phases and status
+├── src/mesai/
+└── tests/
+```
+
+**Current state: Phase 1 complete and running.** 81 tests pass. The layout above is
+real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
+the vendor reference files in `docs/reference/`.
+
+```bash
+conda activate mesai
+mesai rapor --ay 2026-05          # --girdi defaults to data/raw/2026-05/
+python -m pytest
+```
+
+Input files are found by glob pattern (`config/settings.yaml:sources`), not by exact
+name, so a Drive-synced folder can be pointed at with `--girdi` without renaming
+anything. One month per folder is a contract (ADR-014).
+
+Three guards exist specifically to catch the kinds of bug this data produces. Do not
+weaken any of them without an ADR:
+
+1. **Reconciliation invariant** — Σ per-person gross must equal Σ accepted interval
+   durations. Written to the report's `Kontrol` sheet every run.
+2. **Teknopark block totals** — each block is checked against the file's own
+   `Dönemdeki Toplam` figure. This caught a reader that was silently dropping 838 of
+   1 607 rows while appearing to succeed. Currently 110/110 agree.
+3. **Roster key uniqueness** — a repeated `(first, last)` key belonging to two
+   different identities fails the run rather than merging payroll hours (ADR-010,
+   ADR-013).
+4. **Period filter** — `--ay` is a filter, not a label. Records outside the month are
+   dropped and counted; if *no* record falls inside the month, the run fails. A
+   source pattern matching two files also fails. One month per input folder is a
+   contract (ADR-014).
+
+---
+
+## 4. The one thing most likely to trip you up
+
+**76 employees appear in *both* the Macunköy and the Teknopark export for May 2026.**
+
+They are not duplicates in the naive sense — a person badges into the Teknopark
+building for a full day *and* badges at the Macunköy site during a mid-day visit.
+Summing both files without reconciliation double-counts these people.
+
+Worked example (verified in the real data):
+
+```
+ZEYNEP DENEME, 2026-05-21
+  Teknopark : 07:09 -> 19:45   (complete, 12h36)
+  Macunköy  : entry present, exit MISSING
+  Correct answer is NOT 12h36 + <whatever>. The intervals must be unioned.
+```
+
+The resolution is interval union per employee-day — see ADR-001 and
+`docs/DOMAIN-RULES.md §4`. If you are writing anything that aggregates hours and
+you have not read that section, stop and read it.
+
+The IAS roster confirmed why this happens: **75 of those 79 people are based at
+`DEICO TESİS` (Teknopark), and not one Macunköy-based employee appears in both
+files.** Teknopark staff visit the Macunköy site; the reverse does not occur.
+
+---
+
+## 5. Source data at a glance
+
+Four inputs, all structurally different. Full anatomy and the complete defect list
+are in `docs/DATA-SOURCES.md`.
+
+| File | Shape | People | Health |
+| --- | --- | --- | --- |
+| roster (`calisan_listesi.xlsx`) | **Employee registry** — flat, name/e-mail/facility/department/title | 181 | Good |
+| `Macunköy Mayıs Mesai giriş-çıkış.xlsx` | Flat log, 1 209 rows, one row per person-day | 151 (128 real + 23 visitor/temp) | **Poor** |
+| `Teknopark - Mayıs Mesai Takip Exceli.xlsx` | Per-person blocks, two columns of blocks, 4 105 merged cells | 110 | Good |
+| `HCMT34_MAYIS_IZIN.xlsx` | Flat leave table | 162 | Good |
+
+The roster is the odd one out twice over. The other three are transaction logs for
+one period; it is an undated snapshot with no hire or termination dates. The May 2026
+copy was exported **28.07.2026** — two months after the period — which explains the
+residues: 11 people active in May are missing from it (they left), and 20 people in
+it have no May trace (they were hired later).
+
+Because it is not month-specific it lives in **`data/personel/`**, outside the month
+folders, and is shared by every period. Its export date is read from the file
+timestamp and reported on the `Kontrol` sheet — never hard-code it.
+
+**Its filename and sheet name are not stable** — it arrived as
+`SYST03_TEMPIASUSERS.xlsx` and became `calisan_listesi.xlsx`. So: the file is matched
+by pattern (with a lone-file fallback in the roster folder), the sheet is found by
+its header columns rather than its name, and column positions are derived from the
+header. Do not reintroduce a hard-coded sheet name or column index here.
+
+Two rules follow, both load-bearing (ADR-011):
+
+- It is a **registry, not a whitelist**. Someone with attendance records who is
+  absent from it worked, gets a full row, and keeps every hour.
+- It **never decides who existed** in the reporting period. A roster entry with no
+  activity in the period gets no row at all.
+
+**The roster stores only the first given name** (`AHMET SINAMA` for
+`AHMET CAN SINAMA`). Match on the **(first token, last token)** key, and assert the
+key is unique across the roster before using it — a collision must fail the run, not
+silently merge two people. ADR-010.
+
+Headline defects (all verified, not assumed):
+
+- **388 of 1 209** Macunköy rows are missing an entry or an exit (98 missing entry,
+  338 missing exit). 82 of them have a same-day Teknopark record.
+- **29** Macunköy rows have a negative duration — the source system does not handle
+  midnight crossing (`23:59:42 in → 08:07:06 out → "-15:-52"`).
+- **23** Macunköy identities are not employees (`ZİYARETÇİ35`, `GEÇİCİ6`, …).
+- Badge ID is **not** a reliable join key across systems: `KADİR NUMUNE` is
+  `SN100002` in the attendance export and `8801` in the leave export. The Teknopark
+  export has no ID column at all. **Name is the key** (ADR-004, ADR-009).
+- Nine employees are spelled differently between systems — Turkish characters
+  entered inconsistently (`KAYIKCI`/`KAYIKÇI`), married names present in one system
+  only, one abbreviated given name. They live in the alias table in
+  `config/personel.yaml`. No fuzzy matcher ships.
+- The leave export has a **per-person subtotal row** before each person's real
+  rows (leave-type column empty, "days used" column holds the sum). Skipping it
+  is mandatory or every person's leave doubles.
+- `Uzaktan Çalışma` rows in the leave export are **worked time**, not leave
+  (ADR-007). They carry start/end times and become intervals in the same union as
+  badge records.
+
+After excluding visitors/temps and unioning both sites: **162 real employees**,
+of whom 24 have no attendance record at all and must be reported as
+"no data" rather than "zero hours".
+
+---
+
+## 6. Conventions
+
+**Language.** Code, identifiers, comments, commit messages, `docs/`: English.
+User-facing output (Excel sheet names, headers, CLI messages), `README.md`: Turkish.
+
+**Time.** Internally `datetime`/`timedelta`, never floats-as-hours and never
+strings. Format to `HH:MM` only at the report boundary. Durations that must be
+summed stay as `timedelta`. Rendering helper lives in one place — do not
+reimplement `HH:MM` formatting inline.
+
+**Config over constants.** Shift boundaries, lunch length, the 3 h / 7.5 h overtime
+thresholds, Multinet counts, holiday dates: all in `config/`. A rule change must
+be a YAML edit, never a code edit.
+
+**Readers return one shape.** Every reader in `src/mesai/readers/` returns the same
+normalized record type regardless of how ugly its source file is. All
+file-format weirdness is contained inside its reader and nowhere else.
+
+**Errors are data.** Anomalies (missing punch, negative duration, unresolvable
+name, implausible duration) are collected into a structured list and written to a
+report sheet. They are not printed warnings and not silent skips.
+
+**Testing.** Every business rule gets a unit test with a hand-computed expected
+value. Every reader gets a fixture test against a small synthetic workbook.
+Reconciliation between the two sites gets its own test — that is where the bugs
+will be.
+
+---
+
+## 7. Before you finish a task
+
+- [ ] Rule changes reflected in `config/`, not hard-coded
+- [ ] New quirk found in a source file → written to `docs/DATA-SOURCES.md`
+- [ ] Decision made with a real alternative → ADR appended to `docs/DECISIONS.md`
+- [ ] Structure or module change → `docs/ARCHITECTURE.md` and §3 of this file
+- [ ] Tests written and passing
+- [ ] Nothing under `data/` was committed
+- [ ] No real employee name added to a test fixture
+- [ ] Totals still reconcile: sum of per-person hours == sum of accepted intervals
+
+---
+
+## 8. Open questions
+
+Tracked in `docs/ROADMAP.md §5`. If you resolve one, move it into an ADR and
+remove it from the list.

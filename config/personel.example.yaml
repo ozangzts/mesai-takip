@@ -1,0 +1,45 @@
+# ÖRNEK DOSYA — bunu `personel.yaml` olarak kopyalayıp doldurun.
+#
+#   copy config\personel.example.yaml config\personel.yaml
+#
+# `personel.yaml` git dışıdır (`.gitignore`) çünkü içindeki isim eşleştirmeleri
+# gerçek çalışanlara ait olmak ZORUNDA — kaynak dosyalardaki yazımlarla birebir
+# eşleşmezse işe yaramaz. Bu yüzden takma adla saklanamıyor.
+#
+# Kimlik çözümlemesinin insan kaçış kapısı — ADR-004, ADR-010.
+# Kodda hiçbir yerde fuzzy (benzerlik) eşleştirme yok. Bir isim çözülemediğinde
+# UNRESOLVED_IDENTITY anomalisi olur ve bir insan buraya elle ekler.
+
+# Kaynak dosyalardaki personel olmayan kartlar. Bir kayıt YALNIZCA iki koşul birden
+# sağlanırsa ayıklanır: ad == soyad VE token bu öneklerden biriyle başlıyor.
+# Tek başına ad==soyad gerçek bir "X X" ismini düşürürdü; tek başına önek de
+# STJEPANOVIC gibi gerçek bir soyadı düşürürdü.
+#
+# Değerler ASCII'ye indirgenmiş halde yazılır (İ->I, Ç->C, Ş->S ...),
+# normalize.fold() ile aynı biçim.
+exclude_prefixes:
+  - "ZIYARETCI"    # ZİYARETÇİ33, ZİYARETÇİ35 ...
+  - "GECICI"       # GEÇİCİ3, GEÇİCİ6, GEÇİCİ10 ...
+  - "STJ"          # STJ4 ... STJ21 — numaralı stajyer kartları, isimli kişi değil
+  - "MISAFIR"
+  - "TEST"
+
+# (ilk ad, soyad) anahtarının köprü kuramadığı isim varyantları.
+#
+# Türkçe karakter tutarsızlıkları (KAYIKCI/KAYIKÇI, MELIK/MELİK) buraya YAZILMAZ —
+# anahtar Türkçe karakterleri ASCII'ye indirgediği için kendiliğinden çözülür.
+#
+# Buraya yazılması GEREKEN: değişmiş soyadı, ya da kısaltılmış ilk ad. Çünkü
+# ikisi de anahtarın kurulduğu token'ları değiştirir.
+#
+# Biçim:  "<dosyada yazan hali>": "<kanonik tam ad>"
+#
+# Her kayıt raporun "Kontrol" sayfasında listelenir ki İK gözden geçirebilsin.
+# Yanlış bir eşleştirme iki kişinin bordro saatlerini birleştirir — onaylatın.
+aliases:
+  # Evlilik soyadı: mesai dosyasında kızlık, izin dosyasında evlilik soyadı
+  # "AYŞE DENEME": "AYŞE DENEME ÖRNEK"
+  #
+  # Kısaltılmış ilk ad
+  # "M. KEREM ÖRNEK": "MURAT KEREM ÖRNEK"
+  {}

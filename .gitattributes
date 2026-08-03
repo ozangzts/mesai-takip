@@ -1,0 +1,12 @@
+# Metin dosyaları depoda LF, çalışma kopyasında işletim sisteminin doğal biçimi.
+* text=auto
+
+# Batch dosyaları CRLF OLMAK ZORUNDA — LF ile `goto` etiketleri bulunamaz ve
+# script "The system cannot find the batch label specified" hatası verir.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Excel/Word ikili; git bunlara dokunmasın.
+*.xlsx binary
+*.xls binary
+*.docx binary
