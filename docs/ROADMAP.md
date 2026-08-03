@@ -181,57 +181,62 @@ of validated output first.
 
 ---
 
-## 5. Open questions
+## 5. Açık sorular / Open questions
 
-**This is the single list of everything not yet decided.** Every `Qn` reference
-elsewhere in the repo points here.
+> Bu bölüm bilinçli olarak **Türkçe** — İK ve IT'ye sorulacak sorular burada,
+> onları soran kişi bu listeyi okuyup konuşuyor. Dökümanın geri kalanı İngilizce
+> (ajanlar için). Soru numaraları (`Qn`) değişmez; kod ve diğer dökümanlar bu
+> numaralarla buraya referans veriyor.
 
-How to read it:
+**Karara bağlanmamış her şeyin tek listesi burasıdır.** Depoda geçen her `Qn`
+referansı bu bölümü işaret eder.
 
-- Numbers are **chronological** — the order the question surfaced, not priority.
-  Letters (`Q4a`, `Q4c`) are follow-ups to the question they hang off.
-- **Bold** rows are the ones that block something real.
-- `Blocks` says what is stuck waiting for the answer.
-- When a question is answered it moves to the **Resolved** table above with the
-  answer, and if the answer was a choice between options it also gets an ADR in
-  `DECISIONS.md`. Questions are never deleted — a future reader needs to know it was
-  asked.
+Nasıl okunur:
 
-Four are worth chasing first: **Q4** (is a whole site's attendance missing),
-**Q18** (hire/termination dates), **Q16** (holiday calendar), **Q5/Q6** (the
-overtime rules Phase 2 cannot start without).
+- Numaralar **kronolojik** — sorunun ortaya çıktığı sıra, önem sırası değil.
+  Harfler (`Q4a`, `Q4c`) bağlı oldukları sorunun devamıdır.
+- **Kalın** satırlar gerçekten bir şeyi bloke edenler.
+- `Bloke ettiği` kolonu, cevap gelmediği için neyin beklediğini söyler.
+- Bir soru cevaplanınca **silinmez**, yukarıdaki **Cevaplananlar** tablosuna
+  cevabıyla taşınır. Cevap birkaç seçenek arasından seçim gerektirdiyse ayrıca
+  `DECISIONS.md` içine bir ADR olarak geçer. Sonradan gelen birinin o sorunun
+  sorulduğunu bilmesi gerekiyor.
 
-### Resolved
+**Önce kovalanması gereken dördü:** **Q4** (bir tesisin mesai verisi tamamen eksik
+mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
+**Q5/Q6** (Faz 2'nin başlayamadığı fazla mesai kuralları).
 
-| # | Question | Resolution |
+### Cevaplananlar
+
+| # | Soru | Cevap |
 | --- | --- | --- |
-| Q2 | Does `Uzaktan Çalışma` count as worked time? | **Yes.** Worked time, hours taken from each record's own start/end times. ADR-007 |
-| Q3 | Lunch: does a 42-minute gap count as the break taken? | **Residual deduction** — deduct `45 − already-unpaid`, no threshold. ADR-008 |
-| Q9 | Which date is missing from the Macunköy export? | `2026-05-03`, a **Sunday with no activity in either file**. Not a data problem. `DATA-SOURCES.md §6.2` |
-| Q14 | Is the Teknopark export truncated (only 21 of 31 dates)? | **No.** Missing dates are weekends plus the 27–31 May holiday block; the office was closed while Macunköy production ran. `DATA-SOURCES.md §6.2` |
-| Q15 | Sort and identify by name or personnel number? | **Name is the key and the sort**; personnel number is informational, from the leave export only. ADR-009 |
-| Q4b | 27 people have attendance records but are not in the IAS roster | **Leavers.** The roster is an August export; these people worked in May and left before August. They keep full rows and full hours. ADR-011 |
-| Q4d | 20 roster employees appear in no May file at all | **Hired after May.** They get no row in a May report. ADR-011 |
-| Q1 | Is the 76-person overlap genuine dual-site presence? | **Yes.** The IAS roster's `Tesis` field settles it: 75 of the 79 people in both files are based at `DEICO TESİS`, and **no** Macunköy-based employee appears in both. `DATA-SOURCES.md §3b`, ADR-010 |
-| Q17 | Where do employee e-mail addresses come from for Phase 4? | The IAS roster — populated for all 181 employees. 84 % of people with attendance records are covered; the remaining 26 fall under Q4 |
-| Q10 | Is the export format stable month to month? | **Yes.** June 2026 parsed with no reader changes: 2 557 Teknopark rows across 110 blocks, all 110 matching the file's own totals; reconciliation TAMAM |
-| Q19 | Can HR export a second month to validate against? | **Done** — June 2026 was available and runs clean. A third month is no longer needed to prove the readers generalise |
+| Q1 | 76 kişinin iki mesai dosyasında birden görünmesi gerçekten çift tesis mi? | **Evet.** Personel listesindeki `Tesis` alanı çözdü: iki dosyada birden olan 79 kişinin 75'i `DEICO TESİS` çalışanı, ve **tek bir** Macunköy personeli iki dosyada birden yok. `DATA-SOURCES.md §3b`, ADR-010 |
+| Q2 | `Uzaktan Çalışma` çalışma sayılacak mı? | **Evet.** Çalışma sayılıyor, saatler kaydın kendi başlangıç/bitiş saatinden alınıyor. ADR-007 |
+| Q3 | Öğle arası: 42 dakikalık boşluk mola kullanılmış sayılır mı? | **Kalan mola kuralı** — `45 − zaten ücretsiz geçen` kadar kesiliyor, eşik yok. ADR-008 |
+| Q9 | Macunköy dosyasında hangi gün eksik? | `2026-05-03`, **iki dosyada da hiç hareket olmayan bir Pazar**. Veri sorunu değil. `DATA-SOURCES.md §6.2` |
+| Q10 | Dışa aktarım formatı ay ay değişiyor mu? | **Hayır.** Haziran 2026 okuyucularda hiç değişiklik olmadan işlendi: 110 blokta 2 557 Teknopark satırı, 110'unun 110'u dosyanın kendi toplamıyla tutuyor; mutabakat TAMAM |
+| Q14 | Teknopark dosyası kesilmiş mi (31 günün sadece 21'i var)? | **Hayır.** Eksik günler hafta sonları artı 27–31 Mayıs tatil bloğu; ofis kapalıyken Macunköy üretimi çalışıyordu. `DATA-SOURCES.md §6.2` |
+| Q15 | Sıralama ve eşleştirme isimle mi sicil numarasıyla mı? | **İsim anahtar ve sıralama ölçütü**; sicil numarası bilgi amaçlı ve sadece izin dosyasından. ADR-009 |
+| Q17 | Faz 4 için personel e-posta adresleri nereden gelecek? | Personel listesinden — 181 kişinin hepsinde dolu. Mesai kaydı olanların %97'si kapsanıyor; kalanlar Q4 kapsamında |
+| Q19 | İK doğrulama için ikinci bir ay verebilir mi? | **Tamamlandı** — Haziran 2026 elimizdeydi ve sorunsuz çalıştı. Okuyucuların genellendiğini kanıtlamak için üçüncü aya gerek yok |
+| Q4b | 27 kişinin mesai kaydı var ama personel listesinde yok | **Ayrılmışlar.** Personel listesi Ağustos'ta alındı; bu kişiler Mayıs'ta çalışıp Ağustos'a kadar ayrılmış. Tam satır ve tam saatlerini alıyorlar. ADR-011 |
+| Q4d | Personel listesindeki 20 kişi hiçbir Mayıs dosyasında yok | **Mayıs'tan sonra işe girmişler.** Mayıs raporunda satır almıyorlar. ADR-011 |
 
-### Open
+### Açık
 
-| # | Question | Blocks | Why it matters |
+| # | Soru | Bloke ettiği | Neden önemli |
 | --- | --- | --- | --- |
-| **Q4** | **18 rostered employees have leave records but not a single badge record** (10 in June, same pattern, essentially all `MACUNKÖY TESİSİ`). Filter out the 2–3 month-long maternity/sick cases first — those are correct. The rest filed 1–2 days of leave and have zero badge rows across 14–22 working days. Question for IT: **does the Macunköy export cover every terminal and every employee at that site?** | Phase 1 sign-off | **The most important open question.** These people's entire month is missing. Until answered, no Macunköy total is final. `DATA-SOURCES.md §6.1 C` |
-| Q4a | Confirm the nine name-variant pairs in `DATA-SOURCES.md §6.1` are the same people, so they can be frozen into the alias table | Phase 1 | A wrong alias merges two people's payroll hours |
-| Q4c | `İBRAHİM KAYRA SINAMA`, personnel no `9001` — the only leave-export person absent from the roster. Is the `9xxx` range interns or contractors? | Phase 1 | May indicate a whole employee category the roster omits |
-| **Q18** | **Can the roster be re-exported with `İşe Giriş Tarihi` and `İşten Çıkış Tarihi`?** | Phase 1 accuracy, Phase 4 safety | Turns "hired later / left earlier / data missing" from inference into fact. Also prevents Phase 4 mailing a leaver. ADR-011 |
-| Q5 | Is the standard day really 8 h 15 net (09:00 span − 45 min)? | Phase 2 | Drives every overtime figure |
-| Q6 | Overtime week boundary (Mon–Sun?); does shortfall offset excess within a week; gross or net; behaviour exactly at 3 h and 7.5 h | Phase 2 | Multinet entitlement is money |
-| Q7 | Exact entry-time windows for automatic shift assignment; `2. Vardiya` does not exist yet — when? | Phase 2 | Misassigned shift ⇒ wrong expected hours |
-| Q8 | How is pay-vs-time-off compensation for holiday work decided, and where does that input come from? | Phase 2 | Not derivable from any current export |
-| Q11 | Should `ZİYARETÇİ*` / `GEÇİCİ*` / `STJ*` badges be reported anywhere, or dropped entirely? Interns do work, but the badge is numbered rather than named | Phase 1 | 420 of 1 208 Macunköy rows. Currently dropped from the summary |
-| Q12 | Who may receive the full workbook? Is per-department splitting required? | Phase 1 output | Personal data of 162 people in one file |
-| Q13 | **Does `Eğitim İzni` (training) count as worked time, like remote work does?** 25 records / 7 people in May, 14 / 8 in June. The records carry real hours (`07:30–11:30`, `12:15–16:30`), so if the answer is yes they can be counted the same way remote work is — no assumption needed | Phase 1 | Same shape as Q2, which was answered yes. Currently counted as absence, so anyone on training looks like they worked less |
-| Q20 | **37 `Uzaktan Çalışma` records overlap a badge record on the same day.** Did the person cancel the remote day and come in, or work partly from each? | Phase 1 accuracy | Overlap is counted once, so no inflation — but the declared hours may be standing in for real ones |
-| **Q21** | **Source files are uploaded to Google Drive each month. Which integration?** Manual (today), Drive for Desktop (drive letter, no code change), Drive API (headless, adds a network dependency), or the existing `Y:` network share. Also: is the folder per-month? Who has access to it? | Phase 4 | Decided 2026-08-03 to stay **manual for now**; folder layout and access are still unknown. See README "İleride: Drive otomasyonu" |
-| Q16 | Confirm the May 2026 public holidays: 1 May, 19 May, and the Kurban Bayramı block (25 May bridge, 26 May half-day, 27–29 May) | Phase 2 | Inferred from the data, not stated by HR. Drives holiday pay |
+| **Q4** | **18 kişinin personel listesinde kaydı ve izin kaydı var ama tek bir kart kaydı yok** (Haziran'da 10, aynı desen, neredeyse hepsi `MACUNKÖY TESİSİ`). Önce tam ay süren 2–3 doğum/rapor iznini ayırın — onların kaydı olmaması doğru. Geri kalanlar 1–2 gün izin almış ve 14–22 iş gününün hiçbirinde kart kaydı yok. **IT'ye sorulacak: Macunköy dosyası o tesisin bütün turnikelerini ve bütün personelini kapsıyor mu?** | Faz 1 onayı | **En önemli açık soru.** Bu kişilerin bütün ayı eksik. Cevap gelmeden hiçbir Macunköy toplamı nihai değil. `DATA-SOURCES.md §6.1 C` |
+| Q4a | `DATA-SOURCES.md §6.1`'deki dokuz isim varyantı çiftinin aynı kişiler olduğunu onaylayın, alias tablosuna sabitlenebilsin | Faz 1 | Yanlış bir eşleştirme iki kişinin bordro saatlerini birleştirir |
+| Q4c | Sicil `9001` — izin dosyasında olup personel listesinde olmayan tek kişi. `9xxx` aralığı stajyer mi, taşeron mu? | Faz 1 | Personel listesinin tamamen atladığı bir çalışan kategorisi olabilir |
+| **Q18** | **Personel listesi `İşe Giriş Tarihi` ve `İşten Çıkış Tarihi` kolonlarıyla yeniden alınabilir mi?** | Faz 1 doğruluğu, Faz 4 güvenliği | "Sonradan girdi / önceden ayrıldı / verisi eksik" ayrımını çıkarımdan olguya çevirir. Ayrıca Faz 4'te ayrılmış birine mail gitmesini engeller. ADR-011 |
+| Q5 | Standart gün gerçekten 8 saat 15 dakika net mi (09:00 aralık − 45 dk)? | Faz 2 | Bütün fazla mesai hesabı buna dayanıyor |
+| Q6 | Fazla mesai hafta sınırı (Pzt–Paz mı); eksik çalışma hafta içinde fazla mesaiyi mahsup ediyor mu; brüt mü net mi; tam 3 saat ve tam 7,5 saatte davranış ne | Faz 2 | Multinet hakedişi para demek |
+| Q7 | Otomatik vardiya atamasında giriş saati pencereleri tam olarak ne; `2. Vardiya` henüz yok — ne zaman devreye girecek? | Faz 2 | Yanlış vardiya ⇒ yanlış beklenen saat |
+| Q8 | Resmi tatil çalışmasının ücret mi izin mi olacağına kim nasıl karar veriyor, bu bilgi nereden gelecek? | Faz 2 | Mevcut hiçbir dosyadan çıkarılamıyor |
+| Q11 | `ZİYARETÇİ*` / `GEÇİCİ*` / `STJ*` kartları herhangi bir yerde raporlanacak mı, tamamen düşecek mi? Stajyerler çalışıyor ama kart isimli değil numaralı | Faz 1 | Macunköy'ün 1 208 satırının 420'si. Şu an özetten düşüyor |
+| Q12 | Raporun tamamını kim alabilir? Departman bazlı bölünmesi gerekiyor mu? | Faz 1 çıktısı | 162 kişinin kişisel verisi tek dosyada |
+| Q13 | **`Eğitim İzni` uzaktan çalışma gibi çalışma sayılacak mı?** Mayıs'ta 25 kayıt / 7 kişi, Haziran'da 14 / 8. Kayıtlarda gerçek saat var (`07:30–11:30`, `12:15–16:30`), yani cevap evetse uzaktan çalışmayla birebir aynı şekilde sayılır — varsayım gerekmez | Faz 1 | Q2 ile aynı şekilde bir soru, o "evet" cevaplandı. Şu an devamsızlık sayıldığı için eğitime giden az çalışmış görünüyor |
+| Q16 | Mayıs 2026 resmi tatillerini onaylayın: 1 Mayıs, 19 Mayıs ve Kurban Bayramı bloğu (25 Mayıs köprü, 26 Mayıs yarım gün, 27–29 Mayıs) | Faz 2 | Veriden çıkarıldı, İK söylemedi. Tatil ücretini belirliyor |
+| Q20 | **37 `Uzaktan Çalışma` kaydı aynı gün bir kart kaydıyla çakışıyor.** Kişi uzaktan çalışma talebini iptal edip geldi mi, yoksa günü ikiye mi böldü? | Faz 1 doğruluğu | Çakışan süre bir kez sayılıyor, yani şişme yok — ama beyan edilen saatler gerçek saatlerin yerine geçiyor olabilir |
+| **Q21** | **Kaynak dosyalar her ay Google Drive'a yükleniyor. Hangi entegrasyon?** Elle (bugünkü), Drive for Desktop (sürücü harfi, kod değişikliği yok), Drive API (gözetimsiz, ağ bağımlılığı ekler), ya da mevcut `Y:` ağ sürücüsü. Ayrıca: klasör ay başına ayrı mı? Erişimi kimde? | Faz 4 | 2026-08-03'te **şimdilik elle** kalmasına karar verildi; klasör yapısı ve erişim hâlâ bilinmiyor. README "İleride: Drive otomasyonu" |
