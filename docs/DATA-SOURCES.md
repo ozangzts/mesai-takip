@@ -449,16 +449,27 @@ resolved identities (an earlier diagnostic without alias resolution overstated t
 
 | | May 2026 | June 2026 |
 | --- | --- | --- |
-| No badge record at all, only a leave record | **21** | **13** |
-| of which home facility is `MACUNKÖY TESİSİ` | **20** | **13** |
-| Only one-sided Macunköy rows, nothing usable | 5 | 5 |
-| of which absent from the roster | 5 | 5 |
+| People the report can produce no hours for | 26 | 18 |
+| — explained by month-long leave (maternity, certified sick, unpaid) | 2 | 3 |
+| — **in the roster, unexplained** | **18** | **10** |
+| — absent from the roster, unexplained (probable leavers/contractors) | 6 | 5 |
+
+**Filter out the long-term leave cases before taking this to IT.** Two to three
+people each month are on paid maternity leave or certified sick leave covering the
+whole month — their absence from the attendance export is correct, not a gap. Chasing
+them wastes IT's time and weakens the real question.
+
+The signature of a genuine gap is a **small** leave balance next to a whole missing
+month: someone with 1–2.5 days of annual leave and zero badge records across 14–22
+expected working days. One of the clearest cases filed a *Mazeret* (excused lateness)
+in June, which only makes sense if they were expected at work — yet 21.4 of that
+month's 22 working days have no badge record at all.
 
 Two different problems sit in that table.
 
-**The one that matters: 20 Macunköy-based employees never badged at all.** They are on
-the roster, they filed leave, and the attendance export has nothing for them. June
-repeats it with 13 — every one of them Macunköy-based. Hire date does not explain it
+**The one that matters: 18 rostered employees never badged at all** (10 in June),
+essentially all of them Macunköy-based. They are on the roster, they filed a day or
+two of leave, and the attendance export has nothing for them. Hire date does not explain it
 (the "recent hire" hypothesis was tested against the personnel-number range and
 disproved). This is Q4, and the question is for IT: **does the Macunköy export cover
 every terminal and every employee at that site?**
