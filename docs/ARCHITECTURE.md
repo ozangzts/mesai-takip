@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 203 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 217 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -130,6 +130,36 @@ already answers "who has which problem", which is what such a screen would need.
 
 Anything that runs the pipeline must do so **off the UI thread** — it takes seconds,
 and Windows will label a blocked window "not responding".
+
+## 3c. Test surface
+
+| File | Covers |
+| --- | --- |
+| `test_end_to_end.py` | **the whole pipeline** — four synthetic workbooks in, workbook + snapshot out |
+| `test_readers.py` | each source layout and its documented defects |
+| `test_worktime.py` | the daily measure and the residual break, hand-computed |
+| `test_merge.py` | cross-site union, repair, remote precedence, short days |
+| `test_snapshot.py` | the round trip the mail step depends on |
+| `test_report.py` | that a workbook can actually be written, for every severity |
+| `test_gui.py` | the window's pure helpers; no widgets asserted |
+| `test_config.py` | that the fixture has not drifted from the shipped config |
+| `test_pipeline.py` | period filtering, file discovery, coverage |
+| `builders.py` | synthetic workbook builders — **not** a test file |
+
+`test_end_to_end.py` was the last one written and it closed a real hole: until then
+nothing called `pipeline.run()`, so "does the assembled thing still work?" was answered
+only by a human running it against `data/` — which is git-ignored and therefore
+unreachable from any automated run. It builds a deliberately unpleasant month (missing
+punch, midnight crossing, dual-site day, nominal placeholder colliding with a remote
+declaration, short day) and asserts the hand-computed total.
+
+Its first version asserted the month was complete and failed; the coverage guard was
+right and the assumption was wrong. That assertion was inverted and now tests ADR-020
+end to end.
+
+**Builders live in one place.** `test_readers.py` used to define its own copies, and the
+two had already diverged on a header name. Layout knowledge belongs in `builders.py`
+only — the same lesson as the duplicated impact-text map that broke report writing.
 
 ## 4. Core types (`models.py`)
 

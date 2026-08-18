@@ -11,26 +11,14 @@ import pytest
 
 from mesai.anomalies import AnomalyKind
 from mesai.readers import LayoutError, izin, macunkoy, roster, teknopark
+from tests.builders import (
+    IZIN_HEADERS, MAC_HEADERS, ROSTER_HEADERS, izin_row, mac_row, roster_row,
+    write_izin, write_macunkoy, write_roster, write_teknopark,
+)
 
 # --------------------------------------------------------------------------
 # Roster
 # --------------------------------------------------------------------------
-
-ROSTER_HEADERS = ["Kullanıcı", "Kontak No", "İsim", "Soyad", "Açıklama",
-                  "Kontak Tipi", "E-posta", "Firma", "Bölüm", "Tesis", "Görev",
-                  "Profil", "Dosya Yolu", "Sektör Kodu"]
-
-
-def write_roster(path: Path, rows: list[list]) -> Path:
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "TEMPIASUSERS"
-    sheet.append(ROSTER_HEADERS)
-    for row in rows:
-        sheet.append(row)
-    workbook.save(path)
-    return path
-
 
 def roster_row(login, contact, given, surname, email, facility="DEICO TESİS"):
     return [login, contact, given, surname, None, "Çalışan", email, "DEICO",
@@ -148,29 +136,6 @@ def test_roster_raises_when_no_sheet_has_the_columns(tmp_path):
 # Macunköy
 # --------------------------------------------------------------------------
 
-MAC_HEADERS = ["Ad", "Soyad", "Personel", "SicilNo", "Birim", None, "Bolum",
-               "MesaiTarih", "Giris", "Cikis", "SureSaat"]
-
-
-def write_macunkoy(path: Path, rows: list[list]) -> Path:
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "Sayfa1"
-    sheet.append(MAC_HEADERS)
-    for row in rows:
-        sheet.append(row)
-    workbook.save(path)
-    return path
-
-
-def mac_row(given, surname, badge, day, entry, exit_, duration=None):
-    return [given, surname, f"{given} {surname}", badge, "DEICO", None, "EKİP",
-            datetime.fromisoformat(f"{day} 00:00:00"),
-            datetime.fromisoformat(f"{day} {entry}") if entry else None,
-            datetime.fromisoformat(f"{day} {exit_}") if exit_ else None,
-            duration]
-
-
 def test_macunkoy_reads_rows_and_drops_card_numbers(settings, tmp_path):
     path = write_macunkoy(tmp_path / "Macunköy.xlsx", [
         mac_row("AYŞE", "DENEME", "8802", "2026-05-21", "08:00:00", "17:00:00", "09:00"),
@@ -221,45 +186,6 @@ def test_macunkoy_raises_on_changed_layout(settings, tmp_path):
 # --------------------------------------------------------------------------
 # Teknopark — the block layout that caused real data loss
 # --------------------------------------------------------------------------
-
-def write_teknopark(path: Path, blocks: list[dict]) -> Path:
-    """Build a block-layout sheet.
-
-    Each block: {row, col, name, header_offset, rows: [(date, entry, exit, dur)],
-                 blank_after: bool, total: "HH:MM"}
-    """
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "Page1"
-    sheet["A1"] = "DÖNEMSEL AYRINTILI PUANTAJ RAPORU"
-
-    for block in blocks:
-        row, col = block["row"], block["col"]
-        sheet.cell(row=row, column=col, value="Adı Soyadı:")
-        sheet.cell(row=row, column=col + 3, value=block["name"])
-
-        header_row = row + block.get("header_offset", 1)
-        sheet.cell(row=header_row, column=col, value="Tarih")
-        sheet.cell(row=header_row, column=col + 2, value="Giriş Tarih Saat")
-        sheet.cell(row=header_row, column=col + 4, value="Çıkış Tarih Saat")
-        sheet.cell(row=header_row, column=col + 5, value="Çalışma Süresi")
-
-        current = header_row + 1
-        for day, entry, exit_, duration in block["rows"]:
-            sheet.cell(row=current, column=col,
-                       value=datetime.fromisoformat(f"{day} 00:00:00"))
-            sheet.cell(row=current, column=col + 2, value=entry)   # STRING
-            sheet.cell(row=current, column=col + 4, value=exit_)   # STRING
-            sheet.cell(row=current, column=col + 5, value=duration)
-            current += 2 if block.get("blank_after") else 1
-
-        sheet.cell(row=current, column=col + 1,
-                   value="Dönemdeki Toplam Çalışma Süresi")
-        sheet.cell(row=current, column=col + 5, value=block["total"])
-
-    workbook.save(path)
-    return path
-
 
 def test_teknopark_parses_string_timestamps(settings, tmp_path):
     """A naive isinstance(v, datetime) check yields zero hours for everyone."""
@@ -357,28 +283,6 @@ def test_teknopark_raises_when_the_marker_disappears(settings, tmp_path):
 # --------------------------------------------------------------------------
 # İzin
 # --------------------------------------------------------------------------
-
-IZIN_HEADERS = ["Sicil No", "Görünen Ad", "Bölüm Kodu", "Görev", "İzin Tipi",
-                "Onay Durumu", "İzin Durumu", "Başlangıç Tarihi", "Başlangıç Saati",
-                "Bitiş Tarihi", "Bitiş Saati", "Mesai Kaydet", "Bordro Kodu",
-                "Açıklama", "İzin Sebebi", "Kullanılan Gün"]
-
-
-def write_izin(path: Path, rows: list[list]) -> Path:
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "HCMPERS"
-    sheet.append(IZIN_HEADERS)
-    for row in rows:
-        sheet.append(row)
-    workbook.save(path)
-    return path
-
-
-def izin_row(badge, name, leave_type, start_d, start_t, end_d, end_t, days):
-    return [badge, name, "EKİP", "GÖREV", leave_type, "Onaylandı", "Kullanıldı",
-            start_d, start_t, end_d, end_t, "Mesai Kaydetme", "NORM", None, None, days]
-
 
 def test_izin_skips_the_subtotal_row(settings, tmp_path):
     """Counting it doubles every person's leave — docs/DATA-SOURCES.md D6."""

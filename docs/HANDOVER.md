@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 203 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 217 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -48,6 +48,49 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    içine gömülmemeli — kural değişikliği YAML düzenlemesi ve `personel.yaml` gerçek
    isim yazımlarını tutuyor.
 3. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+
+## Genişletirken: kararlaştırılmış yapı
+
+E-posta ve kişi seçme eklenecek. Yapı bunu kaldırır ama iki yer zorlanır.
+
+### 1. `gui.py` 662 satır ve büyüyecek olan o
+
+Tek `App` sınıfına e-posta + kişi listesi + seçim durumu eklenirse taşar. Sınıra
+gelindiğinde `gui/` paketine bölünecek: `gui/rapor.py`, `gui/mail.py`,
+`gui/widgets.py` (ortak düğme/etiket yardımcıları), `gui/app.py` (kabuk ve gezinme).
+
+**Sol panel gezinme** (proje sahibinin önerisi) bu bölmeyi doğal olarak takip eder —
+her gezinme öğesi bir modül. Doğru sıra: **önce bölme, sonra panel.** Panel önce
+gelirse iki iş yüzü tek sınıfta birikir.
+
+Panel öğesi durum da ifade edebilir: e-posta bir snapshot gerektirdiği için, snapshot
+yüklenmeden öğe pasif kalıp sebebini yazabilir. Bu, içi boş bir sekmeden farklı ve
+kabul edilebilir — biri durumu anlatır, diğeri hiçbir şey anlatmaz.
+
+### 2. Seçim mantığı pencereye girmemeli
+
+"Şu kategoriye düşenler, eksi elle çıkarılanlar" bir **iş kuralı**, arayüz detayı
+değil. `mail/recipients.py` gibi bir modülde olmalı: snapshot + filtre + istisna
+listesi alır, alıcı listesi döndürür, pencere olmadan test edilir. Pencerenin içine
+girerse test edilemez; test edilemeyince güvenilmez — ve bu bordroya komşu bir
+iletişim.
+
+`snapshot.py` bunun için hazır: `with_problem(etiket)`, `problem_labels`,
+`is_complete`.
+
+### 3. Mail adımı için pazarlık edilemez dört şey
+
+1. **Varsayılan davranış göndermek değil, önizleme.** 162 kişiye mail geri alınamaz.
+   Taslaklar bir klasöre yazılsın, İK baksın, ayrı bir onayla gönderilsin.
+2. **Elle çıkarılan kişi kayda geçsin.** Sessizce atlanmasın; "kime gitmedi, neden"
+   sorusunun cevabı olmalı.
+3. **Eksik snapshot'tan mail atılmasın.** `is_complete` bunun için var — Temmuz gibi
+   bir ayda gönderim reddedilmeli.
+4. **Gmail şifresi repoya girmesin.** `.env` `.gitignore`'da; `arayuz-ayarlari.json`'a
+   da yazılmamalı — o dosyanın bir kez commit'e girdiği görüldü.
+
+Ayrıca `_Result` dataclass'ı rapora göre şekillenmiş. Mail koşusunun sonucu farklı
+(kişi başına gönderildi / hata / atlandı), onu germek yerine kendi tipini almalı.
 
 ## İK'dan / IT'den beklenen cevaplar
 
