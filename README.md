@@ -203,7 +203,7 @@ iki yol her zaman aynı sonucu verir.
 Ortamı aktive etmeye, klasöre girmeye gerek yok. Nereden çağırırsan çalışır:
 
 ```powershell
-c:\Users\stajyer13\repos\mesai-takip\rapor.cmd --ay 2026-05
+C:\yol\mesai-takip\rapor.cmd --ay 2026-05
 ```
 
 Script `mesai` conda ortamını kendi bulur (aktifse onu kullanır), kendi dizinine
@@ -221,7 +221,7 @@ olur:
 
 ```powershell
 conda activate mesai
-cd c:\Users\stajyer13\repos\mesai-takip
+cd C:\yol\mesai-takip
 
 # Normal kullanım — girdi data/raw/2026-05/ klasöründen okunur:
 mesai rapor --ay 2026-05
@@ -250,7 +250,7 @@ mkdir data\raw\2026-06
 
 # 2. Raporu üret
 conda activate mesai
-cd c:\Users\stajyer13\repos\mesai-takip
+cd C:\yol\mesai-takip
 mesai rapor --ay 2026-06
 
 # 3. Çıktıyı Drive'a yükle
@@ -481,7 +481,7 @@ Kod tarafı bir günlük iş; bu ikisi çözülmeden başlanmamalı.
 | [docs/OUTPUT-SPEC.md](docs/OUTPUT-SPEC.md) | Çıktı Excel'inin sayfa sayfa tasarımı |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Alınan kararlar ve gerekçeleri (ADR) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Fazlar, durum, açık sorular |
-| [docs/DEVAM.md](docs/DEVAM.md) | Nerede kaldık, beklenen cevaplar — kısa |
+| [docs/HANDOVER.md](docs/HANDOVER.md) | Nerede kaldık, beklenen cevaplar — kısa |
 
 Bu dosyalar geliştiriciler için. **Raporu kullanmak için hiçbirini okumak
 gerekmez** — raporun `Kontrol` sayfası hangi kuralla çalıştığını kendi içinde yazar.

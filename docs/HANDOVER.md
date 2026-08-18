@@ -1,4 +1,4 @@
-# DEVAM.md — Nerede kaldık
+# HANDOVER.md — Nerede kaldık
 
 **Son güncelleme: 2026-08-18, commit `01632bd`.**
 
