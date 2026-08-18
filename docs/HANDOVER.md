@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 217 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 223 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -60,7 +60,12 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    Not: `arayuz.cmd` `python -m mesai.gui` çağırıyor, `pyproject.toml` ise
    `mesai.gui:main`. İkisi de bölmeden sonra çalışıyor (`gui/__main__.py` ve
    `gui/__init__.py`'daki dışa aktarım). Paketlemede ikisini de kontrol et.
-4. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+4. **Sol panel eklendi.** Pencerede artık solda bir gezinme rayı var; şu an tek öğe
+   (`Rapor`) çünkü tek iş yüzü var. Ekran kaydı `gui/app.py:SCREENS`, ray ondan
+   üretiliyor. Ayrıca boş dönem alanının yanındaki ipucu (`Örn. 2026-07 · ...`) ilk
+   açılışta hiç görünmüyordu — yalnızca alana yazıldığında tetikleniyordu, yani tam
+   olarak yazıldığı durum için erişilemezdi. Düzeltildi, testi var.
+5. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 
@@ -70,22 +75,36 @@ E-posta ve kişi seçme eklenecek. Yapı bunu kaldırır ama iki yer zorlanır.
 sahibiyle konuşuldu ve yön olarak kabul edildi. Geri kalanı uygulama tavsiyesi —
 karar verilmiş gibi davranılmamalı, sorulmalı.
 
-### 1. `gui/` bölmesi ✅ yapıldı — sıradaki sol panel
+### 1. `gui/` bölmesi ve sol panel ✅ ikisi de yapıldı
 
-Bölme tamamlandı (yukarıda akıştaki iş 2). Kalan sıradaki adım **sol panel gezinme**
-(proje sahibinin önerisi): her gezinme öğesi bir ekran. Doğru sıra **önce bölme,
-sonra panel** idi ve bölme bitti, yani panelin önü açık.
+Sıra doğruydu: önce bölme, sonra panel. İkisi de bitti.
 
-Somut olarak: `App._build` içinde `self.content`'in soluna bir çerçeve, öğe
-tıklandığında `self.report.frame.grid_remove()` + öteki ekranın `grid()`'i. Ekranlar
-birbirini tanımıyor, kabuk ikisini de tanıyor.
+**Yeni bir iş yüzü eklemek `gui/app.py:SCREENS`'e tek bir kayıt.** Anahtar, etiket ve
+ekranı kuran bir çağrılabilir. Sol panel bu listeden üretiliyor; ne `app.py`'de ne de
+mevcut bir ekranda başka bir düzenleme gerekmiyor:
+
+```python
+SCREENS = (
+    Screen("rapor", "Rapor", _report),
+    Screen("mail", "E-posta", _mail),      # eklenecek tek satır bu
+)
+```
+
+İki davranış testle sabitlendi, ikisi de bozulursa hata sayılır:
+
+- Ekran **en fazla bir kez, ilk açılışta** kuruluyor. Mail ekranı snapshot isteyecek;
+  kimsenin açmadığı bir ekran için snapshot yüklemek boşa iş.
+- Ekran değiştirirken `grid_forget` değil **`grid_remove`** kullanılıyor, yani gizli
+  ekran durumunu koruyor. Başka bir bölüme bakıp dönünce seçilen klasörün kaybolması
+  kusurdur.
 
 `gui/mail.py` bilerek açılmadı — içi boş bir modül, olmayan bir modülden daha az bilgi
-verir. Mail ekranı yazılırken açılacak.
+verir. Panelde de yalnızca **var olan** ekranlar listeleniyor: basılamayan bir öğe
+İK'ya verilmiş bir söz olur (`ARCHITECTURE.md` §3b).
 
-Panel öğesi durum da ifade edebilir: e-posta bir snapshot gerektirdiği için, snapshot
-yüklenmeden öğe pasif kalıp sebebini yazabilir. Bu, içi boş bir sekmeden farklı ve
-kabul edilebilir — biri durumu anlatır, diğeri hiçbir şey anlatmaz.
+Bunun istisnası, HANDOVER'ın daha önce not ettiği **çalışma zamanı durumu**: mail
+ekranı var olduğunda, snapshot yüklenmemişse öğesi pasif kalıp sebebini yazabilir. Bu
+"henüz yazılmadı" demekten farklı — biri durumu anlatır, diğeri hiçbir şey anlatmaz.
 
 ### 2. Seçim mantığı pencereye girmemeli
 

@@ -37,6 +37,7 @@ MUTED = "#656d76"         # captions, secondary text
 HOVER = "#f0f2f4"         # secondary button hover
 ACCENT = "#0b5cad"
 ACCENT_HOVER = "#094e93"
+ACCENT_SOFT = "#e7f0fa"   # selected navigation item — accent at reading-background weight
 DISABLED_BG = "#e8eaed"
 
 OK = "#1a7f37"

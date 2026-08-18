@@ -19,6 +19,7 @@ from pathlib import Path
 import pytest
 
 from mesai import gui
+from mesai.gui import app as app_module
 
 
 def _touch(folder: Path, *names: str) -> None:
@@ -206,6 +207,17 @@ def test_a_fresh_window_selects_nothing(screen):
     assert "Gözat" in window.folder_note.cget("text")
 
 
+def test_the_empty_period_field_says_what_may_be_typed(screen):
+    """The hint is written for the empty state, so it must show in the empty state.
+
+    It did not: the caption was only ever written by the field's write trace, which
+    never fires on a fresh window. The field sat empty next to an empty caption.
+    """
+    window = screen()
+
+    assert "2026-07" in window.period_note.cget("text")
+
+
 def test_the_browse_location_is_remembered_but_nothing_is_selected(screen, tmp_path):
     share = tmp_path / "MESAI TAKIP"
     (share / "07 - 2026").mkdir(parents=True)
@@ -247,3 +259,84 @@ def test_remembering_stores_the_parent_not_the_selection(screen, tmp_path):
     saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
     assert saved == {"browse_dir": str(share)}
     assert "07 - 2026" not in saved.get("browse_dir", ""), "month must not be stored"
+
+
+# --- navigation -------------------------------------------------------------
+#
+# The rail exists so that a second work face — mail, then choosing people — is an
+# entry in `SCREENS` and nothing else. These tests are the claim: they register a
+# fake screen the way a real one would be registered, and assert the shell handles it
+# without the shell or the report screen knowing anything about it.
+
+@pytest.fixture
+def shell(tmp_path):
+    """Builds an `App` on a real Tk, optionally with extra screens registered."""
+    tk = pytest.importorskip("tkinter")
+
+    try:
+        root = tk.Tk()
+    except tk.TclError:                          # pragma: no cover - headless
+        pytest.skip("no display")
+
+    built: list[str] = []
+
+    def build(extra=()):
+        return gui.App(root, config_dir=Path("config"),
+                       roster_dir=Path("data/personel"), base=tmp_path,
+                       screens=app_module.SCREENS + tuple(extra))
+
+    def fake(key, label="Sahte"):
+        def make(parent, _shell):
+            built.append(key)
+            return type("FakeScreen", (), {"frame": tk.Frame(parent)})()
+        return app_module.Screen(key, label, make)
+
+    build.fake = fake
+    build.built = built
+    yield build
+    root.destroy()
+
+
+def test_the_registered_screen_keys_are_unique():
+    """A duplicate key would make `show()` reach a screen nobody can navigate to."""
+    keys = [entry.key for entry in app_module.SCREENS]
+    assert len(keys) == len(set(keys))
+
+
+def test_the_first_registered_screen_is_the_one_shown(shell):
+    window = shell()
+
+    assert window._showing == app_module.SCREENS[0].key
+    assert window.report.frame.winfo_manager() == "grid"
+
+
+def test_a_second_screen_is_built_only_when_first_opened(shell):
+    """Lazy on purpose: the mail screen needs a snapshot it should not load unasked."""
+    window = shell(extra=[shell.fake("sahte")])
+    assert shell.built == [], "registering must not build"
+
+    window.show("sahte")
+    assert shell.built == ["sahte"]
+
+    window.show(app_module.SCREENS[0].key)
+    window.show("sahte")
+    assert shell.built == ["sahte"], "a screen is built at most once"
+
+
+def test_switching_away_and_back_keeps_what_was_typed(shell):
+    """grid_remove, not grid_forget — losing a chosen folder on a tab switch is a bug."""
+    window = shell(extra=[shell.fake("sahte")])
+    window.report.period_var.set("2026-07")
+
+    window.show("sahte")
+    assert window.report.frame.winfo_manager() == "", "the report must be hidden"
+
+    window.show("rapor")
+    assert window.report.period_var.get() == "2026-07"
+    assert window.report.frame.winfo_manager() == "grid"
+
+
+def test_an_unregistered_screen_key_fails_loudly(shell):
+    window = shell()
+    with pytest.raises(KeyError):
+        window.show("yok-boyle-bir-ekran")

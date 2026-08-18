@@ -106,6 +106,11 @@ class ReportScreen:
 
         self._build(parent)
         self._restore()
+        # The period note is otherwise only written by the trace, which never fires on
+        # a fresh window — nothing has typed into the field yet. That left the empty
+        # field with an empty caption beside it, so the one line explaining what may be
+        # typed there was unreachable in exactly the state it was written for.
+        self._period_changed()
 
     # --- layout ------------------------------------------------------------
     def _build(self, parent: tk.Misc) -> None:

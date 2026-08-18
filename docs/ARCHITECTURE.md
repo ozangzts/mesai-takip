@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 217 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 223 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -67,7 +67,8 @@ src/mesai/
 ├── __main__.py        ✅  python -m mesai
 ├── cli.py             ✅  argument parsing, wiring, exit codes
 ├── gui/               ✅  tkinter window over the same run(); no business logic
-│   ├── app.py         ✅  the toplevel, the header band, main()
+│   ├── app.py         ✅  the shell: header, screen registry, main()
+│   ├── nav.py         ✅  the left rail — one item per registered screen
 │   ├── rapor.py       ✅  the report screen: folder, period, run, result card
 │   ├── period.py      ✅  `07-2026` -> `2026-07` -> `Temmuz 2026`; pure, tested
 │   └── widgets.py     ✅  palette and widget primitives shared by every screen
@@ -130,10 +131,26 @@ e-mail step rather than during it, because all the growth points the same way �
 second work face, a list of people, a selection state — and adding that to the class
 that already owns the report run produces one object with two jobs.
 
-The shell/screen seam is the load-bearing one. `app.py` owns the toplevel, the header
-and the frame a screen is gridded into; `ReportScreen` owns every widget inside it,
-its own state, and its own worker thread. A left-hand navigation panel is then items
-beside `App.content` and a swap of which screen is gridded in — not a restructuring.
+The shell/screen seam is the load-bearing one. `app.py` owns the toplevel, the header,
+the navigation rail and the frame a screen is gridded into; `ReportScreen` owns every
+widget inside it, its own state, and its own worker thread.
+
+**A work face is one entry in `app.SCREENS`** — a key, a label, and a callable that
+builds it. The rail is generated from that list, so registering a screen is the whole
+change; nothing in `app.py` or in any existing screen is edited. `App` holds the list
+it was constructed with rather than reading the module global on every call, so what
+the rail offers and what `show()` accepts cannot drift apart (and a test can register
+a screen without touching module state).
+
+Two behaviours the tests pin down, both of which are bugs if they regress:
+
+- A screen is built **at most once, on first opening**. The mail screen will want a
+  snapshot, and loading one for a screen nobody opened is work done on spec.
+- Switching away uses `grid_remove`, not `grid_forget`, so a hidden screen keeps its
+  state. Losing a chosen folder because someone glanced at another tab is a defect.
+
+`nav.py` is handed labels and hands back the key that was clicked. It knows nothing
+about what a screen does, which is what keeps the registry the only thing to edit.
 
 `rapor.py` keeps its Turkish name deliberately: `gui/report.py` would read as a
 sibling of `mesai/report/`, the package that writes the workbook, which it is not.
@@ -147,9 +164,11 @@ the one part of the window with real logic in it, and it is tested without a dis
 artifact: `HH:MM` strings, merged cells, and no e-mail column by deliberate choice. It
 also changes shape when a rule changes, as it did on 2026-08-17. See `snapshot.py`.
 
-The window deliberately has **no e-mail tab yet**. Modularity lives in the module
-boundaries, not in a visible placeholder a user would have to ignore; `snapshot.py`
-already answers "who has which problem", which is what such a screen would need.
+The window deliberately has **no e-mail item in the rail yet** — the rail lists only
+screens that exist. Modularity lives in the module boundaries and in the registry, not
+in a visible placeholder a user would have to ignore: an entry HR cannot press reads as
+a promise. `snapshot.py` already answers "who has which problem", which is what such a
+screen would need.
 
 Anything that runs the pipeline must do so **off the UI thread** — it takes seconds,
 and Windows will label a blocked window "not responding".
@@ -164,7 +183,7 @@ and Windows will label a blocked window "not responding".
 | `test_merge.py` | cross-site union, repair, remote precedence, short days |
 | `test_snapshot.py` | the round trip the mail step depends on |
 | `test_report.py` | that a workbook can actually be written, for every severity |
-| `test_gui.py` | the window's period parsing and folder check, plus what it remembers |
+| `test_gui.py` | the window's period parsing, folder check, what it remembers, and screen navigation |
 | `test_config.py` | that the fixture has not drifted from the shipped config |
 | `test_pipeline.py` | period filtering, file discovery, coverage |
 | `builders.py` | synthetic workbook builders — **not** a test file |

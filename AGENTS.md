@@ -178,7 +178,8 @@ mesai-takip/
 ├── src/mesai/
 │   ├── cli.py                 # front end 1 — argument parsing, exit codes
 │   ├── gui/                   # front end 2 — tkinter window. No business logic.
-│   │   ├── app.py             # the toplevel, the header band, main()
+│   │   ├── app.py             # the shell: header, SCREENS registry, main()
+│   │   ├── nav.py             # the left rail — one item per registered screen
 │   │   ├── rapor.py           # the report screen
 │   │   ├── period.py          # month parsing and labels — pure, tested
 │   │   └── widgets.py         # palette and shared widget primitives
@@ -190,7 +191,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 217 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 223 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -201,7 +202,9 @@ python -m pytest
 ```
 
 Two front ends, both thin shells over `pipeline.run()` — `cli.py` and `gui/`
-(tkinter, `arayuz.cmd` to launch). **Neither may contain a business rule.** Every run
+(tkinter, `arayuz.cmd` to launch). **Neither may contain a business rule.** Adding a
+window screen is one entry in `gui/app.py:SCREENS`; the left rail is generated from it.
+Only screens that exist are registered — no placeholder items. Every run
 also writes `veri/gonderim-<ay>.json`, the machine-readable companion to the workbook.
 Anything downstream reads that, **never the workbook** — see `src/mesai/snapshot.py`
 for why. It holds names, e-mail addresses and hours, so `veri/` is git-ignored.
