@@ -593,9 +593,9 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
          "Kişi başı ara toplam satırı — sayılsa izinler ikiye katlanırdı")
     line("  İzin dosyasından gelen uzaktan çalışma aralığı",
          stats.records_built.get("izin_uzaktan", 0),
-         "Çalışma olarak sayıldı — ADR-007")
+         "Çalışma olarak sayıldı — uzaktan çalışma izin değil, çalışmadır")
     line("Ayıklanan ziyaretçi/geçici/stajyer kaydı", stats.excluded_badges,
-         "config/personel.yaml:exclude_prefixes")
+         "Ziyaretçi / geçici / stajyer kartları — kişiye atfedilemediği için özetten düşer")
     outside = sum(stats.out_of_period.values())
     if outside or stats.out_of_period_leave:
         detail = ", ".join(f"{_FILE_LABEL.get(k, k)}: {v}"
@@ -624,7 +624,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     if partial:
         line("SONUÇ", "RAPOR EKSİK",
              "Yukarıdaki dosyalar dönemin tamamını içermiyor. Bu rapordaki saatler "
-             "bordro için kullanılamaz — kaynak dosyalar yeniden alınmalı. ADR-020",
+             "bordro için kullanılamaz — kaynak dosyalar yeniden alınmalı.",
              styles.RED_FILL)
     row += 1
 
@@ -640,7 +640,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
         line("Gün içi boşluklar", hhmm(gaps), "Sayılmadı — daily_hours: union")
     else:
         line("Gün içi boşluklar", hhmm(gaps),
-             "Zarf kuralıyla ödendi — ADR-015", styles.GREY_FILL)
+             "Ödenen süreye dahil — gün içindeki boşluklar düşülmez", styles.GREY_FILL)
     line("Günlük ölçülen sürelerin toplamı", hhmm(stats.accepted_total),
          "Raporun ödediği süre")
     line("Kişi toplamlarının toplamı", hhmm(computed))
@@ -655,18 +655,19 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     line("Raporda yer alan kişi", len(summaries))
     line("Mesai verisi olan", sum(1 for s in summaries if s.has_attendance))
     line("Mesai verisi olmayan", sum(1 for s in summaries if not s.has_attendance),
-         "İzin kaydı var, kart kaydı yok — ROADMAP.md Q4", styles.RED_FILL)
+         "İzin kaydı var, kart kaydı yok. Bu kişilerin ayı eksik — İK/IT ile "
+         "kontrol edilmeli", styles.RED_FILL)
     line("Personel listesinde olmayan",
          sum(1 for s in summaries if not s.employee.in_roster),
          "Dönemde çalışıp personel listesi alınana kadar ayrılmış olabilir "
-         "— ADR-011")
+         "olabilir")
     line("Şüpheli kayıt (toplam)", len(anomalies))
     line("  toplama dahil edilmeyen",
          sum(1 for a in anomalies.items if a.severity == "excluded"))
     line("  bilgi amaçlı (sorun değil)",
          sum(1 for a in anomalies.items if a.severity == "info"),
          "Beklenen durum — kişilerin 'Şüpheli Kayıt' sayısına dahil edilmez, "
-         "ADR-017", styles.GREY_FILL)
+         "olağan durumlar", styles.GREY_FILL)
     row += 1
 
     section("6. Personel listesinde tekrarlanan kayıtlar")
@@ -683,7 +684,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     section("7. Onay bekleyen isim eşleştirmeleri")
     if settings.personnel.alias_pairs:
         line("Aşağıdaki eşleştirmeler UYGULANDI ama İK onayı bekliyor", "",
-             "Yanlışsa iki kişinin saatleri birleşmiş olur — ROADMAP.md Q4a",
+             "Yanlışsa iki kişinin saatleri birleşmiş olur — İK onayı bekliyor",
              styles.AMBER_FILL)
         for variant, canonical in settings.personnel.alias_pairs:
             line(f"  {variant}", "->", canonical, styles.AMBER_FILL)
@@ -693,30 +694,32 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
 
     section("8. Doğrulanmamış varsayımlar")
     line("Resmi tatil takvimi", f"{len(settings.calendar.holidays)} gün",
-         "Veriden ÇIKARILDI, İK onaylamadı — ROADMAP.md Q16", styles.AMBER_FILL)
+         "Veriden çıkarıldı, İK onaylamadı", styles.AMBER_FILL)
     for day, label in sorted(settings.calendar.holidays.items()):
         line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()], label)
     if settings.brk.deduct:
         line("Öğle arası", f"{settings.brk.minutes} dk",
              f"kalan mola kuralı, pencere {settings.brk.window_from:%H:%M}-"
-             f"{settings.brk.window_to:%H:%M} — ADR-008")
+             f"{settings.brk.window_to:%H:%M} arası")
     else:
         line("Öğle arası kesintisi", "YOK",
-             f"{settings.brk.minutes} dk kesinti İK talebiyle kapatıldı — ADR-016")
+             f"{settings.brk.minutes} dk kesinti İK talebiyle kapatıldı")
     line("Günlük süre ölçümü",
          "ilk giriş → son çıkış" if settings.daily_hours == "envelope"
          else "aralıkların toplamı",
-         f"config: daily_hours: {settings.daily_hours} — ADR-015")
+         "Gün, ilk giriş ile son çıkış arasındaki süre olarak ölçülür"
+         if settings.daily_hours == "envelope"
+         else "Gün, giriş-çıkış aralıklarının toplamı olarak ölçülür")
     _roster_age_line(line, stats, period)
     row += 1
 
     section("9. Bu raporun kapsamadıkları")
     for text in (
-        "Fazla mesai, eksik çalışma, haftalık FM — Faz 2 (Q5, Q6)",
-        "Vardiya tespiti — Faz 2 (Q7)",
-        "Multinet hakedişi — Faz 2 (Q6)",
-        "Resmi tatil / hafta tatili ücret-izin karşılığı — Faz 2 (Q8)",
-        "Otomatik personel maili — Faz 4 (Q18)",
+        "Fazla mesai ve eksik çalışma hesabı",
+        "Otomatik vardiya tespiti",
+        "Multinet hakedişi",
+        "Resmi tatil / hafta tatili çalışmasının ücret veya izin karşılığı",
+        "Çalışanlara otomatik e-posta",
     ):
         line("  " + text)
 
@@ -748,12 +751,12 @@ def _roster_age_line(line, stats: RunStats, period: str) -> None:
     elif gap > 0:
         line("Personel listesi tarihi", stamp,
              f"Rapor döneminden {gap} ay SONRA alınmış. Ayrılanlar listede "
-             f"görünmez, sonradan girenler mesai verisinde yoktur — ADR-011",
+             f"görünmez, sonradan girenler mesai verisinde yoktur",
              styles.AMBER_FILL)
     else:
         line("Personel listesi tarihi", stamp,
              f"Rapor döneminden {-gap} ay ÖNCE alınmış. O tarihten sonra işe "
-             f"girenler listede yok — ADR-011", styles.AMBER_FILL)
+             f"girenler listede yok", styles.AMBER_FILL)
 
 
 def _sources_label(sources: frozenset[str]) -> str:
@@ -779,5 +782,5 @@ def _footer_lines(period: str, stats: RunStats, generated_at: datetime) -> list[
         f"Oluşturulma: {generated_at:%d.%m.%Y %H:%M} · Dönem: {period} · "
         f"mesai-takip v0.1.0",
         f"Kaynak dosyalar: {files}",
-        "Bu rapor otomatik üretilmiştir. Hesaplama kuralları: docs/DOMAIN-RULES.md",
+        "Bu rapor otomatik üretilmiştir; aynı dosyalarla her zaman aynı sonucu verir.",
     ]

@@ -24,6 +24,31 @@ So the structure is inverted:
 
 ---
 
+## 1b. The workbook is written for HR, not for us
+
+Nothing in any sheet may reference this repository. No `ADR-0NN`, no `ROADMAP.md Q4`,
+no `config/` paths, no module names, no phase numbers. The person who opens this file
+will never open the code, so a pointer they cannot follow is pure noise — and it makes
+the sheet look like a debug dump rather than a report.
+
+48 cells in the May 2026 report broke this rule before 2026-08-18. Each explanation
+was rewritten to stand on its own:
+
+| Was | Now |
+| --- | --- |
+| `İzin kaydı var, kart kaydı yok — ROADMAP.md Q4` | `İzin kaydı var, kart kaydı yok. Bu kişilerin ayı eksik — İK/IT ile kontrol edilmeli` |
+| `Zarf kuralıyla ödendi — ADR-015` | `Ödenen süreye dahil — gün içindeki boşluklar düşülmez` |
+| `config/personel.yaml:exclude_prefixes` | `Ziyaretçi / geçici / stajyer kartları — kişiye atfedilemediği için özetten düşer` |
+| `Fazla mesai … — Faz 2 (Q5, Q6)` | `Fazla mesai ve eksik çalışma hesabı` |
+
+The trade-off is real and was made deliberately: traceability from a cell back to the
+decision that produced it is lost. It is recovered by the `Kontrol` sheet stating each
+active rule in words — an auditor can read what the rule *is* without being told where
+it is written down. `tests/test_report.py::test_no_developer_references_reach_the_workbook`
+fails on the next reference somebody appends.
+
+---
+
 ## 2. Phase 1 sheets
 
 Six sheets. Sheet 1 is the deliverable; the rest exist so sheet 1 can be trusted.

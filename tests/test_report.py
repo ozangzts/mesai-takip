@@ -212,3 +212,56 @@ def test_full_coverage_leaves_the_table_where_it_was(tmp_path, settings):
         " ".join(str(c) for c in r if c is not None)
         for r in book["Kontrol"].iter_rows(values_only=True))
     assert "Dönemin tamamı kapsanıyor" in control
+
+
+# --- the workbook is for HR, not for developers -----------------------------
+
+_DEVELOPER_JARGON = (
+    "ADR-", "ROADMAP", "DOMAIN-RULES", "DATA-SOURCES", "OUTPUT-SPEC",
+    ".md", ".py", "config/", "daily_hours", "break.deduct", "nominal_day",
+    "Faz 2", "Faz 4",
+)
+
+
+def test_no_developer_references_reach_the_workbook(tmp_path, settings):
+    """The person who reads this file will never open the repository.
+
+    Cells used to carry things like `ROADMAP.md Q4` and `— ADR-015`: meaningful to
+    whoever wrote the rule, noise to an HR reader who cannot follow them anywhere.
+    48 cells in the May 2026 report were like this. Every explanation now stands on
+    its own in plain Turkish.
+
+    This test fails on the next `ADR-0NN` someone appends to a report string.
+    """
+    from mesai.models import SourceCoverage
+    stats = RunStats(
+        rows_read={"teknopark": 1}, records_built={"teknopark": 1},
+        intervals_accepted=2, union_total=timedelta(hours=8, minutes=57),
+        accepted_total=timedelta(hours=9, minutes=39),
+        files={"teknopark": "test.xlsx"}, roster_date=date(2026, 7, 28),
+        roster_duplicates=["AYŞE DENEME: iki hesap"],
+        out_of_period={"teknopark": 2}, out_of_period_leave=1,
+        # Both branches, so partial-coverage wording is covered too.
+        coverage={"teknopark": SourceCoverage("teknopark", 13, 23,
+                                             (date(2026, 7, 20), date(2026, 7, 21))),
+                  "macunkoy": SourceCoverage("macunkoy", 23, 23, ())},
+    )
+    path = tmp_path / "jargon.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=_all_kinds(), stats=stats,
+        settings=settings, generated_at=datetime(2026, 8, 18, 12, 0),
+    )
+
+    offenders: list[str] = []
+    book = openpyxl.load_workbook(path, read_only=True)
+    for sheet in book.worksheets:
+        for row in sheet.iter_rows(values_only=True):
+            for cell in row:
+                if not isinstance(cell, str):
+                    continue
+                for token in _DEVELOPER_JARGON:
+                    if token in cell:
+                        offenders.append(f"{sheet.title}: {token!r} in {cell[:70]!r}")
+
+    assert not offenders, "developer jargon in the workbook:\n" + "\n".join(offenders)

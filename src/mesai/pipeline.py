@@ -349,7 +349,8 @@ def _summarise(
             anomalies.add(Anomaly(
                 kind=AnomalyKind.NO_ATTENDANCE_DATA, source="izin", source_row=0,
                 key=key, raw_name=employee.display_name,
-                detail="İzin kaydı var, hiçbir kart kaydı yok — ROADMAP.md Q4",
+                detail="İzin kaydı var, hiçbir kart kaydı yok. Bu kişinin ayı eksik "
+                       "görünüyor — kart sisteminden kontrol edilmeli",
             ))
         if not employee.in_roster:
             notes.append("Personel listesinde yok")

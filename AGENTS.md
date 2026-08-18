@@ -318,6 +318,11 @@ of whom 24 have no attendance record at all and must be reported as
 
 ## 6. Conventions
 
+**Nothing in the workbook may reference this repository.** No `ADR-0NN`, no
+`ROADMAP.md Q4`, no `config/` paths, no module or phase names. HR opens the report and
+never the code, so such a pointer is noise. Write the explanation so it stands alone.
+A test enforces this — `OUTPUT-SPEC.md §1b`.
+
 **Language.** Code, identifiers, comments, `docs/`: English.
 **Commit messages: Turkish**, matching the existing history (all commits to date).
 This line used to say English, which contradicted every commit in the log — practice
