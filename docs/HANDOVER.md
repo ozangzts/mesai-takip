@@ -33,8 +33,10 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
 
 ## Akıştaki iş
 
-1. **Proje sahibi GUI'yi kendi makinesinde deneyecek.** Geri bildirim bekleniyor —
-   özellikle klasör seçimindeki dosya listesi ve Temmuz'daki turuncu uyarı.
+1. **GUI denendi, bir eksik bulundu ve düzeltildi:** klasör adı `06-2026` gibi
+   ay-yıl sırasındaysa dönem okunamıyordu. Artık `2026-07`, `07-2026`, `202607`,
+   `Temmuz 2026` ve daha uzun isimlerin içine gömülü hâlleri anlaşılıyor; belirsiz
+   olanlar (`03-04`) bilinçli olarak reddediliyor. Geri bildirim devam ediyor.
 2. **Sonraki teknik adım: tek `.exe` paketi** (PyInstaller). Asıl uğraş paketleme
    değil, **Python'un kurulu olmadığı bir makinede test etmek.** `config/` exe'nin
    içine gömülmemeli — kural değişikliği YAML düzenlemesi ve `personel.yaml` gerçek

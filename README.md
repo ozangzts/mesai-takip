@@ -192,7 +192,14 @@ dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
   hatırlanır.
 - Klasörde eksik veya fazla dosya varsa **Rapor Oluştur** pasif kalır ve neyin eksik
   olduğu yazılır. Aynı klasörde iki ay varsa "2 dosya eşleşti" der.
-- Dönem klasör adından okunur (`.../2026-07` → `2026-07`), okunamazsa elle yazılır.
+- **Dönem klasör adından okunur ve yazım esnek.** Şunların hepsi anlaşılır:
+  `2026-07`, `07-2026`, `2026_07`, `202607`, `Temmuz 2026`, `Mesai 2026-07 Girdi`.
+  Ay adı Türkçe yazılabilir, büyük/küçük harf ve Türkçe karakter fark etmez.
+  Alana elle de aynı esneklikle yazılabilir; girdiğin yazım `2026-07` biçimine
+  çevrilip alanda gösterilir.
+- **Belirsiz yazım kabul edilmez.** `03-04` reddedilir — hangisinin ay hangisinin yıl
+  olduğu belli değil. Yıl dört haneli olmalı. Program tahmin yürütüp yanlış ayı
+  raporlamaz, alanı boş bırakıp yazımını bekler.
 - Eksik veri varsa sonuç panelinde turuncu uyarı çıkar — Temmuz'da olduğu gibi.
 
 Pencere hesap yapmıyor; komut satırının çağırdığı **aynı** kodu çağırıyor, dolayısıyla
