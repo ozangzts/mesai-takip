@@ -52,11 +52,18 @@ def _hours_rule_note(settings: Settings) -> str:
 
 # How an interval's origin is shown to the reader.
 _SOURCE_LABEL = {"macunkoy": "Macunköy", "teknopark": "Teknopark", "izin": "Uzaktan"}
-# How an input file is named on the Kontrol sheet. Deliberately different: the leave
-# file is "İzin", even though the intervals it contributes are labelled "Uzaktan".
+# How an input file is named on the Kontrol sheet. Still its own table rather than a
+# reuse of the one above, for one reason that has not changed: the leave file is
+# "İzin", even though the intervals it contributes are labelled "Uzaktan".
+#
+# These were "Macunköy giriş-çıkış", "Teknopark puantaj" and "İzin (HCM)". The suffixes
+# described how each site happens to record attendance, which is a distinction the
+# reader never has to make — and next to the file name they were saying it twice, since
+# the row already reads "Macunköy giriş-çıkış: Macunköy Mayıs Mesai giriş-çıkış.xlsx".
+# The window uses the same three words, so the two now agree.
 _FILE_LABEL = {
-    "roster": "Personel listesi", "macunkoy": "Macunköy giriş-çıkış",
-    "teknopark": "Teknopark puantaj", "izin": "İzin (HCM)",
+    "roster": "Personel listesi", "macunkoy": "Macunköy",
+    "teknopark": "Teknopark", "izin": "İzin",
 }
 
 
@@ -659,8 +666,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
          "kontrol edilmeli", styles.RED_FILL)
     line("Personel listesinde olmayan",
          sum(1 for s in summaries if not s.employee.in_roster),
-         "Dönemde çalışıp personel listesi alınana kadar ayrılmış olabilir "
-         "olabilir")
+         "Dönemde çalışıp personel listesi alınana kadar ayrılmış olabilir")
     line("Şüpheli kayıt (toplam)", len(anomalies))
     line("  toplama dahil edilmeyen",
          sum(1 for a in anomalies.items if a.severity == "excluded"))
