@@ -126,6 +126,50 @@ def test_missing_file_names_the_patterns_it_looked_for(settings, tmp_path):
         _locate(tmp_path, settings, "teknopark")
 
 
+# --- naming one source outright (ADR-022) -----------------------------------
+#
+# The three exports do not always arrive in the same place. A named file bypasses the
+# glob for that one source; everything downstream, the period filter included, is
+# unchanged.
+
+def test_a_named_file_is_used_instead_of_the_folder(settings, tmp_path):
+    elsewhere = tmp_path / "posta"
+    elsewhere.mkdir()
+    named = elsewhere / "gecen ay.xlsx"
+    blank_workbook(named)
+    blank_workbook(tmp_path / "Teknopark - Mayıs Mesai Takip Exceli.xlsx")
+
+    assert _locate(tmp_path, settings, "teknopark", {"teknopark": named}) == named
+
+
+def test_a_named_file_settles_a_folder_holding_two_months(settings, tmp_path):
+    """Two matches is otherwise an error; pointing at one is a legitimate answer."""
+    mayis = tmp_path / "Teknopark - Mayıs Mesai Takip Exceli.xlsx"
+    blank_workbook(mayis)
+    blank_workbook(tmp_path / "Teknopark - Haziran Mesai Takip Exceli.xlsx")
+
+    assert _locate(tmp_path, settings, "teknopark", {"teknopark": mayis}) == mayis
+
+
+def test_a_named_file_that_is_gone_fails_rather_than_falling_back(settings, tmp_path):
+    """Silently globbing instead would read a different file than the one chosen."""
+    blank_workbook(tmp_path / "Teknopark - Mayıs Mesai Takip Exceli.xlsx")
+
+    with pytest.raises(InputError, match="seçilen dosya bulunamadı"):
+        _locate(tmp_path, settings, "teknopark", {"teknopark": tmp_path / "yok.xlsx"})
+
+
+def test_naming_one_source_leaves_the_others_on_the_folder(settings, tmp_path):
+    named = tmp_path / "elle.xlsx"
+    blank_workbook(named)
+    izin = tmp_path / "HCMT34_MAYIS_IZIN.xlsx"
+    blank_workbook(izin)
+
+    chosen = {"teknopark": named}
+    assert _locate(tmp_path, settings, "teknopark", chosen) == named
+    assert _locate(tmp_path, settings, "izin", chosen) == izin
+
+
 # --- roster lookup (not a monthly file) ------------------------------------
 
 def test_roster_found_in_its_own_folder(settings, tmp_path):

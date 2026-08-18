@@ -191,7 +191,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 231 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 242 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -237,6 +237,11 @@ weaken any of them without an ADR:
    dropped and counted; if *no* record falls inside the month, the run fails. A
    source pattern matching two files also fails. One month per input folder is a
    contract (ADR-014).
+
+   A month whose files are **not all in one folder** is a different thing, and is
+   allowed: `run(chosen={...})` names one source's file outright and bypasses the glob
+   for that source only (ADR-022). Every guard above still applies to it — a named file
+   from the wrong month is dropped by the period filter exactly like any other.
 
 ---
 

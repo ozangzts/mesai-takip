@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (21 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (22 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 231 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 242 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -72,7 +72,14 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    değil (hata değil, başlangıç); bulunan/bulunamayan kaynaklar ayrı ayrı renkleniyor;
    özet rakamları sabit genişlikli yazı tipinde, yani iki noktalar hizalı; sonuç kartı
    **kaydırılabilir** — veri dosyasının yolu yazılıyor ama kartın altında kesiliyordu.
-6. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+6. **Dosyalar farklı yerlerdeyse artık elle gösterilebiliyor (ADR-022).** Klasör
+   seçilir, program bulabildiğini bulur, bulamadığı kaynağın satırında bir `Seç…`
+   düğmesi çıkar. Elle seçilen dosya o kaynak için glob'u atlar, ötekiler klasörden
+   gelmeye devam eder; `Geri al` klasöre döndürür. Klasör değişince elle seçimler
+   unutuluyor (eski aya aitler). ADR-014 kırılmadı: dönem filtresi hâlâ ay dışını
+   düşürüyor, yani başka klasörden gelen bir dosya başka bir ayı içeri sokamıyor.
+   Kaynak etiketleri de kısaldı: `Macunköy`, `Teknopark`, `İzin`.
+7. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

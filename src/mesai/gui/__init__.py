@@ -14,7 +14,7 @@ run would have produced one object with two jobs.
 | Module | What lives there |
 | --- | --- |
 | `app.py` | the toplevel window, the header band, `main()` |
-| `rapor.py` | the report screen: folder, period, the run, the result card |
+| `rapor.py` | the report screen: folder, per-source files, period, the run, result |
 | `period.py` | reading and writing a month (`07-2026` → `2026-07` → `Temmuz 2026`) |
 | `widgets.py` | palette, buttons, captions — the vocabulary every screen shares |
 
@@ -29,7 +29,7 @@ keeps `cli.py` to argument parsing applies to the window.
 
 from .app import App, main
 from .period import guess_period, parse_period, period_label
-from .rapor import ReportScreen, describe_folder
+from .rapor import ReportScreen, SourceState, inspect_sources
 
-__all__ = ["App", "ReportScreen", "describe_folder", "guess_period", "main",
-           "parse_period", "period_label"]
+__all__ = ["App", "ReportScreen", "SourceState", "guess_period", "inspect_sources",
+           "main", "parse_period", "period_label"]

@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 231 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 242 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -52,6 +52,12 @@ back. No stage mutates global state.
 
 Stage 2b is not cosmetic. Before it existed, `--ay 2026-06` over May's folder
 produced a confident report titled "HAZİRAN 2026" full of May figures — ADR-014.
+
+Stage 2 finds each monthly export by glob inside `input_dir`, which is the normal case
+and stays the default. `run(chosen={"izin": path})` names one source's file outright
+instead, for the month whose exports did not all arrive in the same place (ADR-022). It
+bypasses the glob for that one source and nothing else — stage 2b still drops anything
+outside the month, so a file pulled in from elsewhere cannot smuggle in another period.
 
 Stage 5 is where all business rules live. Stages 2 and 6 are the only ones that
 touch Excel. Stages 3–5 never import `openpyxl` — that boundary is what makes the

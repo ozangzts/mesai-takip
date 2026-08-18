@@ -1088,3 +1088,66 @@ Deliberate details:
 - Two artifacts per run means two things to keep in step. They are built in one function
   from one set of objects specifically so that staying in step is not a discipline
   problem.
+
+---
+
+## ADR-022 — A source that is not in the folder can be named outright
+
+2026-08-18 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+Until now the run took **one folder** and found all three monthly exports inside it by
+glob. That is the normal case and it should stay the default: the files arrive together
+on the share, one folder per month.
+
+It is not the only case. One export can arrive by e-mail while the others sit on the
+share, or be produced later than the rest. The only answer the tool offered was "copy
+them all into one folder first" — a manual step before every run, done by hand, on
+payroll inputs. That step is exactly the kind that eventually gets done wrong: the
+wrong month copied, a stale file left behind, a half-finished folder run anyway.
+
+The folder check already knew *which* source was missing — it reports all three, found
+or not. It just had nothing to offer once it knew.
+
+Doing this badly would be worse than not doing it. Guessing which nearby file is
+"probably" the missing export, or silently searching parent folders, would put an
+unreviewed file into a payroll figure. Whatever is chosen has to be chosen by a person.
+
+### Decision
+
+1. `pipeline.run()` accepts `chosen`, a mapping of source key → file path. A named
+   file **bypasses the glob for that one source** and nothing else. The other sources
+   still come from the folder.
+2. A named file is **checked for existence, not assumed.** If it is gone by the time
+   the run starts, the run fails naming it — it never silently falls back to globbing,
+   because that would read a different file than the one a person approved.
+3. A named file **settles an ambiguous folder too.** Two files matching one pattern is
+   otherwise an error (ADR-014 §3); pointing at one of them is a legitimate answer to
+   that error, not a way around it.
+4. The window offers this **per source, only where it is needed**: a source that was
+   found where it was expected gets no button. A missing or ambiguous one gets `Seç…`;
+   a hand-picked one gets `Geri al`, which returns it to the folder.
+5. Hand-picked files are **forgotten when the folder changes.** They belonged to the
+   month they were picked alongside.
+6. A hand-picked file whose name does not match the source's patterns is **flagged and
+   still used.** The patterns are a convention, not a rule — a renamed export is still
+   that export — and refusing it would disable the escape hatch in the one case it
+   exists for. The reader validates the layout, so a genuinely wrong file still fails.
+7. Nothing is remembered between sessions, for the same reason the input folder is not
+   (see `gui/rapor.py`): a restored month-specific path is a plausible wrong default.
+
+### Consequences
+
+- **ADR-014 is unchanged.** `--ay` is still a filter: records outside the month are
+  still dropped, and a source contributing nothing inside the month still fails the
+  run. A file pulled in from another folder cannot smuggle in another month's data —
+  the guard that catches it is the same one that always did.
+- "One month per input folder" remains the contract for the *folder*. What is now
+  possible is a month whose files are not all in one place, which is a different thing
+  from a folder holding two months.
+- The CLI is unaffected: `chosen` defaults to nothing and `rapor.cmd --ay` behaves
+  exactly as before. It is reachable from the CLI if a use ever appears, but no flag
+  was added for a need nobody has stated.
+- The `Kontrol` sheet already records the file name used per source, so a report built
+  from files in three different places still says which three files it read.

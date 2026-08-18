@@ -168,37 +168,40 @@ ayrıştırmasını değiştirirse çıktı sessizce kayabilir. Yükselttiğinde
 açılmaz, bir pencere gelir.
 
 ```
-┌────────────────────────────────────────────────┐
-│  Mesai Raporu                                  │
-│  Aylık çalışma süresi raporu                   │
-├────────────────────────────────────────────────┤
-│  KAYNAK KLASÖR                                 │
-│  [ Y:\... - 2026                ] [ Gözat… ]│
-│   ✓ Macunköy giriş-çıkış: ...xls               │
-│   ✓ Teknopark puantaj: ...xlsx                 │
-│   ✓ İzin (HCM): ...xlsx                        │
-│                                                │
-│  DÖNEM                                         │
-│  [ 2026-07 ]   Temmuz 2026                     │
-│                                                │
-│  ┌──────────── Rapor Oluştur ───────────────┐  │
-│  └──────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────┐  │
-│  │ Temmuz 2026 raporu yazıldı — EKSİK       │  │
-│  │ Toplam çalışma süresi : 16029:17         │  │
-│  │ ⚠ EKSİK VERİ — teknopark dosyası ...     │  │
-│  │                                          │  │
-│  │ RAPOR DOSYASI                            │  │
-│  │ C:\...\data\out6-07\mesai-...xlsx     │  │
-│  │ VERİ DOSYASI                             │  │
-│  │ C:\...eri\gonderim-2026-07.json        │  │
-│  └──────────────────────────────────────────┘  │
-│              [ Raporu Aç ]  [ Klasörü Aç ]     │
-└────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│  Mesai Raporu                                        │
+│  Aylık çalışma süresi raporu                         │
+├──────────┬───────────────────────────────────────────┤
+│          │  KAYNAK KLASÖR                            │
+│  Rapor   │  [ Y:\... - 2026            ] [ Gözat… ]   │
+│          │   ✓ Macunköy   ...xlsx                    │
+│          │   ✓ Teknopark  ...xlsx                    │
+│          │   ✗ İzin       bulunamadı       [ Seç… ]  │
+│          │                                           │
+│          │  DÖNEM                                    │
+│          │  [ 2026-07 ]   Temmuz 2026                │
+│          │                                           │
+│          │  ┌────────── Rapor Oluştur ────────────┐  │
+│          │  └─────────────────────────────────────┘  │
+│          │  ┌─────────────────────────────────────┐  │
+│          │  │ Temmuz 2026 raporu yazıldı — EKSİK  │  │
+│          │  │ Toplam çalışma süresi : 16029:17    │  │
+│          │  │ ⚠ EKSİK VERİ — teknopark dosyası …  │  │
+│          │  │                                     │  │
+│          │  │ RAPOR DOSYASI                       │  │
+│          │  │ C:\...\mesai-raporu-2026-07.xlsx     │  │
+│          │  │ VERİ DOSYASI                        │  │
+│          │  │ C:\...\gonderim-2026-07.json         │  │
+│          │  └─────────────────────────────────────┘  │
+│          │         [ Raporu Aç ]  [ Klasörü Aç ]     │
+└──────────┴───────────────────────────────────────────┘
 ```
 
 Akış: **Gözat** ile üç mesai dosyasının bulunduğu klasörü seç → pencere hangi
 dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
+
+Solda bir gezinme paneli var. Şu an tek bölüm (`Rapor`) çünkü tek iş var; e-posta
+adımı geldiğinde oradan geçilecek.
 
 - **Varsayılan klasör yok ve önceki seçim geri yüklenmez.** Yanlış bir tahmin boş
   alandan kötüdür, çünkü kullanıcı yanlış klasörden okunduğunu fark edemez. Program
@@ -210,7 +213,17 @@ dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
   hata türü. Hatırlanan şey klasörün **üst dizini**, yani Gözat doğru paylaşımda
   açılır ama seçimi sen yaparsın.
 - Klasörde eksik veya fazla dosya varsa **Rapor Oluştur** pasif kalır ve neyin eksik
-  olduğu yazılır. Aynı klasörde iki ay varsa "2 dosya eşleşti" der.
+  olduğu yazılır. Aynı klasörde iki ay varsa "2 dosya eşleşti" der. Bulunanlar yeşil,
+  bulunamayan kırmızı — üçü tek renge boyanmaz.
+- **Dosyalar farklı yerlerdeyse tek tek gösterebilirsin.** Bulunamayan (ya da iki
+  dosyanın eşleştiği) kaynağın satırında bir `Seç…` düğmesi çıkar; o dosyayı nerede
+  olursa olsun seçersin, ötekiler klasörden gelmeye devam eder. Elle seçilen satırda
+  `(elle seçildi)` yazar ve `Geri al` ile klasöre döndürülür. Beklendiği yerde bulunan
+  bir dosyaya düğme çıkmaz — düzeltilecek bir şey yok.
+  Klasörü değiştirdiğinde elle seçimler unutulur; önceki aya aitlerdi.
+  Seçtiğin dosyanın adı o kaynağa benzemiyorsa **uyarılır ama yine de kullanılır** —
+  yeniden adlandırılmış bir dosya da o dosyadır, ve içeriği okunurken zaten denetlenir.
+  Ay karışması riski yok: dönem filtresi ay dışındaki kayıtları düşürmeye devam eder.
 - **Dönem listesi kaldırıldı.** Eskiden seçtiğin klasörün *komşusu* olan aylar bir
   açılır listede görünüyordu; nereden geldikleri belirsizdi ve `07 - 2026` klasörünü
   seçip listeden `2026-05`'i seçmek gibi bir hataya davetiye çıkarıyordu. Dönem artık
@@ -228,7 +241,10 @@ dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
   görünüyor` uyarısını. Bu son durum yanlış ayın dosyalarını yanlış dönemle okumayı
   engelliyor.
 - **Rapor ve veri dosyasının tam yolu sonuç panelinde yazıyor**, sadece adı değil.
-  `Raporu Aç` ve `Klasörü Aç` düğmeleri de aynı dosyayı açar.
+  `Raporu Aç` ve `Klasörü Aç` düğmeleri de aynı dosyayı açar. Panel sığmadığında
+  kaydırılır — eksik veri uyarısı uzun olduğunda veri dosyasının yolu en altta kalır.
+- **Rapor Oluştur'un altındaki çubuk yalnızca hesaplama sürerken görünür.** Boştayken
+  hiçbir şey görünmez; "biraz ilerlemiş" gibi duran bir çubuk yanıltıcı olurdu.
 - Eksik veri varsa sonuç panelinde turuncu uyarı çıkar — Temmuz'da olduğu gibi.
 
 Pencere hesap yapmıyor; komut satırının çağırdığı **aynı** kodu çağırıyor, dolayısıyla

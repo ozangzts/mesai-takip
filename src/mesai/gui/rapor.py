@@ -25,9 +25,10 @@ import json
 import queue
 import threading
 import tkinter as tk
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from tkinter import filedialog, ttk
 
 from .. import config, snapshot
@@ -42,10 +43,13 @@ from .period import guess_period, parse_period, period_label
 # next to the program; it holds a path, never employee data.
 SETTINGS_FILE = "arayuz-ayarlari.json"
 
-# The three monthly exports, in the order a reader expects to see them listed.
-SOURCES = (("macunkoy", "Macunköy giriş-çıkış"),
-           ("teknopark", "Teknopark puantaj"),
-           ("izin", "İzin (HCM)"))
+# The three monthly exports, in the order a reader expects to see them listed. The
+# labels are the site names and nothing else: "giriş-çıkış" and "puantaj" described how
+# each site happens to record attendance, which is a distinction the reader of this
+# window never has to make.
+SOURCES = (("macunkoy", "Macunköy"),
+           ("teknopark", "Teknopark"),
+           ("izin", "İzin"))
 
 
 @dataclass
@@ -79,30 +83,71 @@ WELCOME = Result(
     "")                              # no status colour: this is not an outcome
 
 
-def describe_folder(folder: Path, settings) -> tuple[bool, tuple[str, ...]]:
-    """What the chosen folder contains, and whether it is usable.
+@dataclass(frozen=True)
+class SourceState:
+    """Where one of the three monthly exports stands, before anything is read."""
+    key: str
+    label: str
+    path: Path | None       # None means this source cannot be read yet
+    note: str               # the file name, or why there isn't one
+    chosen: bool = False    # named by hand rather than found in the folder
+    mismatch: bool = False  # named by hand, but the name does not look like this source
+
+    @property
+    def ready(self) -> bool:
+        return self.path is not None
+
+
+def _looks_like(name: str, patterns: tuple[str, ...]) -> bool:
+    """Does this file name match the source's own globs?
+
+    Used only to *say something* about a hand-picked file, never to refuse one. The
+    patterns are a convention, not a rule — a renamed export is still that export, and
+    the reader validates the layout anyway. `PurePath.match` is used rather than a
+    hand-rolled comparison so this agrees with the globbing exactly, Windows'
+    case-insensitivity included.
+    """
+    return any(PurePath(name).match(pattern) for pattern in patterns)
+
+
+def inspect_sources(folder: Path | None, settings,
+                    chosen: Mapping[str, Path] | None = None
+                    ) -> tuple[SourceState, ...]:
+    """Where each of the three exports stands, given a folder and any hand-picked files.
 
     Runs before any reading, so a wrong folder is caught while the user is still
     looking at the field rather than after a failed run. Reports every source, present
-    or not — "two of three found" is more useful than the first error.
+    or not — "two of three found" is more useful than the first error, and it is what
+    lets the window offer to find the missing one on its own.
     """
-    if not folder or not folder.is_dir():
-        return False, ("Klasör seçilmedi.",)
-
-    lines: list[str] = []
-    complete = True
+    chosen = chosen or {}
+    states: list[SourceState] = []
     for key, label in SOURCES:
-        matches = find_sources(folder, settings.sources[key])
-        if not matches:
-            complete = False
-            lines.append(f"✗ {label}: bulunamadı")
-        elif len(matches) > 1:
-            complete = False
-            names = ", ".join(p.name for p in matches[:3])
-            lines.append(f"✗ {label}: {len(matches)} dosya eşleşti ({names})")
+        picked = chosen.get(key)
+        if picked is not None:
+            if picked.is_file():
+                states.append(SourceState(
+                    key, label, picked, picked.name, chosen=True,
+                    mismatch=not _looks_like(picked.name, settings.sources[key])))
+            else:
+                states.append(SourceState(key, label, None,
+                                          "seçilen dosya artık yok", chosen=True))
+            continue
+
+        matches = find_sources(folder, settings.sources[key]) \
+            if folder and folder.is_dir() else []
+        if len(matches) == 1:
+            states.append(SourceState(key, label, matches[0], matches[0].name))
+        elif not matches:
+            states.append(SourceState(key, label, None, "bulunamadı"))
         else:
-            lines.append(f"✓ {label}: {matches[0].name}")
-    return complete, tuple(lines)
+            # Two months in one folder — the ADR-014 mistake. Naming one by hand is a
+            # legitimate answer to it, which is why this offers the same button as a
+            # missing file rather than only an error.
+            names = ", ".join(p.name for p in matches[:3])
+            states.append(SourceState(
+                key, label, None, f"{len(matches)} dosya eşleşti ({names})"))
+    return tuple(states)
 
 
 class ReportScreen:
@@ -120,6 +165,9 @@ class ReportScreen:
         self.config_dir = config_dir
         self.roster_dir = roster_dir
         self.folder: Path | None = None
+        # Files named outright, one per source key, when the folder did not hold them.
+        self.chosen: dict[str, Path] = {}
+        self.states: tuple[SourceState, ...] = ()
         self._queue: queue.Queue[Result] = queue.Queue()
         self._running = False
         self._last_output: Path | None = None
@@ -158,7 +206,10 @@ class ReportScreen:
         # colour, which meant a partial match painted the good news red too.
         self.folder_note = tk.Frame(body, background=w.BG)
         self.folder_note.grid(row=2, column=0, sticky="ew", pady=(8, 16))
-        self.folder_note.columnconfigure(0, weight=1)
+        # Column 2 holds the file name and takes the slack, so the mark and the site
+        # name stay in a narrow column against the left edge. Giving column 0 the
+        # weight instead left the tick stranded a third of the way from the label.
+        self.folder_note.columnconfigure(2, weight=1)
         self.note_lines: tuple[str, ...] = ()
 
         # --- period ------------------------------------------------------
@@ -288,9 +339,32 @@ class ReportScreen:
             self._set_folder(Path(chosen))
             self._remember()
 
+    def _choose_source(self, key: str) -> None:
+        """Name one export outright, for when it is not where the others are."""
+        label = dict(SOURCES)[key]
+        start = self.folder or self.browse_dir or self.base
+        picked = filedialog.askopenfilename(
+            title=f"{label} dosyasını seçin",
+            initialdir=str(start),
+            filetypes=[("Excel dosyaları", "*.xlsx *.xlsm *.xls"),
+                       ("Tüm dosyalar", "*.*")])
+        if picked:
+            self.chosen[key] = Path(picked)
+            self._describe()
+
+    def _forget_source(self, key: str) -> None:
+        """Undo a hand-picked file and look in the folder again."""
+        self.chosen.pop(key, None)
+        self._describe()
+
     def _set_folder(self, folder: Path) -> None:
         self.folder = folder
         self.folder_var.set(str(folder))
+        # Hand-picked files belonged to the folder they were picked alongside. Carrying
+        # them into a different month would quietly mix two periods — the one mistake
+        # the period filter exists to catch, and it should not be made in the first
+        # place.
+        self.chosen.clear()
         guessed = guess_period(folder)
         if guessed:
             self.period_var.set(guessed)
@@ -321,49 +395,89 @@ class ReportScreen:
             text, colour = period_label(parsed), w.MUTED
         self.period_note.configure(text=text, foreground=colour)
 
-    def _describe(self, extra: tuple[str, ...] = ()) -> None:
+    def _describe(self) -> None:
         try:
             settings = config.load(self.config_dir, self.period_var.get() or "2026-01")
         except Exception as exc:                       # noqa: BLE001
-            self._write_note((f"Config okunamadı: {exc}",), problem=True)
+            self._write_message(f"Config okunamadı: {exc}", problem=True)
             w.set_enabled(self.run_button, False)
             return
 
         if not self.folder:
+            # A folder comes first and the per-source buttons appear underneath it, so
+            # there is no state where a file has been named but no folder chosen — and
+            # the pipeline still needs the folder for the sources nobody named.
+            #
             # Not a problem, and it must not be painted as one. Nothing chosen yet is
             # simply where every run starts; a red line here made an untouched window
             # look like something had already gone wrong.
-            self._write_note(extra + ("Başlamak için 'Gözat…' ile klasörü seçin.",),
-                             problem=False)
+            self._write_message("Başlamak için 'Gözat…' ile klasörü seçin.",
+                                problem=False)
             w.set_enabled(self.run_button, False)
             return
 
-        ok, lines = describe_folder(self.folder, settings)
-        self._write_note(extra + lines, problem=not ok)
-        w.set_enabled(self.run_button, ok and not self._running)
+        self.states = inspect_sources(self.folder, settings, self.chosen)
+        self._write_sources(self.states)
+        w.set_enabled(self.run_button,
+                      all(s.ready for s in self.states) and not self._running)
 
-    def _write_note(self, lines: tuple[str, ...], problem: bool) -> None:
-        """Repaint the folder report, one label per line.
-
-        The colour comes from the line's own marker: `describe_folder` writes ✓ for a
-        source it found and ✗ for one it did not, and each deserves its own colour even
-        when they appear together. Anything unmarked is prose, and takes the tone of
-        the block as a whole.
-        """
+    def _clear_note(self) -> None:
         for child in self.folder_note.winfo_children():
             child.destroy()
-        self.note_lines = tuple(lines)
 
-        for row, line in enumerate(lines):
-            if line.startswith("✓"):
-                colour = w.OK
-            elif line.startswith("✗"):
-                colour = w.BAD
+    def _write_message(self, text: str, problem: bool) -> None:
+        self._clear_note()
+        self.states = ()
+        self.note_lines = (text,)
+        tk.Label(self.folder_note, text=text, background=w.BG,
+                 foreground=w.BAD if problem else w.MUTED,
+                 font=(w.FACE, 9), anchor="w").grid(row=0, column=0, columnspan=3,
+                                                    sticky="ew")
+
+    def _write_sources(self, states: tuple[SourceState, ...]) -> None:
+        """One row per source: a mark, the site name, the file, and a way to fix it.
+
+        Each row carries its own colour. When two of the three are found and one is
+        not, the two that were found must not be painted in the colour of the one that
+        was not — they were the same label once, and one label has one colour.
+        """
+        self._clear_note()
+        self.note_lines = tuple(f"{s.label}: {s.note}" for s in states)
+
+        for row, state in enumerate(states):
+            if not state.ready:
+                mark, colour = "✗", w.BAD
+            elif state.mismatch:
+                mark, colour = "✓", w.WARN
             else:
-                colour = w.BAD if problem else w.MUTED
-            tk.Label(self.folder_note, text=line, background=w.BG, foreground=colour,
-                     font=(w.FACE, 9), justify="left", anchor="w").grid(
-                row=row, column=0, sticky="ew")
+                mark, colour = "✓", w.OK
+            tk.Label(self.folder_note, text=mark, background=w.BG, foreground=colour,
+                     font=(w.FACE, 9)).grid(row=row, column=0, sticky="w")
+            tk.Label(self.folder_note, text=state.label, background=w.BG,
+                     foreground=w.INK, font=(w.FACE, 9), anchor="w", width=11).grid(
+                row=row, column=1, sticky="w", padx=(6, 8))
+
+            note = state.note
+            if state.chosen and state.ready:
+                note += "   (elle seçildi)"
+            if state.mismatch:
+                note += "   — adı bu kaynağa benzemiyor, yine de kullanılacak"
+            tk.Label(self.folder_note, text=note, background=w.BG, foreground=colour,
+                     font=(w.FACE, 9), anchor="w").grid(row=row, column=2, sticky="w")
+
+            # A row only gets a button when it has something to offer: find the file
+            # the folder did not hold, or undo a hand-picked one. A source that was
+            # found where it was expected needs nothing.
+            if not state.ready:
+                w.button(self.folder_note, "Seç…",
+                         lambda k=state.key: self._choose_source(k),
+                         primary=False).grid(row=row, column=3, sticky="e",
+                                             padx=(10, 0), pady=1)
+            elif state.chosen:
+                w.button(self.folder_note, "Geri al",
+                         lambda k=state.key: self._forget_source(k),
+                         primary=False).grid(row=row, column=3, sticky="e",
+                                             padx=(10, 0), pady=1)
 
     def _start(self) -> None:
         # Whatever the user typed goes through the same parser as a folder name, so
@@ -399,19 +513,27 @@ class ReportScreen:
         self.progress.start()
         self._render(Result(True, f"{period_label(period)} hesaplanıyor…", (),
                             w.MUTED))
-        threading.Thread(target=self._work, args=(period, self.folder),
+        threading.Thread(target=self._work,
+                         args=(period, self.folder, dict(self.chosen)),
                          daemon=True).start()
         self.root.after(120, self._poll)
 
-    def _work(self, period: str, folder: Path) -> None:
-        """Runs OFF the UI thread. Puts a Result on the queue; never touches widgets."""
+    def _work(self, period: str, folder: Path | None,
+              chosen: dict[str, Path]) -> None:
+        """Runs OFF the UI thread. Puts a Result on the queue; never touches widgets.
+
+        `chosen` is copied by the caller rather than read off `self`: the user can go
+        on clicking while this runs, and a run must report on the files it was started
+        with.
+        """
         try:
             settings = config.load(self.config_dir, period)
             output = (self.base / "data" / "out" / period
                       / f"mesai-raporu-{period}.xlsx")
             result = run(folder, output, period, settings, datetime.now(),
                          roster_dir=self.roster_dir,
-                         snapshot_path=snapshot.default_path(period, self.base))
+                         snapshot_path=snapshot.default_path(period, self.base),
+                         chosen=chosen)
             self._queue.put(self._summarise(period, result))
         except ReportLocked as exc:
             self._queue.put(Result(False, "Rapor yazılamadı", (str(exc),), w.BAD))

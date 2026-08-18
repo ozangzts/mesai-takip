@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import calendar as _calendar
 from collections import defaultdict
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -35,11 +36,20 @@ def period_bounds(period: str) -> tuple[date, date]:
 def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
         generated_at: datetime | None = None,
         roster_dir: Path | None = None,
-        snapshot_path: Path | None = None) -> dict[str, object]:
+        snapshot_path: Path | None = None,
+        chosen: Mapping[str, Path] | None = None) -> dict[str, object]:
     """Read, compute, and write the report — plus its machine-readable snapshot.
 
     `snapshot_path` is where the data companion goes (see snapshot.py). Passing None
     skips it, which is what the tests do when they only care about figures.
+
+    `chosen` names a file for a source outright, bypassing the glob in `input_dir` for
+    that one source. It exists because the three exports do not always arrive in the
+    same place — one may be e-mailed while the others sit on the share — and copying
+    files around by hand before every run is the kind of step that eventually gets
+    done wrong. Everything downstream is unchanged: the period filter still drops
+    anything outside the month and still fails if a source contributes nothing
+    (ADR-014), so a file from the wrong month cannot slip in this way. See ADR-022.
     """
     generated_at = generated_at or datetime.now()
     stats = RunStats()
@@ -61,7 +71,7 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     anomalies = Collector()
     records: list[PunchRecord] = []
 
-    mac_path = _locate(input_dir, settings, "macunkoy")
+    mac_path = _locate(input_dir, settings, "macunkoy", chosen)
     mac_records, mac_anomalies, mac_rows, excluded = macunkoy.read(mac_path, settings)
     records += mac_records
     anomalies.extend(mac_anomalies)
@@ -70,7 +80,7 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     stats.records_built["macunkoy"] = len(mac_records)
     stats.excluded_badges = excluded
 
-    tek_path = _locate(input_dir, settings, "teknopark")
+    tek_path = _locate(input_dir, settings, "teknopark", chosen)
     tek_records, tek_anomalies, tek_rows = teknopark.read(tek_path, settings)
     records += tek_records
     anomalies.extend(tek_anomalies)
@@ -78,7 +88,7 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     stats.rows_read["teknopark"] = tek_rows
     stats.records_built["teknopark"] = len(tek_records)
 
-    izin_path = _locate(input_dir, settings, "izin")
+    izin_path = _locate(input_dir, settings, "izin", chosen)
     leave, remote, izin_anomalies, izin_rows, subtotals = izin.read(izin_path, settings)
     records += remote
     anomalies.extend(izin_anomalies)
@@ -216,12 +226,25 @@ def _locate_roster(roster_dir: Path | None, input_dir: Path,
     )
 
 
-def _locate(input_dir: Path, settings: Settings, name: str) -> Path:
+def _locate(input_dir: Path, settings: Settings, name: str,
+            chosen: Mapping[str, Path] | None = None) -> Path:
     """Exactly one file per source.
 
     Two files matching the same pattern means two months sit in the folder. Picking
     one arbitrarily would silently report the wrong month, so it is an error.
+
+    A file named in `chosen` wins outright — it was pointed at deliberately, so there
+    is nothing to be ambiguous about. It is still checked for existence rather than
+    assumed: a path can go stale between choosing it and pressing the button.
     """
+    picked = (chosen or {}).get(name)
+    if picked is not None:
+        if not picked.is_file():
+            raise InputError(
+                f"'{name}' için seçilen dosya bulunamadı: {picked}"
+            )
+        return picked
+
     matches = find_sources(input_dir, settings.sources[name])
     if not matches:
         raise InputError(

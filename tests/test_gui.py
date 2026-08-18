@@ -5,9 +5,10 @@ are the ones that decide what it tells the user: which files it found, which mon
 understood, and what it remembers between runs. No test asserts a colour or a
 geometry — that would be testing tkinter.
 
-`describe_folder` is the one that earns its keep. The user picks a folder by hand, and
+`inspect_sources` is the one that earns its keep. The user picks a folder by hand, and
 what they need to know — before pressing anything — is which of the three exports were
-found. Reporting only the first failure would hide the other two.
+found. Reporting only the first failure would hide the other two, and it is the
+per-source answer that lets the window offer to go and find a missing one.
 
 The last group does build a real `Tk`, because "a fresh window pre-selects nothing" is
 only true if the constructor really runs. It skips itself when there is no display.
@@ -15,6 +16,8 @@ only true if the constructor really runs. It skips itself when there is no displ
 
 import json
 from pathlib import Path
+
+import tkinter as tk_module
 
 import pytest
 
@@ -37,56 +40,107 @@ COMPLETE = (
 
 # --- folder validation ------------------------------------------------------
 
+def _states(folder, settings, chosen=None):
+    return gui.inspect_sources(folder, settings, chosen)
+
+
 def test_a_complete_folder_is_usable(tmp_path, settings):
     _touch(tmp_path, *COMPLETE)
-    ok, lines = gui.describe_folder(tmp_path, settings)
+    states = _states(tmp_path, settings)
 
-    assert ok
-    assert len(lines) == 3
-    assert all(line.startswith("✓") for line in lines)
+    assert len(states) == 3
+    assert all(state.ready for state in states)
+    assert all(not state.chosen for state in states)
 
 
 def test_mixed_containers_are_all_accepted(tmp_path, settings):
     """July arrived as .xls, May as .xlsx — the window must accept either."""
     _touch(tmp_path, "Macunkoy Mayis Mesai giris-cikis.xlsx",
            "Teknopark - Mayis Mesai Takip Exceli.xls", "HCMT34_MAYIS_IZIN.xlsm")
-    ok, _ = gui.describe_folder(tmp_path, settings)
-    assert ok
+    assert all(state.ready for state in _states(tmp_path, settings))
 
 
 def test_every_missing_source_is_named_not_just_the_first(tmp_path, settings):
     _touch(tmp_path, "Teknopark - Temmuz Mesai Takip Exceli.xlsx")
-    ok, lines = gui.describe_folder(tmp_path, settings)
+    missing = [state for state in _states(tmp_path, settings) if not state.ready]
 
-    assert not ok
-    missing = [line for line in lines if line.startswith("✗")]
     assert len(missing) == 2, "both absent files must be listed"
-    assert any("Macunköy" in line for line in missing)
-    assert any("İzin" in line for line in missing)
+    assert {state.label for state in missing} == {"Macunköy", "İzin"}
+    assert all("bulunamadı" in state.note for state in missing)
 
 
 def test_two_files_for_one_source_is_refused(tmp_path, settings):
     """Two months in one folder is the ADR-014 mistake; catch it before the run."""
     _touch(tmp_path, *COMPLETE, "Macunköy Haziran Mesai giriş-çıkış.xlsx")
-    ok, lines = gui.describe_folder(tmp_path, settings)
+    states = {state.key: state for state in _states(tmp_path, settings)}
 
-    assert not ok
-    assert any("2 dosya eşleşti" in line for line in lines)
+    assert not states["macunkoy"].ready
+    assert "2 dosya eşleşti" in states["macunkoy"].note
+    assert states["teknopark"].ready, "the other two are unaffected"
 
 
-def test_an_unset_or_missing_folder_is_not_usable(tmp_path, settings):
-    ok, lines = gui.describe_folder(None, settings)
-    assert not ok and "seçilmedi" in lines[0]
-
-    ok, _ = gui.describe_folder(tmp_path / "olmayan", settings)
-    assert not ok
+def test_an_unset_or_missing_folder_leaves_every_source_unresolved(tmp_path, settings):
+    assert all(not state.ready for state in _states(None, settings))
+    assert all(not state.ready for state in _states(tmp_path / "olmayan", settings))
 
 
 def test_the_folder_report_never_leaks_a_full_path(tmp_path, settings):
     """Only file names — a folder note showing full paths gets unreadable fast."""
     _touch(tmp_path, *COMPLETE)
-    _, lines = gui.describe_folder(tmp_path, settings)
-    assert not any(str(tmp_path) in line for line in lines)
+    assert not any(str(tmp_path) in state.note for state in _states(tmp_path, settings))
+
+
+# --- naming one export outright ---------------------------------------------
+#
+# The three exports do not always arrive in the same place. Rather than make someone
+# copy files into one folder before every run — a step that eventually gets done wrong —
+# a source that is not where the others are can be named on its own.
+
+def test_a_hand_picked_file_resolves_a_source_the_folder_lacks(tmp_path, settings):
+    folder = tmp_path / "07 - 2026"
+    _touch(folder, "Macunköy Temmuz Mesai giriş-çıkış.xls",
+           "Teknopark - Temmuz Mesai Takip Exceli.xlsx")
+    elsewhere = tmp_path / "posta"
+    _touch(elsewhere, "HCMT34_TEMMUZ_IZIN.xlsx")
+
+    states = {s.key: s for s in _states(folder, settings,
+                                        {"izin": elsewhere / "HCMT34_TEMMUZ_IZIN.xlsx"})}
+
+    assert all(state.ready for state in states.values())
+    assert states["izin"].chosen and not states["izin"].mismatch
+    assert states["izin"].path.parent == elsewhere
+    assert not states["macunkoy"].chosen, "the folder still answers for the others"
+
+
+def test_a_hand_picked_file_also_settles_an_ambiguous_folder(tmp_path, settings):
+    """Two months in one folder: naming one is a legitimate answer, not only an error."""
+    _touch(tmp_path, *COMPLETE, "Macunköy Haziran Mesai giriş-çıkış.xlsx")
+    chosen = {"macunkoy": tmp_path / "Macunköy Temmuz Mesai giriş-çıkış.xls"}
+    states = {s.key: s for s in _states(tmp_path, settings, chosen)}
+
+    assert states["macunkoy"].ready and states["macunkoy"].chosen
+
+
+def test_a_hand_picked_file_that_vanished_is_reported_not_used(tmp_path, settings):
+    states = {s.key: s for s in _states(tmp_path, settings,
+                                        {"izin": tmp_path / "yok.xlsx"})}
+
+    assert not states["izin"].ready
+    assert "artık yok" in states["izin"].note
+
+
+def test_an_odd_name_is_flagged_but_still_used(tmp_path, settings):
+    """The patterns are a convention, not a rule — a renamed export is still that export.
+
+    Refusing it would make the escape hatch useless in the one case it is for. The
+    reader validates the layout, so a genuinely wrong file still fails loudly.
+    """
+    odd = tmp_path / "gecen ay.xlsx"
+    odd.write_bytes(b"")
+    states = {s.key: s for s in _states(tmp_path, settings, {"izin": odd})}
+
+    assert states["izin"].ready, "it must still be usable"
+    assert states["izin"].mismatch, "and it must say the name looks wrong"
 
 
 # --- period parsing ---------------------------------------------------------
@@ -362,17 +416,52 @@ def test_found_and_missing_sources_are_coloured_separately(screen, tmp_path, set
     _touch(folder, "Teknopark - Temmuz Mesai Takip Exceli.xlsx",
            "HCMT34_TEMMUZ_IZIN.xlsx")
     window = screen()
-    window._write_note(describe_folder_lines(folder, settings), problem=True)
+    window._write_sources(gui.inspect_sources(folder, settings))
 
-    colours = [str(label.cget("foreground"))
-               for label in window.folder_note.winfo_children()]
+    marks = [child for child in window.folder_note.winfo_children()
+             if str(child.cget("text")) in ("✓", "✗")]
+    colours = [str(child.cget("foreground")) for child in marks]
     assert colours.count(widgets.OK) == 2, "both found files keep the found colour"
     assert colours.count(widgets.BAD) == 1, "only the missing one is a problem"
 
 
-def describe_folder_lines(folder, settings):
-    _ok, lines = gui.describe_folder(folder, settings)
-    return lines
+def test_only_an_unresolved_source_is_offered_a_button(screen, tmp_path, settings):
+    """A file found where it was expected needs nothing; a missing one needs a way out."""
+    folder = tmp_path / "07 - 2026"
+    _touch(folder, "Teknopark - Temmuz Mesai Takip Exceli.xlsx",
+           "HCMT34_TEMMUZ_IZIN.xlsx")
+    window = screen()
+    window._write_sources(gui.inspect_sources(folder, settings))
+
+    buttons = [child for child in window.folder_note.winfo_children()
+               if isinstance(child, tk_module.Button)]
+    assert len(buttons) == 1, "one missing source, one button"
+    assert str(buttons[0].cget("text")) == "Seç…"
+
+
+def test_a_hand_picked_source_is_offered_a_way_back(screen, tmp_path, settings):
+    _touch(tmp_path, *COMPLETE)
+    window = screen()
+    window._write_sources(gui.inspect_sources(
+        tmp_path, settings, {"izin": tmp_path / "HCMT34_TEMMUZ_IZIN.xlsx"}))
+
+    labels = [str(child.cget("text")) for child in window.folder_note.winfo_children()]
+    assert any("Geri al" in text for text in labels)
+    assert any("elle seçildi" in text for text in labels)
+
+
+def test_changing_the_folder_forgets_hand_picked_files(screen, tmp_path):
+    """They belonged to the old month. Carrying them over would mix two periods."""
+    first = tmp_path / "06 - 2026"
+    second = tmp_path / "07 - 2026"
+    first.mkdir()
+    second.mkdir()
+    window = screen()
+    window._set_folder(first)
+    window.chosen["izin"] = tmp_path / "haziran-izin.xlsx"
+
+    window._set_folder(second)
+    assert window.chosen == {}
 
 
 def test_the_activity_bar_shows_nothing_before_a_run(screen):
