@@ -82,6 +82,39 @@ personnel numbers. The same person appears as `SN100002` here and `8801` in the
 leave export. Roughly half the rows use the numeric form which *does* match the
 leave export. Join on normalized name; use the numeric ID as a confirmation only.
 
+**D10 — Layout is not stable. Discover it, never assume it.**
+
+The Macunköy export changed shape three times in three months (ADR-020):
+
+| | May / June 2026 | July 2026 |
+| --- | --- | --- |
+| Container | `.xlsx` (ZIP) | **`.xls`** (OLE2/BIFF, magic `d0cf11e0`) |
+| Header row | 1 | **2** — a title line `İLK GİRİŞ SON ÇIKIŞ PD` sits above it |
+| Columns | 11, incl. `Personel` | **10** — `Personel` dropped, everything after it shifted left |
+
+```
+MAY    0 Ad  1 Soyad  2 Personel  3 SicilNo  4 Birim  5 —  6 Bolum  7 MesaiTarih  8 Giris  9 Cikis  10 SureSaat
+JULY   0 Ad  1 Soyad  2 SicilNo   3 Birim    4 —      5 Bolum  6 MesaiTarih  7 Giris  8 Cikis  9 SureSaat
+```
+
+Consequences for anyone touching a reader:
+
+- **Address columns by header name, never by index.** With fixed indices the July
+  file reads `SicilNo` as the employee name and `Bolum` as the date — a complete,
+  confident, wrong report. `base.find_header_row` locates the header within the first
+  ten rows and returns a name → position map.
+- **Only `Ad`, `Soyad`, `MesaiTarih`, `Giris`, `Cikis` are required.** `Personel`,
+  `SicilNo`, `Bolum` and `SureSaat` are used when present. The full name is rebuilt
+  from `Ad` + `Soyad`, so losing `Personel` costs nothing.
+- **Globs are `*.xls*`**, covering `.xlsx`, `.xlsm` and `.xls`. A pattern tied to one
+  container turns a format change into a misleading "file not found".
+- `base.open_sheets` picks openpyxl or xlrd and returns the same `Sheet` either way.
+  Note that xlrd hands back dates as bare floats — unconverted, every timestamp
+  becomes meaningless and everybody gets zero hours while the run reports success.
+
+The Teknopark reader is still block-offset based, because its layout is not a header
+table. That remains a known fragility, held by the per-block `Dönemdeki Toplam` check.
+
 ### Confirmed non-issues
 
 - No person has more than one row for the same date in this file (checked: 0).
@@ -171,7 +204,7 @@ correct. A mismatch is reported as `DURATION_MISMATCH`.
 - Very short rows exist and are real: `01.05.2026 13:32 → 13:34` = `00:02`.
   Probably a badge test on a public holiday. Flag as suspicious, do not delete.
 
-### D9 — The nominal `09:00–18:00` day is a placeholder, not a punch
+### D11 — The nominal `09:00–18:00` day is a placeholder, not a punch
 
 **319 of 1 607 May rows and 418 of 2 557 June rows are exactly `09:00–18:00`, duration
 exactly `09:00`.** They are structurally identical to real rows — same columns, same
@@ -206,6 +239,22 @@ changes, change it there — no code knows the times.
 
 Weight: 319 rows × 9 h = **2 871 h, about 17 % of May's reported total.** Anyone
 revisiting whether these should be paid should start from that number.
+
+### D12 — An export can be complete data about an incomplete period
+
+July 2026's Teknopark file covers **1–19 July only**: 962 rows against June's 2 557,
+13 of 23 expected working days, and it was exported on the 20th. Macunköy for the same
+month covers 1–31.
+
+Nothing in the file itself is wrong. Every block agrees with its own
+`Dönemdeki Toplam`, the row counts reconcile, and the report read `Mutabakat: TAMAM`
+while being short 16 000 hours' worth of month. This is the most dangerous shape a
+source file can take, and it is why `SourceCoverage` exists (ADR-020): the check is a
+**trailing run of expected working days with no records**, per source.
+
+Do not check "fewer days than the other source" — Teknopark legitimately has nothing
+on days the office is shut while Macunköy production runs. In May its 21 of 31 days
+were entirely explained by weekends plus the Kurban Bayramı block (Q14).
 
 ---
 
@@ -260,7 +309,7 @@ Rule: skip any row where `İzin Tipi` is empty.
 | `Doğum İzni (Tam Ödeme)` (parental, paid) | 2 | No |
 | `Ücretsiz İzin` (unpaid) | 2 | No |
 
-**D7 — `Kullanılan Gün` is hours ÷ 9, and that tells us the workday is 9 hours.**
+**D13 — `Kullanılan Gün` is hours ÷ 9, and that tells us the workday is 9 hours.**
 
 Fractional day values are not noise. For a single-day row the HCM computes
 
@@ -326,7 +375,7 @@ the record itself, not from a per-day constant.
 **Most remote days also appear in the Teknopark timesheet, and that is expected.**
 39 of 56 May records and 83 of 106 June records overlap an attendance record for the
 same person-day. In 37 of 39 and 76 of 83 the attendance side is the nominal
-`09:00–18:00` placeholder of D9, not a real punch — the timesheet filling in a day
+`09:00–18:00` placeholder of D11, not a real punch — the timesheet filling in a day
 with no turnstile data. The union counts the shared time once, and the report records
 these at `info` severity: expected, not a defect (ADR-017).
 

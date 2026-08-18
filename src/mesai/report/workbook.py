@@ -78,7 +78,7 @@ def build(
     footer = _footer_lines(period, stats, generated_at)
 
     _sheet_summary(workbook.create_sheet("Aylık Özet"), period, summaries,
-                   anomalies, settings, footer)
+                   anomalies, stats, settings, footer)
     _sheet_daily(workbook.create_sheet("Günlük Detay"), workdays, employees,
                  settings, footer)
     _sheet_worklist(workbook.create_sheet("Sorulacaklar"), period, anomalies,
@@ -130,7 +130,7 @@ def _hours_columns(settings: Settings) -> tuple[list[str], list[int]]:
 
 
 def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
-                   anomalies: Collector, settings: Settings,
+                   anomalies: Collector, stats: RunStats, settings: Settings,
                    footer: list[str]) -> None:
     hours_headers, hours_widths = _hours_columns(settings)
     headers = _SUMMARY_HEAD + hours_headers + _SUMMARY_TAIL
@@ -153,9 +153,27 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
         "'Şüpheli Kayıtlar' sayfasına bakın. Bu rapor bir DOĞRULAMA koşusudur, "
         "bordro için nihai değildir.", span)
     styles.write_banner(sheet, 3, _hours_rule_note(settings), span)
-    styles.write_header(sheet, 4, headers, widths)
+    header_row = 4
+    partial = [c for c in stats.coverage.values() if c.is_partial]
+    if partial:
+        # The loudest thing on the deliverable sheet. A report built from a mid-month
+        # export looks completely normal otherwise — ADR-020.
+        detail = "; ".join(
+            f"{_FILE_LABEL.get(c.source, c.source)}: "
+            f"{c.trailing_missing[0]:%d.%m} tarihinden sonrası yok "
+            f"({c.present}/{c.expected} iş günü)"
+            for c in sorted(partial, key=lambda c: c.source))
+        styles.write_banner(
+            sheet, 4,
+            f"BU RAPOR EKSİK — kaynak dosyalar dönemin tamamını içermiyor. {detail}. "
+            "Saatler bordro için KULLANILAMAZ; dosyalar yeniden alınmalı. "
+            "Ayrıntı: 'Kontrol' sayfası, bölüm 3.", span)
+        for column in range(1, span + 1):
+            sheet.cell(row=4, column=column).fill = styles.RED_FILL
+        header_row = 5
+    styles.write_header(sheet, header_row, headers, widths)
 
-    row = 5
+    row = header_row + 1
     total_gross = timedelta()
     total_net = timedelta()
 
@@ -590,7 +608,27 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
              "Tüm kayıtlar rapor dönemine ait", styles.GREEN_FILL)
     row += 1
 
-    section("3. Hesaplama mutabakatı")
+    section("3. Dönem kapsamı")
+    partial = [c for c in stats.coverage.values() if c.is_partial]
+    for source, cov in sorted(stats.coverage.items()):
+        note = "Dönemin tamamı kapsanıyor"
+        fill = styles.GREEN_FILL
+        if cov.is_partial:
+            first = cov.trailing_missing[0].strftime("%d.%m.%Y")
+            last = cov.trailing_missing[-1].strftime("%d.%m.%Y")
+            note = (f"KISMİ DIŞA AKTARIM — {first} ve sonrası ({len(cov.trailing_missing)} "
+                    f"iş günü) bu dosyada HİÇ YOK. Dosya ay bitmeden alınmış olabilir.")
+            fill = styles.RED_FILL
+        line(f"{_FILE_LABEL.get(source, source)} — kapsanan iş günü",
+             f"{cov.present} / {cov.expected}", note, fill)
+    if partial:
+        line("SONUÇ", "RAPOR EKSİK",
+             "Yukarıdaki dosyalar dönemin tamamını içermiyor. Bu rapordaki saatler "
+             "bordro için kullanılamaz — kaynak dosyalar yeniden alınmalı. ADR-020",
+             styles.RED_FILL)
+    row += 1
+
+    section("4. Hesaplama mutabakatı")
     computed = timedelta()
     for summary in summaries:
         computed += summary.gross
@@ -613,7 +651,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
          styles.GREEN_FILL if matches else styles.RED_FILL)
     row += 1
 
-    section("4. Kapsam")
+    section("5. Kapsam")
     line("Raporda yer alan kişi", len(summaries))
     line("Mesai verisi olan", sum(1 for s in summaries if s.has_attendance))
     line("Mesai verisi olmayan", sum(1 for s in summaries if not s.has_attendance),
@@ -631,7 +669,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
          "ADR-017", styles.GREY_FILL)
     row += 1
 
-    section("5. Personel listesinde tekrarlanan kayıtlar")
+    section("6. Personel listesinde tekrarlanan kayıtlar")
     if stats.roster_duplicates:
         line("Aynı kişi için birden fazla hesap bulundu ve tekilleştirildi", "",
              "Aynı kontak no / e-posta, farklı kullanıcı adı. Eski hesap "
@@ -642,7 +680,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
         line("Yok")
     row += 1
 
-    section("6. Onay bekleyen isim eşleştirmeleri")
+    section("7. Onay bekleyen isim eşleştirmeleri")
     if settings.personnel.alias_pairs:
         line("Aşağıdaki eşleştirmeler UYGULANDI ama İK onayı bekliyor", "",
              "Yanlışsa iki kişinin saatleri birleşmiş olur — ROADMAP.md Q4a",
@@ -653,7 +691,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
         line("Yok")
     row += 1
 
-    section("7. Doğrulanmamış varsayımlar")
+    section("8. Doğrulanmamış varsayımlar")
     line("Resmi tatil takvimi", f"{len(settings.calendar.holidays)} gün",
          "Veriden ÇIKARILDI, İK onaylamadı — ROADMAP.md Q16", styles.AMBER_FILL)
     for day, label in sorted(settings.calendar.holidays.items()):
@@ -672,7 +710,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     _roster_age_line(line, stats, period)
     row += 1
 
-    section("8. Bu raporun kapsamadıkları")
+    section("9. Bu raporun kapsamadıkları")
     for text in (
         "Fazla mesai, eksik çalışma, haftalık FM — Faz 2 (Q5, Q6)",
         "Vardiya tespiti — Faz 2 (Q7)",

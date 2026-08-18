@@ -47,24 +47,29 @@ remote_day_replaces_attendance: nominal_only
 
 # Input file discovery. The CLI globs these patterns in the input directory, so
 # a Drive-synced folder can be pointed at directly. First match wins.
+#
+# `*.xls*` deliberately covers .xlsx, .xlsm AND .xls: the Macunköy export switched
+# from .xlsx to .xls in July 2026 with no warning (DATA-SOURCES.md D10), and a pattern
+# that only matched one container turned a format change into "file not found".
+# base.open_sheets decides how to read whatever matched, and rejects .xlsb by name.
 sources:
   # Employee roster. Globs are case-insensitive on Windows, but Turkish characters
   # are not folded — so "çalışan" needs its own entry alongside "calisan".
-  # If none of these match, a single .xlsx alone in the roster folder is accepted;
-  # the reader then validates the layout, so a wrong file fails loudly.
+  # If none of these match, a single spreadsheet alone in the roster folder is
+  # accepted; the reader then validates the layout, so a wrong file fails loudly.
   roster:
-    - "*calisan*.xlsx"
-    - "*çalışan*.xlsx"
-    - "*personel*.xlsx"
-    - "SYST03*.xlsx"
+    - "*calisan*.xls*"
+    - "*çalışan*.xls*"
+    - "*personel*.xls*"
+    - "SYST03*.xls*"
   izin:
-    - "*IZIN*.xlsx"
-    - "*İZİN*.xlsx"
+    - "*IZIN*.xls*"
+    - "*İZİN*.xls*"
   macunkoy:
-    - "*Macunköy*.xlsx"
-    - "*Macunkoy*.xlsx"
+    - "*Macunköy*.xls*"
+    - "*Macunkoy*.xls*"
   teknopark:
-    - "*Teknopark*.xlsx"
+    - "*Teknopark*.xls*"
 
 # Leave types from the HCM export that are actually worked time, not absence.
 # See ADR-007.

@@ -32,7 +32,8 @@ Three traps, all of which produced silently wrong output before being fixed:
 The total line is also a gift: it is the source system's own figure per person, so
 every block is cross-checked against it and a disagreement is reported.
 
-`read_only=True` is unsafe here because of the merged ranges.
+`base.open_sheets` reads the whole sheet up front, which sidesteps the merged-range
+problem entirely — openpyxl's `read_only` mode is what mishandles them.
 """
 
 from __future__ import annotations
@@ -40,13 +41,13 @@ from __future__ import annotations
 from datetime import timedelta
 from pathlib import Path
 
-import openpyxl
-
 from ..anomalies import Anomaly, AnomalyKind
 from ..config import Settings
 from ..models import PunchRecord
 from ..normalize import name_key
-from .base import LayoutError, as_date, as_datetime, as_duration, as_text, clean_name
+from .base import (
+    LayoutError, as_date, as_datetime, as_duration, as_text, clean_name, open_sheets,
+)
 
 SOURCE = "teknopark"
 MARKER = "Adı Soyadı"
@@ -67,31 +68,30 @@ _TOTAL_TOLERANCE = timedelta(minutes=2)
 
 def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomaly], int]:
     """Returns (records, anomalies, rows_read)."""
-    workbook = openpyxl.load_workbook(path, data_only=True)
-    sheet = workbook[workbook.sheetnames[0]]
+    sheets = open_sheets(path)
+    if not sheets:
+        raise LayoutError(f"{path.name}: dosyada hiç sayfa yok")
+    sheet = sheets[0]
 
     markers: list[tuple[int, int]] = []
     headers: set[tuple[int, int]] = set()
     totals: dict[tuple[int, int], object] = {}
 
-    for row in sheet.iter_rows(max_col=sheet.max_column):
-        for cell in row:
-            value = cell.value
+    for row_no in range(1, sheet.nrows + 1):
+        for col_no in range(1, sheet.ncols + 1):
+            value = sheet.value(row_no, col_no)
             if not isinstance(value, str):
                 continue
             if MARKER in value:
-                markers.append((cell.row, cell.column))
+                markers.append((row_no, col_no))
             elif value.strip() == HEADER:
-                headers.add((cell.row, cell.column))
+                headers.add((row_no, col_no))
             elif TOTAL in value:
                 # Label sits one column right of the block's first column.
-                totals[(cell.row, cell.column - _OFF_TOTAL_LABEL)] = sheet.cell(
-                    row=cell.row,
-                    column=cell.column - _OFF_TOTAL_LABEL + _OFF_TOTAL_VALUE,
-                ).value
+                totals[(row_no, col_no - _OFF_TOTAL_LABEL)] = sheet.value(
+                    row_no, col_no - _OFF_TOTAL_LABEL + _OFF_TOTAL_VALUE)
 
     if not markers:
-        workbook.close()
         raise LayoutError(
             f"{path.name}: '{MARKER}' işaretçisi hiç bulunamadı — dosya yapısı "
             "değişmiş olabilir."
@@ -114,8 +114,7 @@ def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomal
     rows_read = 0
 
     for header_row_marker, col in sorted(markers):
-        name = as_text(sheet.cell(row=header_row_marker,
-                                  column=col + _OFF_NAME).value)
+        name = as_text(sheet.value(header_row_marker, col + _OFF_NAME))
         if not name:
             anomalies.append(Anomaly(
                 kind=AnomalyKind.UNPARSEABLE_ROW, source=SOURCE,
@@ -134,14 +133,14 @@ def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomal
 
         end_row = _next_after(total_rows_by_col.get(col, []), header_row)
         if end_row is None:
-            end_row = sheet.max_row + 1
+            end_row = sheet.nrows + 1
 
         display = clean_name(name)
         key = settings.personnel.resolve(name_key(display))
         block_records: list[PunchRecord] = []
 
         for row_no in range(header_row + 1, end_row):
-            date_cell = sheet.cell(row=row_no, column=col).value
+            date_cell = sheet.value(row_no, col)
             if date_cell is None:
                 continue                      # blank spacer row, not the block end
             if isinstance(date_cell, str) and MARKER in date_cell:
@@ -163,12 +162,9 @@ def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomal
                 raw_name=display,
                 key=key,
                 date=day,
-                entry=as_datetime(sheet.cell(row=row_no,
-                                             column=col + _OFF_ENTRY).value),
-                exit=as_datetime(sheet.cell(row=row_no,
-                                            column=col + _OFF_EXIT).value),
-                reported_duration=as_text(
-                    sheet.cell(row=row_no, column=col + _OFF_DURATION).value),
+                entry=as_datetime(sheet.value(row_no, col + _OFF_ENTRY)),
+                exit=as_datetime(sheet.value(row_no, col + _OFF_EXIT)),
+                reported_duration=as_text(sheet.value(row_no, col + _OFF_DURATION)),
             ))
 
         records.extend(block_records)
@@ -177,8 +173,6 @@ def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomal
             display, key, block_records, totals.get((end_row, col)), end_row)
         if note is not None:
             anomalies.append(note)
-
-    workbook.close()
 
     if not records:
         raise LayoutError(

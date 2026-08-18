@@ -30,7 +30,8 @@ dependencies:
   - python=3.12
 
   # Çalışma zamanı bağımlılıkları — çıktıyı etkiledikleri için sabit.
-  - openpyxl=3.1.5
+  - openpyxl=3.1.5        # .xlsx / .xlsm
+  - xlrd=2.0.2            # sadece .xls — Temmuz 2026'da Macunköy dışa aktarımı bu forma geçti (ADR-020)
   - pyyaml=6.0.3
 
   # Geliştirme aracı — rapor çıktısını etkilemez, o yüzden aralık yeterli.

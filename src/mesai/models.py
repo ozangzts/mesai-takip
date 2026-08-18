@@ -138,6 +138,35 @@ class MonthSummary:
     notes: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class SourceCoverage:
+    """How much of the reporting period one source actually covers.
+
+    Exists because the July 2026 Teknopark export stopped at the 19th — it was taken
+    mid-month — and the pipeline produced a confident full-month report from it, with
+    the reconciliation reading TAMAM. Every other guard passed, because the file was
+    internally consistent: it was complete data about an incomplete period.
+
+    `trailing_missing` is the signal, not the raw count of absent days. Teknopark
+    legitimately has no records on days the office is shut while Macunköy production
+    runs, so "fewer days than the other source" means nothing. An unbroken run of
+    expected working days at the END of the period means the export was cut short.
+    """
+    source: str
+    present: int                  # expected working days with at least one record
+    expected: int                 # expected working days in the period
+    trailing_missing: tuple[date, ...] = ()
+
+    @property
+    def is_partial(self) -> bool:
+        """More than one trailing working day missing — an export taken mid-period.
+
+        One day is tolerated: an export run on the last working day of the month
+        legitimately has nothing for that day yet.
+        """
+        return len(self.trailing_missing) > 1
+
+
 @dataclass
 class RunStats:
     """Reconciliation counters for the Kontrol sheet."""
@@ -153,4 +182,8 @@ class RunStats:
     roster_duplicates: list[str] = field(default_factory=list)
     out_of_period: dict[str, int] = field(default_factory=dict)
     out_of_period_leave: int = 0
+    # Per attendance source: (expected working days present, expected total, the
+    # trailing run of expected working days with no record at all). The last one is
+    # the partial-export signal — see SourceCoverage and ADR-020.
+    coverage: dict[str, "SourceCoverage"] = field(default_factory=dict)
     roster_date: date | None = None      # roster export date, from the file itself

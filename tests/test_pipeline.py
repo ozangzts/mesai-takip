@@ -247,3 +247,80 @@ def test_cli_rejects_a_malformed_period(capsys):
     for bad in ("2026-5", "mayis", "2026/05", "26-05"):
         assert main(["rapor", "--ay", bad]) == 2
         assert "YYYY-MM" in capsys.readouterr().err
+
+
+# --- period coverage (ADR-020) ---------------------------------------------
+
+def _punch_on(day: str, source: str = "teknopark") -> PunchRecord:
+    return punch(day, source=source)
+
+
+def test_full_coverage_is_not_flagged(settings):
+    """June 2026's shape: every expected working day present."""
+    from mesai.pipeline import _coverage
+    days = settings.calendar.expected_workdays(2026, 6)
+    records = [_punch_on(d.isoformat()) for d in days]
+    cov = _coverage(records, "2026-06", settings)["teknopark"]
+
+    assert cov.present == cov.expected == len(days)
+    assert cov.trailing_missing == ()
+    assert not cov.is_partial
+
+
+def test_a_mid_month_export_is_flagged(settings):
+    """The real July 2026 Teknopark file: stops on the 19th, ten working days short."""
+    from mesai.pipeline import _coverage
+    days = settings.calendar.expected_workdays(2026, 7)
+    kept = [d for d in days if d.day < 20]
+    cov = _coverage([_punch_on(d.isoformat()) for d in kept], "2026-07", settings)
+
+    teknopark = cov["teknopark"]
+    assert teknopark.is_partial
+    assert teknopark.present == len(kept)
+    assert teknopark.trailing_missing[0].day == 20
+    assert len(teknopark.trailing_missing) == len(days) - len(kept)
+
+
+def test_a_gap_in_the_middle_is_not_a_partial_export(settings):
+    """Only a TRAILING run means the export was cut short.
+
+    A missing day mid-month is a different problem — a closed site, a terminal
+    outage — and must not be reported as an incomplete export.
+    """
+    from mesai.pipeline import _coverage
+    days = settings.calendar.expected_workdays(2026, 6)
+    kept = days[:5] + days[8:]          # hole in the middle, last day present
+    cov = _coverage([_punch_on(d.isoformat()) for d in kept], "2026-06", settings)
+
+    assert not cov["teknopark"].is_partial
+    assert cov["teknopark"].present == len(kept)
+
+
+def test_one_trailing_day_is_tolerated(settings):
+    """An export run on the final working day has nothing for it yet. Not an alarm."""
+    from mesai.pipeline import _coverage
+    days = settings.calendar.expected_workdays(2026, 6)
+    cov = _coverage([_punch_on(d.isoformat()) for d in days[:-1]], "2026-06", settings)
+
+    assert len(cov["teknopark"].trailing_missing) == 1
+    assert not cov["teknopark"].is_partial
+
+
+def test_leave_records_are_not_an_attendance_source(settings):
+    """`izin` covers only days people were away; judging its coverage is meaningless."""
+    from mesai.pipeline import _coverage
+    days = settings.calendar.expected_workdays(2026, 6)
+    records = [_punch_on(days[0].isoformat(), source="izin")]
+    assert _coverage(records, "2026-06", settings) == {}
+
+
+def test_each_source_is_measured_separately(settings):
+    """Teknopark being short must not be masked by Macunköy being complete."""
+    from mesai.pipeline import _coverage
+    days = settings.calendar.expected_workdays(2026, 7)
+    records = ([_punch_on(d.isoformat(), "macunkoy") for d in days]
+               + [_punch_on(d.isoformat(), "teknopark") for d in days if d.day < 20])
+    cov = _coverage(records, "2026-07", settings)
+
+    assert not cov["macunkoy"].is_partial
+    assert cov["teknopark"].is_partial

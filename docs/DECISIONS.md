@@ -865,7 +865,7 @@ timestamp for this purpose — it failed to be a placeholder, so the day is left
   rule above, and worth knowing the case exists.
 - Remote days now measure exactly what the declaration says — usually 9:00 for a full
   day, which agrees with the 9-hour workday the leave file's own arithmetic implies
-  (`DATA-SOURCES.md` D7).
+  (`DATA-SOURCES.md` D13).
 - **Amends ADR-016's reproduction recipe.** Reproducing the pre-2026-08-17 report now
   needs three switches, not two: `break.deduct: true`, `daily_hours: union` **and**
   `remote_day_replaces_attendance: never`. Verified with all three: June brüt
@@ -914,3 +914,101 @@ ambiguity at the boundary. `min_minutes` is unchanged and keeps doing its own jo
 - `Sorulacaklar` gains a row per affected person, and `Günlük Detay` a `kısa-gün` tag,
   so the days are filterable.
 - The threshold is HR's number. If they revise it, it is a YAML edit.
+
+---
+
+## ADR-020 — Read every Excel container, derive columns from the header, and check period coverage
+
+2026-08-18 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+July 2026's inputs arrived and the run failed. Investigating produced three separate
+findings, all in the Macunköy and Teknopark exports, all in one month:
+
+1. **The container changed.** `Macunköy Temmuz Mesai giriş-çıkış.xls` is a genuine
+   OLE2/BIFF file (`d0cf11e0`), not `.xlsx`. `openpyxl` cannot read it at all, and the
+   glob only matched `*.xlsx`, so the run stopped at "file not found".
+2. **A column was dropped.** `Personel` (the full-name column) is gone, shifting every
+   column after it one place left: 11 columns became 10. A reader with fixed indices
+   would have read `SicilNo` as the employee name and `Bolum` as the date.
+3. **A title line appeared** above the header, so the header is no longer row 1.
+
+And once those were fixed, a fourth, worse finding: **the Teknopark export covers only
+1–19 July.** It was taken on the 20th. The pipeline produced a full-month report from
+it — 16 029 h against June's 27 119 h — with every existing guard passing and the
+reconciliation reading `TAMAM`. The file was internally consistent: complete data
+about an incomplete period. That is the exact failure mode ADR-014 was written for, in
+a form ADR-014 does not catch.
+
+This also retires the answer to Q10. "Does the export format change month to month?"
+was answered **No** on the strength of June. July says yes, three times over.
+
+### Options considered
+
+For the container: (1) **support `.xls` via xlrd**, (2) ask HR to re-export as `.xlsx`
+every month, (3) convert manually. (2) and (3) put a manual step in front of a tool
+whose whole point is that a non-technical person runs it unattended — the format will
+change again and they will be stuck.
+
+For the columns: (1) **derive positions from the header**, (2) add a second index
+table for the July layout. (2) needs a new branch for every future variation and gets
+it wrong silently.
+
+For coverage: (1) **warn loudly and exit non-zero**, (2) fail the run outright,
+(3) leave it. (2) blocks a legitimate mid-month "how are we doing" run. (3) is what
+just happened, and the report was on its way to a manager.
+
+### Decision
+
+All three, plus the guard:
+
+**Container.** `readers/base.open_sheets` opens `.xlsx`/`.xlsm` with openpyxl and
+`.xls` with xlrd, returning a uniform in-memory `Sheet` whatever the format. Container
+handling lives in exactly one place; the four readers were migrated onto it and know
+nothing about either library. `.xlsb` is deliberately **not** supported — it has never
+arrived, and the error names it so the fix is obvious if it does.
+
+Two traps handled inside the adapter: xlrd returns dates as bare floats (unconverted,
+every timestamp becomes meaningless and every person gets zero hours, reported as
+success), and reading whole sheets up front sidesteps the merged-range problem that
+made `read_only` unsafe for Teknopark.
+
+Source globs widened to `*.xls*`, so a container change is no longer "file not found".
+
+**Columns.** `readers/base.find_header_row` locates the header within the first ten
+rows and maps names to 1-based positions. `macunkoy.py` now addresses every column by
+name, requires only `Ad`, `Soyad`, `MesaiTarih`, `Giris`, `Cikis`, and treats
+`Personel`, `SicilNo`, `Bolum`, `SureSaat` as optional — the full name is rebuilt from
+`Ad` + `Soyad` when `Personel` is absent. `AGENTS.md` §5 already demanded this for the
+roster; it now holds for every source.
+
+**Coverage.** `SourceCoverage` per attendance source: expected working days present,
+and the **trailing run** of expected working days with no record. The trailing run is
+the signal, not the raw absent count — Teknopark legitimately has nothing on days the
+office is shut while Macunköy production runs, so "fewer days than the other source"
+means nothing. A gap in the middle is a different problem and is not reported as a
+partial export. More than one trailing day is partial; one is tolerated, because an
+export run on the last working day has nothing for it yet.
+
+When any source is partial: a red banner at the top of `Aylık Özet` above the table, a
+`3. Dönem kapsamı` section on `Kontrol`, a CLI warning, and **exit code 5** so an
+unattended run is noticed rather than discovered at payroll.
+
+### Consequences
+
+- July 2026 runs, and says plainly that it is incomplete: `13 / 23` working days for
+  Teknopark, `20.07.2026 ve sonrası yok`. The hours in it must not be used.
+- May and June are byte-for-byte unchanged after the reader migration — `17103:58` and
+  `27119:24`, same anomaly counts, 127 tests green throughout. The migration was
+  behaviour-preserving by construction and verified as such.
+- New runtime dependency: `xlrd` (pure Python, `.xls` only). It must go into
+  `environment.yml`, `pyproject.toml` and any packaged build.
+- A future column rename still fails the run, but now with a message naming the
+  missing column instead of a wrong number. Positional assumptions are gone from the
+  Macunköy reader; the Teknopark reader is still block-offset based, because its
+  layout is not a header table — that remains a known fragility, held by the
+  per-block total check.
+- HR must re-export July's Teknopark file for the full month. Q10 is reopened as Q23:
+  the format is *not* stable, so every month's first run should be assumed to need a
+  look at the `Kontrol` sheet.

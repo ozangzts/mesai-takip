@@ -170,7 +170,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 127 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 135 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -198,7 +198,13 @@ weaken any of them without an ADR:
 3. **Roster key uniqueness** — a repeated `(first, last)` key belonging to two
    different identities fails the run rather than merging payroll hours (ADR-010,
    ADR-013).
-4. **Period filter** — `--ay` is a filter, not a label. Records outside the month are
+4. **Period coverage** — each attendance source is checked for a *trailing* run of
+   expected working days with no records. July 2026's Teknopark export covered only
+   1–19 July and every other guard passed: it was complete data about an incomplete
+   period. A partial source produces a red banner on `Aylık Özet`, a `Kontrol` section
+   and **exit code 5** (ADR-020). Do not check "fewer days than the other source" —
+   Teknopark legitimately has none while the office is shut.
+5. **Period filter** — `--ay` is a filter, not a label. Records outside the month are
    dropped and counted; if *no* record falls inside the month, the run fails. A
    source pattern matching two files also fails. One month per input folder is a
    contract (ADR-014).
@@ -297,12 +303,12 @@ Headline defects (all verified, not assumed):
   reading — written when an expected workday has no turnstile data. They are counted
   as worked time (ADR-017) and are ~17 % of reported hours. Declared in
   `config/settings.yaml:nominal_day`. Do not read them as a remote-work marker: 90 %
-  have no remote declaration behind them. `DATA-SOURCES.md` D9.
+  have no remote declaration behind them. `DATA-SOURCES.md` D11.
 - **Leave days are fractional because the HCM divides hours by 9** (`0.11` = 1 h,
   `0.44` = 4 h, `1.00` = 9 h). Multi-day rows instead count working days. Two
   independent sources therefore put the workday at **9 hours**, which is what the
   report now pays — and which makes `expected_daily_net_hours: 8.25` wrong (Q5).
-  `DATA-SOURCES.md` D7.
+  `DATA-SOURCES.md` D13.
 
 After excluding visitors/temps and unioning both sites: **162 real employees**,
 of whom 24 have no attendance record at all and must be reported as
@@ -336,6 +342,14 @@ switch of this kind, require it too.
 **Readers return one shape.** Every reader in `src/mesai/readers/` returns the same
 normalized record type regardless of how ugly its source file is. All
 file-format weirdness is contained inside its reader and nowhere else.
+
+**Container and column layout are discovered, never assumed.** `base.open_sheets`
+opens `.xlsx`/`.xlsm`/`.xls` and hands every reader the same `Sheet`; no reader knows
+which library was used. `base.find_header_row` finds the header and maps names to
+positions. Source globs are `*.xls*`. This is not defensive over-engineering: the
+Macunköy export changed container, dropped a column and gained a title row in a single
+month (ADR-020, `DATA-SOURCES.md` D10). **Never reintroduce a fixed column index or a
+single-container glob.**
 
 **Errors are data.** Anomalies (missing punch, negative duration, unresolvable
 name, implausible duration) are collected into a structured list and written to a

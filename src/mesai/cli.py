@@ -95,6 +95,10 @@ def main(argv: list[str] | None = None) -> int:
         return 4
 
     _report(result)
+    # Non-zero so an unattended run is noticed. ARCHITECTURE.md: a scheduled job that
+    # fails silently is not noticed until payroll. 5 = report written but incomplete.
+    if result.get("partial_sources"):
+        return 5
     return 0
 
 
@@ -109,6 +113,12 @@ def _report(result: dict) -> None:
           f"   <- ayrılmış olabilir")
     print(f"  Kişi-gün kaydı               : {result['workdays']}")
     print(f"  Toplam brüt süre             : {hhmm(result['gross'])}")
+    for cov in result.get("partial_sources") or []:
+        print("")
+        print(f"  !! EKSİK VERİ: {cov.source} dosyası dönemin tamamını "
+              f"içermiyor — {cov.trailing_missing[0]:%d.%m.%Y} ve sonrası yok "
+              f"({cov.present}/{cov.expected} iş günü).")
+        print("     Bu rapordaki saatler bordro için kullanılamaz.")
     print(f"  Şüpheli kayıt                : {result['anomalies']}"
           f" ({result['excluded_anomalies']} tanesi toplama dahil edilmedi)")
     print(f"  {'-' * 58}")

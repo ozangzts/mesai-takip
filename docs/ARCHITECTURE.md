@@ -1,8 +1,9 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 96 tests pass, and two months (May and
-June 2026) have been generated with the reconciliation invariant holding. Phase 2/3/4
-modules listed below are still design.
+**Status: BUILT.** Phase 1 is implemented, 135 tests pass, and three months (May,
+June and July 2026) have been generated with the reconciliation invariant holding.
+July's Teknopark export covers only part of the month and the run says so — ADR-020.
+Phase 2/3/4 modules listed below are still design.
 
 ---
 
@@ -33,6 +34,8 @@ back. No stage mutates global state.
         +---------+----------+------------------------+
                   v
            [2b] filter to period  -> anything outside the month is dropped
+                  v
+           [2c] coverage check     -> does each source cover the period? ADR-020
                   v
            [3] normalize          -> identities resolved against the roster,
                   |                   non-employee badges excluded
@@ -68,7 +71,8 @@ src/mesai/
 ├── anomalies.py       ✅  anomaly kinds, Turkish labels, collector
 ├── merge.py           ✅  interval union, cross-site repair
 ├── readers/
-│   ├── base.py        ✅  parsing helpers, glob-based file discovery
+│   ├── base.py        ✅  container abstraction (.xlsx/.xlsm/.xls), header
+│   │                      discovery, parsing helpers, glob file discovery
 │   ├── roster.py      ✅  employee registry — loaded FIRST, see below
 │   ├── macunkoy.py    ✅  flat-log reader
 │   ├── teknopark.py   ✅  block-layout reader
@@ -376,6 +380,10 @@ the source system's own totals in both.
 Phase 1–3: run by hand. `rapor.cmd` locates the conda environment itself, so no
 activation and no fixed working directory are needed — which is also what makes it
 schedulable without further work.
+
+Exit codes: 0 = clean, 2 = bad input/config, 3 = file layout changed, 4 = output
+locked, **5 = report written but a source does not cover the period** (ADR-020). A
+scheduled job must treat anything non-zero as needing a human.
 
 Phase 4: Windows Task Scheduler invokes `rapor.cmd` monthly. Non-zero exit codes must
 raise an alert (2 input, 3 layout, 4 locked output, 9 missing environment) — a monthly

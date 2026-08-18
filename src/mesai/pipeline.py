@@ -14,7 +14,8 @@ from .anomalies import Anomaly, AnomalyKind, Collector
 from .config import Settings
 from .merge import build_workdays
 from .models import (
-    Employee, LeaveRecord, MonthSummary, NameKey, PunchRecord, RunStats, WorkDay,
+    Employee, LeaveRecord, MonthSummary, NameKey, PunchRecord, RunStats,
+    SourceCoverage, WorkDay,
 )
 from .readers import LayoutError, find_sources, izin, macunkoy, roster, teknopark
 from .report import workbook as report_workbook
@@ -83,6 +84,11 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     # --- stage 2b: keep only what belongs to the reporting period ----------
     records, leave = _filter_to_period(records, leave, period, stats)
 
+    # --- stage 2c: does each source actually cover the period? -------------
+    # A file can be internally perfect and still describe half a month. July 2026's
+    # Teknopark export stopped on the 19th and every other guard passed. ADR-020.
+    stats.coverage = _coverage(records, period, settings)
+
     # --- stage 3: normalize / resolve identity -----------------------------
     employees = _resolve_employees(records, leave, roster_entries)
 
@@ -114,9 +120,43 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
         "anomalies": len(anomalies),
         "excluded_anomalies": sum(
             1 for a in anomalies.items if a.severity == "excluded"),
+        "partial_sources": [c for c in stats.coverage.values() if c.is_partial],
         "gross": measured_total,
         "stats": stats,
     }
+
+
+def _coverage(
+    records: list[PunchRecord], period: str, settings: Settings,
+) -> dict[str, SourceCoverage]:
+    """Per attendance source, how much of the period's working days it covers.
+
+    Leave records are excluded: `izin` is not an attendance source and legitimately
+    covers only the days somebody was away.
+    """
+    year, month = (int(part) for part in period.split("-"))
+    expected = settings.calendar.expected_workdays(year, month)
+
+    by_source: dict[str, set[date]] = defaultdict(set)
+    for record in records:
+        if record.source != "izin":
+            by_source[record.source].add(record.date)
+
+    coverage: dict[str, SourceCoverage] = {}
+    for source, days in by_source.items():
+        trailing: list[date] = []
+        for day in reversed(expected):
+            if day in days:
+                break
+            trailing.append(day)
+        trailing.reverse()
+        coverage[source] = SourceCoverage(
+            source=source,
+            present=sum(1 for day in expected if day in days),
+            expected=len(expected),
+            trailing_missing=tuple(trailing),
+        )
+    return coverage
 
 
 def _locate_roster(roster_dir: Path | None, input_dir: Path,

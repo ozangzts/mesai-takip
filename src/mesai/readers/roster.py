@@ -11,11 +11,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import openpyxl
-
 from ..models import NameKey, RosterEntry
 from ..normalize import display_name, name_key
-from .base import LayoutError, as_text
+from .base import LayoutError, as_text, open_sheets
 
 EXPECTED_HEADERS = ("Kullanıcı", "Kontak No", "İsim", "Soyad", "E-posta")
 OPTIONAL_HEADERS = ("Bölüm", "Tesis", "Görev")
@@ -26,7 +24,7 @@ PREFERRED_SHEET = "TEMPIASUSERS"
 # (ADR-010).
 
 
-def _find_sheet(workbook, path: Path):
+def _find_sheet(sheets, path: Path):
     """Locate the roster sheet by its COLUMNS, not its name.
 
     The file gets renamed by whoever exports it (`SYST03_TEMPIASUSERS.xlsx` became
@@ -34,19 +32,16 @@ def _find_sheet(workbook, path: Path):
     real contract. `TEMPIASUSERS` is tried first only as a fast path; the workbook
     also holds a `Sayfa1` with just name and e-mail, which must not be picked.
     """
-    ordered = ([PREFERRED_SHEET] if PREFERRED_SHEET in workbook.sheetnames else []) + [
-        name for name in workbook.sheetnames if name != PREFERRED_SHEET
-    ]
+    ordered = ([s for s in sheets if s.name == PREFERRED_SHEET]
+               + [s for s in sheets if s.name != PREFERRED_SHEET])
 
     seen: list[str] = []
-    for name in ordered:
-        sheet = workbook[name]
-        first = next(sheet.iter_rows(max_row=1, values_only=True), ())
-        header = [as_text(cell) for cell in first]
+    for sheet in ordered:
+        header = [as_text(sheet.value(1, c)) for c in range(1, sheet.ncols + 1)]
         missing = [h for h in EXPECTED_HEADERS if h not in header]
         if not missing:
             return sheet, header
-        seen.append(f"  '{name}': eksik kolonlar {missing}")
+        seen.append(f"  '{sheet.name}': eksik kolonlar {missing}")
 
     raise LayoutError(
         f"{path.name}: beklenen kolonları taşıyan sayfa bulunamadı.\n"
@@ -70,8 +65,7 @@ def read(path: Path) -> tuple[dict[NameKey, RosterEntry], list[str]]:
     old account was never closed) with identical contact number, e-mail, department
     and title. Same person, two rows — deduplicated, not fatal.
     """
-    workbook = openpyxl.load_workbook(path, data_only=True)
-    sheet, header = _find_sheet(workbook, path)
+    sheet, header = _find_sheet(open_sheets(path), path)
     col = {name: header.index(name) for name in EXPECTED_HEADERS}
     col.update({name: header.index(name)
                 for name in OPTIONAL_HEADERS if name in header})
@@ -88,7 +82,7 @@ def read(path: Path) -> tuple[dict[NameKey, RosterEntry], list[str]]:
     collisions: list[str] = []
     duplicates: list[str] = []
 
-    for row_no, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+    for row_no, row in enumerate(sheet.rows(2), start=2):
         given = cell(row, "İsim")
         if not given:
             continue
@@ -135,8 +129,6 @@ def read(path: Path) -> tuple[dict[NameKey, RosterEntry], list[str]]:
         entries[key] = entry
         identity[key] = (contact, email)
         logins[key] = [login]
-
-    workbook.close()
 
     if collisions:
         raise LayoutError(

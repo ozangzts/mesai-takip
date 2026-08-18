@@ -155,3 +155,60 @@ def test_locked_output_file_reports_a_readable_error(tmp_path, settings, monkeyp
     monkeypatch.setattr(workbook.os, "replace", boom)
     with pytest.raises(workbook.ReportLocked, match="kilitli"):
         _build(tmp_path, settings)
+
+
+# --- partial-export banner (ADR-020) ---------------------------------------
+
+def test_partial_coverage_puts_a_warning_above_the_table(tmp_path, settings):
+    """The deliverable sheet must say so — a mid-month report looks normal otherwise."""
+    from mesai.models import SourceCoverage
+    stats = RunStats(
+        rows_read={"teknopark": 1}, records_built={"teknopark": 1},
+        intervals_accepted=2, union_total=timedelta(hours=8, minutes=57),
+        accepted_total=timedelta(hours=9, minutes=39),
+        files={"teknopark": "test.xlsx"}, roster_date=date(2026, 7, 28),
+        coverage={"teknopark": SourceCoverage(
+            source="teknopark", present=13, expected=23,
+            trailing_missing=tuple(date(2026, 7, d) for d in (20, 21, 22)))},
+    )
+    path = tmp_path / "kismi.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(), stats=stats,
+        settings=settings, generated_at=datetime(2026, 8, 18, 12, 0),
+    )
+
+    book = openpyxl.load_workbook(path, read_only=True)
+    rows = list(book["Aylık Özet"].iter_rows(values_only=True))
+    assert "BU RAPOR EKSİK" in str(rows[3][0])
+    assert "20.07" in str(rows[3][0])
+    # The table must have shifted down rather than been overwritten.
+    assert rows[4][0] == "Ad Soyad"
+
+    control = "\n".join(
+        " ".join(str(c) for c in r if c is not None)
+        for r in book["Kontrol"].iter_rows(values_only=True))
+    assert "KISMİ DIŞA AKTARIM" in control
+    assert "13 / 23" in control
+
+
+def test_full_coverage_leaves_the_table_where_it_was(tmp_path, settings):
+    from mesai.models import SourceCoverage
+    stats = RunStats(
+        files={"teknopark": "test.xlsx"},
+        coverage={"teknopark": SourceCoverage("teknopark", 23, 23, ())},
+    )
+    path = tmp_path / "tam.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(), stats=stats,
+        settings=settings, generated_at=datetime(2026, 8, 18, 12, 0),
+    )
+
+    book = openpyxl.load_workbook(path, read_only=True)
+    rows = list(book["Aylık Özet"].iter_rows(values_only=True))
+    assert rows[3][0] == "Ad Soyad", "no banner, header stays on row 4"
+    control = "\n".join(
+        " ".join(str(c) for c in r if c is not None)
+        for r in book["Kontrol"].iter_rows(values_only=True))
+    assert "Dönemin tamamı kapsanıyor" in control

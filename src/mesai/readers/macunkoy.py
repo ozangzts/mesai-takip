@@ -1,10 +1,22 @@
 """Macunköy badge-terminal export — flat log, one row per person-day.
 
-Layout (docs/DATA-SOURCES.md §1):
-    A Ad | B Soyad | C Personel | D SicilNo | E Birim | F (empty) | G Bolum
-    H MesaiTarih | I Giris | J Cikis | K SureSaat
+Layout is discovered, never assumed. As of July 2026 this file has changed shape
+three times in three months (docs/DATA-SOURCES.md D10):
 
-Health: poor. 388 of 1 209 rows are missing a punch, 29 have a negative duration,
+    May/June    .xlsx, header on row 1, 11 columns incl. `Personel`
+    July        .xls,  header on row 2 (a title line above it), 10 columns,
+                `Personel` dropped so everything after it shifted left
+
+So: the container is opened by `base.open_sheets` (which handles both formats), the
+header row is *found*, and every column is addressed **by name**. The previous version
+used fixed indices and would have read `SicilNo` as the employee name and `Bolum` as
+the date — confidently wrong, and only stopped by the header check.
+
+Only `Ad`, `Soyad`, `MesaiTarih`, `Giris` and `Cikis` are required. `Personel`,
+`SicilNo`, `Bolum` and `SureSaat` are used when present and skipped when not: the
+full name can always be rebuilt from `Ad` + `Soyad`.
+
+Health: poor. 388 of 1 209 May rows are missing a punch, 29 have a negative duration,
 23 identities are visitor/temporary badges. None of that is fixed here — the reader
 passes it through and the rules layer decides.
 """
@@ -13,48 +25,56 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import openpyxl
-
 from ..anomalies import Anomaly, AnomalyKind
 from ..config import Settings
 from ..models import PunchRecord
 from ..normalize import fold, is_excluded, name_key
-from .base import LayoutError, as_date, as_datetime, as_text, clean_name
+from .base import (
+    LayoutError, as_date, as_datetime, as_text, clean_name, find_header_row,
+    open_sheets,
+)
 
 SOURCE = "macunkoy"
-EXPECTED_HEADERS = ("Ad", "Soyad", "Personel", "MesaiTarih", "Giris", "Cikis")
 
-_COL_GIVEN, _COL_SURNAME, _COL_FULL, _COL_BADGE = 0, 1, 2, 3
-_COL_DEPARTMENT, _COL_DATE, _COL_ENTRY, _COL_EXIT, _COL_DURATION = 6, 7, 8, 9, 10
+# Without these the file cannot be interpreted at all.
+REQUIRED_HEADERS = ("Ad", "Soyad", "MesaiTarih", "Giris", "Cikis")
+# Used when present. `Personel` is the pre-July full-name column.
+OPTIONAL_HEADERS = ("Personel", "SicilNo", "Bolum", "SureSaat")
 
 
 def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomaly], int, int]:
     """Returns (records, anomalies, rows_read, excluded_badge_rows)."""
-    workbook = openpyxl.load_workbook(path, data_only=True, read_only=True)
-    sheet = workbook[workbook.sheetnames[0]]
+    sheets = open_sheets(path)
+    if not sheets:
+        raise LayoutError(f"{path.name}: dosyada hiç sayfa yok")
+    sheet = sheets[0]
 
-    rows = sheet.iter_rows(values_only=True)
-    header = [as_text(c) for c in next(rows)]
-    missing = [h for h in EXPECTED_HEADERS if h not in header]
-    if missing:
-        workbook.close()
-        raise LayoutError(
-            f"{path.name}: beklenen kolonlar yok: {missing} — başlık: {header}"
-        )
+    header_row, columns = find_header_row(sheet, REQUIRED_HEADERS)
+    col = {name: columns[name] for name in REQUIRED_HEADERS}
+    for name in OPTIONAL_HEADERS:
+        if name in columns:
+            col[name] = columns[name]
 
     records: list[PunchRecord] = []
     anomalies: list[Anomaly] = []
     rows_read = 0
     excluded = 0
 
-    for row_no, row in enumerate(rows, start=2):
+    def cell(row: tuple, name: str) -> object:
+        index = col.get(name)
+        if index is None or index > len(row):
+            return None
+        return row[index - 1]
+
+    for offset, row in enumerate(sheet.rows(header_row + 1)):
+        row_no = header_row + 1 + offset
         if row is None or all(c is None for c in row):
             continue
         rows_read += 1
 
-        full = as_text(row[_COL_FULL])
-        given = as_text(row[_COL_GIVEN])
-        surname = as_text(row[_COL_SURNAME])
+        full = as_text(cell(row, "Personel"))
+        given = as_text(cell(row, "Ad"))
+        surname = as_text(cell(row, "Soyad"))
         if not full and not given:
             anomalies.append(Anomaly(
                 kind=AnomalyKind.UNPARSEABLE_ROW, source=SOURCE, source_row=row_no,
@@ -67,11 +87,12 @@ def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomal
             excluded += 1
             continue
 
-        day = as_date(row[_COL_DATE])
+        raw_date = cell(row, "MesaiTarih")
+        day = as_date(raw_date)
         if day is None:
             anomalies.append(Anomaly(
                 kind=AnomalyKind.UNPARSEABLE_ROW, source=SOURCE, source_row=row_no,
-                raw_name=display, detail=f"tarih okunamadı: {row[_COL_DATE]!r}",
+                raw_name=display, detail=f"tarih okunamadı: {raw_date!r}",
             ))
             continue
 
@@ -81,14 +102,18 @@ def read(path: Path, settings: Settings) -> tuple[list[PunchRecord], list[Anomal
             raw_name=display,
             key=settings.personnel.resolve(name_key(display)),
             date=day,
-            entry=as_datetime(row[_COL_ENTRY]),
-            exit=as_datetime(row[_COL_EXIT]),
-            badge_id=_badge(row[_COL_BADGE]),
-            department=as_text(row[_COL_DEPARTMENT]),
-            reported_duration=as_text(row[_COL_DURATION]),
+            entry=as_datetime(cell(row, "Giris")),
+            exit=as_datetime(cell(row, "Cikis")),
+            badge_id=_badge(cell(row, "SicilNo")),
+            department=as_text(cell(row, "Bolum")),
+            reported_duration=as_text(cell(row, "SureSaat")),
         ))
 
-    workbook.close()
+    if not records:
+        raise LayoutError(
+            f"{path.name}: {rows_read} satır okundu ama hiç kayıt üretilemedi — "
+            "başlık bulundu ama veri satırları beklenen biçimde değil."
+        )
     return records, anomalies, rows_read, excluded
 
 

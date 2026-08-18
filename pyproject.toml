@@ -4,7 +4,8 @@ version = "0.1.0"
 description = "DEICO monthly working-time report generator"
 requires-python = ">=3.11"
 dependencies = [
-    "openpyxl>=3.1",
+    "openpyxl>=3.1",     # .xlsx / .xlsm
+    "xlrd>=2.0",         # .xls only — the Macunköy export switched to it in July 2026
     "PyYAML>=6.0",
 ]
 

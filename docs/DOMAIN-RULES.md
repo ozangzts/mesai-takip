@@ -53,7 +53,7 @@ expected_daily_net_hours: 8.25         # STALE — see below
 > code. It assumed `16:30 − 07:30 = 9 h 00` minus a 45-minute lunch. Since ADR-016 the
 > break is not deducted, so a full day is **9 hours** — and the leave export's own
 > arithmetic independently agrees, dividing hours by 9 to produce `Kullanılan Gün`
-> (`DATA-SOURCES.md` D7). Fix the key before wiring any Phase 2 overtime rule. Q5.
+> (`DATA-SOURCES.md` D13). Fix the key before wiring any Phase 2 overtime rule. Q5.
 
 ---
 
@@ -363,7 +363,7 @@ A full-day row (`07:30–16:30`) yields 9 h gross, 8.25 h net after the break
 deduction — identical to a badged normal day, which is the point.
 
 **A remote day overrides a nominal placeholder (ADR-018).** Most remote days also carry
-a nominal `09:00–18:00` row in the Teknopark timesheet (`DATA-SOURCES.md` D9) — the
+a nominal `09:00–18:00` row in the Teknopark timesheet (`DATA-SOURCES.md` D11) — the
 timesheet filling in a day nobody badged. Unioning both stretched the day to
 `07:30–18:00` = 10:30 on the strength of a row that is not evidence. So:
 

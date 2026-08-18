@@ -13,17 +13,14 @@ Two things this reader must get right:
 
 from __future__ import annotations
 
-import warnings
 from datetime import datetime, time, timedelta
 from pathlib import Path
-
-import openpyxl
 
 from ..anomalies import Anomaly, AnomalyKind
 from ..config import Settings
 from ..models import LeaveRecord, PunchRecord
 from ..normalize import name_key
-from .base import LayoutError, as_date, as_text, as_time, clean_name
+from .base import LayoutError, as_date, as_text, as_time, clean_name, open_sheets
 
 SOURCE = "izin"
 SHEET_CANDIDATES = ("HCMPERS",)
@@ -39,24 +36,16 @@ def read(
     path: Path, settings: Settings
 ) -> tuple[list[LeaveRecord], list[PunchRecord], list[Anomaly], int, int]:
     """Returns (leave_records, remote_work_punches, anomalies, rows_read, subtotals_skipped)."""
-    # The HCM export carries no default cell style, so openpyxl warns on every load.
-    # Expected and harmless — openpyxl substitutes its own default and we read values
-    # only. Suppressed narrowly so real warnings still surface.
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message="Workbook contains no default style", category=UserWarning)
-        workbook = openpyxl.load_workbook(path, data_only=True)
+    sheets = open_sheets(path)
+    if not sheets:
+        raise LayoutError(f"{path.name}: dosyada hiç sayfa yok")
+    sheet = next((s for s in sheets if s.name in SHEET_CANDIDATES), sheets[0])
 
-    sheet_name = next((s for s in SHEET_CANDIDATES if s in workbook.sheetnames),
-                      workbook.sheetnames[0])
-    sheet = workbook[sheet_name]
-
-    rows = sheet.iter_rows(values_only=True)
-    header = [as_text(c) for c in next(rows)]
+    header = [as_text(sheet.value(1, c)) for c in range(1, sheet.ncols + 1)]
     missing = [h for h in EXPECTED_HEADERS if h not in header]
     if missing:
-        workbook.close()
         raise LayoutError(f"{path.name}: beklenen kolonlar yok: {missing}")
+    rows = sheet.rows(2)
 
     leave: list[LeaveRecord] = []
     remote: list[PunchRecord] = []
@@ -101,7 +90,6 @@ def read(
             remote.extend(punches)
             anomalies.extend(notes)
 
-    workbook.close()
     return leave, remote, anomalies, rows_read, subtotals
 
 

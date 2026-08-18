@@ -92,6 +92,11 @@ folder can be pointed at directly — the Phase 4 automation needs no renaming s
 | Reconciliation | TAMAM | TAMAM |
 | Teknopark block totals matching | 110 / 110 | 110 / 110 |
 
+**July 2026 is NOT in this table on purpose.** Its Teknopark export covers only
+1–19 July (13 of 23 working days), so its `16 029:17` is not comparable and must not
+reach payroll. The run now says so: red banner on `Aylık Özet`, `3. Dönem kapsamı` on
+`Kontrol`, and exit code 5. See ADR-020 and Q23.
+
 Three rule changes landed on 2026-08-17. For May, starting from the previous
 `15 717:08` net / `17 009:01` gross:
 
@@ -143,7 +148,7 @@ source system's own totals. The export format is stable month to month.
   in June: 13 people, all Macunköy-based. That is Q4.
 - **Most remote-work days also carry a Teknopark record** — 37 of 56 in May, 83 of
   106 in June. Nearly all of those are the nominal `09:00–18:00` placeholder rather
-  than a real punch (`DATA-SOURCES.md` D9), so since ADR-018 the declared remote hours
+  than a real punch (`DATA-SOURCES.md` D11), so since ADR-018 the declared remote hours
   are used and the placeholder is set aside. Only 2 May and 5 June records overlap a
   genuine punch, and those keep every hour.
 
@@ -252,9 +257,9 @@ mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
 | Q20b | Çakışmaların içinde gerçekten sorulacak olan var mı? | **Evet, ama sadece 2 (Mayıs) ve 5 (Haziran) kayıt** — puantaj tarafı gerçek turnike okuması olanlar. `Sorulacaklar`'da ayrı bir satır türü olarak, sarı renkte duruyorlar. ADR-017 |
 | Q20c | Uzaktan çalışılan günde puantajdaki nominal gün ne olacak? | **Uzaktan saatler esas alınıyor, nominal gün hesaba katılmıyor** (İK talimatı, 2026-08-17). Ama gerçek turnike okuması varsa hiçbir şey atılmıyor — 7 kişi-gün böyle. Mayıs −64:15, Haziran −129:45. ADR-018 |
 | Q22 | Günlük süresi 2 saatten az olanlar tespit edilsin | **Eklendi.** Eşik `plausibility.short_day_hours: 2.0`, kişi-gün bazında. Mayıs'ta 15, Haziran'da 20 gün. Daha önce yapılmıyordu — mevcut 5 dakikalık eşik kayıt bazlıydı ve günü hiç bakmıyordu. ADR-019 |
-| Q5'in bir parçası | Standart iş günü kaç saat? | **9 saat.** İzin dosyasının kendi `Kullanılan Gün` kolonu saati 9'a bölüyor (347 kaydın 346'sında oran tam 9,0). Haziran'da bir gün `Mazeret 0,44` + `Uzaktan 0,56` = tam `1,00`. ADR-016 sonrası ödediğimiz tam gün de 9 saat. `DATA-SOURCES.md` D7 |
+| Q5'in bir parçası | Standart iş günü kaç saat? | **9 saat.** İzin dosyasının kendi `Kullanılan Gün` kolonu saati 9'a bölüyor (347 kaydın 346'sında oran tam 9,0). Haziran'da bir gün `Mazeret 0,44` + `Uzaktan 0,56` = tam `1,00`. ADR-016 sonrası ödediğimiz tam gün de 9 saat. `DATA-SOURCES.md` D13 |
 | Q9 | Macunköy dosyasında hangi gün eksik? | `2026-05-03`, **iki dosyada da hiç hareket olmayan bir Pazar**. Veri sorunu değil. `DATA-SOURCES.md §6.2` |
-| Q10 | Dışa aktarım formatı ay ay değişiyor mu? | **Hayır.** Haziran 2026 okuyucularda hiç değişiklik olmadan işlendi: 110 blokta 2 557 Teknopark satırı, 110'unun 110'u dosyanın kendi toplamıyla tutuyor; mutabakat TAMAM |
+| Q10 | Dışa aktarım formatı ay ay değişiyor mu? | **DEĞİŞTİ — 2026-08-18'de bu cevap geçersiz kaldı.** Haziran hiçbir değişiklik gerektirmemişti, ama Temmuz'da Macunköy dosyası `.xls`'e döndü, `Personel` kolonu kalktı ve başlık satırı aşağı kaydı. Okuyucular artık kabı ve kolon konumlarını keşfediyor. ADR-020, `DATA-SOURCES.md` D10 |
 | Q14 | Teknopark dosyası kesilmiş mi (31 günün sadece 21'i var)? | **Hayır.** Eksik günler hafta sonları artı 27–31 Mayıs tatil bloğu; ofis kapalıyken Macunköy üretimi çalışıyordu. `DATA-SOURCES.md §6.2` |
 | Q15 | Sıralama ve eşleştirme isimle mi sicil numarasıyla mı? | **İsim anahtar ve sıralama ölçütü**; sicil numarası bilgi amaçlı ve sadece izin dosyasından. ADR-009 |
 | Q17 | Faz 4 için personel e-posta adresleri nereden gelecek? | Personel listesinden — 181 kişinin hepsinde dolu. Mesai kaydı olanların %97'si kapsanıyor; kalanlar Q4 kapsamında |
@@ -278,5 +283,6 @@ mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
 | Q12 | Raporun tamamını kim alabilir? Departman bazlı bölünmesi gerekiyor mu? | Faz 1 çıktısı | 162 kişinin kişisel verisi tek dosyada |
 | Q13 | **`Eğitim İzni` uzaktan çalışma gibi çalışma sayılacak mı?** Mayıs'ta 25 kayıt / 7 kişi, Haziran'da 14 / 8. Kayıtlarda gerçek saat var (`07:30–11:30`, `12:15–16:30`), yani cevap evetse uzaktan çalışmayla birebir aynı şekilde sayılır — varsayım gerekmez | Faz 1 | Q2 ile aynı şekilde bir soru, o "evet" cevaplandı. Şu an devamsızlık sayıldığı için eğitime giden az çalışmış görünüyor |
 | Q16 | Mayıs 2026 resmi tatillerini onaylayın: 1 Mayıs, 19 Mayıs ve Kurban Bayramı bloğu (25 Mayıs köprü, 26 Mayıs yarım gün, 27–29 Mayıs) | Faz 2 | Veriden çıkarıldı, İK söylemedi. Tatil ücretini belirliyor |
-| Q20a | **Teknopark puantajındaki nominal `09:00–18:00` satırları neden yazılıyor?** Mayıs'ta 319, Haziran'da 418 satır; %90'ının arkasında uzaktan çalışma beyanı yok, yani tetikleyici sadece uzaktan çalışma değil. Kalanların sebebi hiçbir dosyadan çıkmıyor (görev, seyahat, unutulan kart?) | Hiçbir şeyi bloke etmiyor — ADR-017 ile çalışma sayılıyor | Raporun ~%17'si bu satırlardan geliyor. Cevap "bordroda ödenmiyor" olursa yeni bir ADR ve ~%17 düşüş demek. `DATA-SOURCES.md` D9 |
+| Q20a | **Teknopark puantajındaki nominal `09:00–18:00` satırları neden yazılıyor?** Mayıs'ta 319, Haziran'da 418 satır; %90'ının arkasında uzaktan çalışma beyanı yok, yani tetikleyici sadece uzaktan çalışma değil. Kalanların sebebi hiçbir dosyadan çıkmıyor (görev, seyahat, unutulan kart?) | Hiçbir şeyi bloke etmiyor — ADR-017 ile çalışma sayılıyor | Raporun ~%17'si bu satırlardan geliyor. Cevap "bordroda ödenmiyor" olursa yeni bir ADR ve ~%17 düşüş demek. `DATA-SOURCES.md` D11 |
+| **Q23** | **Temmuz Teknopark dosyası ayın tamamını kapsamıyor — 1-19 Temmuz, 20 Temmuz'da alınmış. Tam ay için yeniden alınabilir mi?** Ayrıca: dosyalar her ay ayın kaçında alınacak? | Temmuz raporu | Rapor 23 iş gününün 13'ünü içeriyor, saatler bordroya uygun değil. Guard artık uyarıyor (çıkış kodu 5) ama kaynak veriyi düzeltmek İK'da. ADR-020, `DATA-SOURCES.md` D12 |
 | **Q21** | **Kaynak dosyalar her ay Google Drive'a yükleniyor. Hangi entegrasyon?** Elle (bugünkü), Drive for Desktop (sürücü harfi, kod değişikliği yok), Drive API (gözetimsiz, ağ bağımlılığı ekler), ya da mevcut `Y:` ağ sürücüsü. Ayrıca: klasör ay başına ayrı mı? Erişimi kimde? | Faz 4 | 2026-08-03'te **şimdilik elle** kalmasına karar verildi; klasör yapısı ve erişim hâlâ bilinmiyor. README "İleride: Drive otomasyonu" |
