@@ -481,6 +481,7 @@ Kod tarafı bir günlük iş; bu ikisi çözülmeden başlanmamalı.
 | [docs/OUTPUT-SPEC.md](docs/OUTPUT-SPEC.md) | Çıktı Excel'inin sayfa sayfa tasarımı |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Alınan kararlar ve gerekçeleri (ADR) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Fazlar, durum, açık sorular |
+| [docs/DEVAM.md](docs/DEVAM.md) | Nerede kaldık, beklenen cevaplar — kısa |
 
 Bu dosyalar geliştiriciler için. **Raporu kullanmak için hiçbirini okumak
 gerekmez** — raporun `Kontrol` sayfası hangi kuralla çalıştığını kendi içinde yazar.

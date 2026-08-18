@@ -3,6 +3,10 @@
 > **This file is the entry point for any agent working on this repository.**
 > Read it fully before touching anything. Then read the doc in `docs/` that
 > matches your task.
+>
+> Picking up mid-project? `docs/DEVAM.md` says what is in flight and which answers
+> are being waited on. It holds no durable knowledge — if it is older than the last
+> commit, trust the other docs instead.
 
 ---
 
@@ -30,6 +34,7 @@ Where things go:
 | A choice with alternatives | `docs/DECISIONS.md` (append a new ADR, never edit an old one) |
 | Output workbook layout | `docs/OUTPUT-SPEC.md` |
 | Phase status | `docs/ROADMAP.md` |
+| What is in flight right now | `docs/DEVAM.md` — short, and stale by design |
 | Anything an agent needs day one | this file |
 
 If a change spans several, update all of them. Stale docs here are worse than no
