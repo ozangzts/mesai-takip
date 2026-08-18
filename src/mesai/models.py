@@ -72,6 +72,10 @@ class WorkDay:
     key: NameKey
     date: date
     intervals: tuple[Interval, ...]       # already merged
+    # The day's measured working time, per `settings.daily_hours` — by default the
+    # span from first entry to last exit, so it is NOT necessarily the sum of
+    # `intervals` (ADR-015). `net` equals it whenever the break deduction is off,
+    # which is the shipped configuration (ADR-016).
     gross: timedelta
     break_deduction: timedelta
     net: timedelta
@@ -84,6 +88,19 @@ class WorkDay:
     @property
     def last_exit(self) -> datetime | None:
         return self.intervals[-1].end if self.intervals else None
+
+    @property
+    def interval_total(self) -> timedelta:
+        """Presence only — the summed intervals, excluding in-day gaps."""
+        return sum((iv.duration for iv in self.intervals), timedelta())
+
+    @property
+    def gap_total(self) -> timedelta:
+        """In-day time between intervals. Paid under the envelope rule."""
+        if not self.intervals:
+            return timedelta()
+        span = self.intervals[-1].end - self.intervals[0].start
+        return span - self.interval_total
 
     @property
     def sources(self) -> frozenset[str]:
@@ -128,6 +145,9 @@ class RunStats:
     records_built: dict[str, int] = field(default_factory=dict)
     excluded_badges: int = 0
     intervals_accepted: int = 0
+    # Presence (summed intervals) vs what the report pays (may include in-day gaps).
+    # Both are reported so the envelope rule's cost is visible — see ADR-015.
+    union_total: timedelta = timedelta()
     accepted_total: timedelta = timedelta()
     files: dict[str, str] = field(default_factory=dict)
     roster_duplicates: list[str] = field(default_factory=list)

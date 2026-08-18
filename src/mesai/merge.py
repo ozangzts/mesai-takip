@@ -1,8 +1,12 @@
 """Cross-site reconciliation — the correctness-critical stage.
 
 76 employees appear in both attendance exports because Teknopark-based staff visit
-the Macunköy site. Their records overlap in wall-clock time, so hours must be
-measured on the UNION of intervals per person-day, not the sum of the files.
+the Macunköy site. Their records overlap in wall-clock time, so the day's intervals
+are UNIONED before anything is measured — never summed per file (ADR-001).
+
+The union removes double counting; it is not itself the hours figure. How the merged
+day becomes hours is `worktime.measure()` and, by default, spans first entry to last
+exit (ADR-015).
 
 This module also performs cross-site repair of one-sided records (ADR-003): a
 missing punch may be resolved against a timestamp another terminal actually
@@ -22,11 +26,16 @@ from .rules import worktime
 
 def build_workdays(
     records: list[PunchRecord], settings: Settings
-) -> tuple[list[WorkDay], list[Anomaly], int, timedelta]:
+) -> tuple[list[WorkDay], list[Anomaly], int, timedelta, timedelta]:
     """Group records per person-day, union their intervals, compute hours.
 
-    Returns (workdays, anomalies, accepted_interval_count, accepted_total_duration).
-    The last two feed the reconciliation invariant on the Kontrol sheet.
+    Returns (workdays, anomalies, accepted_interval_count, union_total, measured_total).
+
+    The last two are deliberately separate. `union_total` is presence only — the sum
+    of the accepted intervals. `measured_total` is what the report pays, which under
+    ADR-015 also includes the gaps inside each day. The Kontrol sheet reconciles
+    per-person totals against `measured_total` and shows the difference between the
+    two, so the cost of the envelope rule is never invisible.
     """
     grouped: dict[tuple[NameKey, object], list[PunchRecord]] = defaultdict(list)
     for record in records:
@@ -35,11 +44,17 @@ def build_workdays(
     workdays: list[WorkDay] = []
     anomalies: list[Anomaly] = []
     accepted_count = 0
-    accepted_total = timedelta()
+    union_total = timedelta()
+    measured_total = timedelta()
 
     for (key, day), day_records in grouped.items():
         complete: list[Interval] = []
         orphans: list[PunchRecord] = []
+
+        day_records, drop_note = _apply_remote_precedence(
+            day_records, key, day, settings)
+        if drop_note is not None:
+            anomalies.append(drop_note)
 
         for record in day_records:
             interval, notes = worktime.build_interval(record, settings)
@@ -62,13 +77,9 @@ def build_workdays(
             continue
 
         accepted_count += len(merged)
-        gross = worktime.gross_duration(merged)
-        accepted_total += gross
-
-        deduction = worktime.break_deduction(merged, gross, settings)
-        net = gross - deduction
-        if net < timedelta():
-            net = timedelta()
+        union_total += worktime.gross_duration(merged)
+        gross, deduction, net = worktime.measure(merged, settings)
+        measured_total += gross
 
         for interval in merged:
             if "uzaktan" in interval.sources:
@@ -79,10 +90,26 @@ def build_workdays(
                and a.date == day for a in anomalies):
             tags.add("gece-geçişi")
 
-        remote_note = _remote_overlap(day_records, merged, key)
+        remote_note = _remote_overlap(day_records, merged, key, settings)
         if remote_note is not None:
             anomalies.append(remote_note)
-            tags.add("uzaktan-çakışma")
+            # Only the real-punch case gets a tag. The nominal case is expected
+            # behaviour and is already marked by the `uzaktan` tag; tagging it
+            # `çakışma` made 37 ordinary remote days read as defects (ADR-017).
+            if remote_note.kind is AnomalyKind.REMOTE_OVERLAP_REAL:
+                tags.add("uzaktan-çakışma")
+
+        if gross < settings.plausibility.short_day:
+            anomalies.append(Anomaly(
+                kind=AnomalyKind.SHORT_DAY, source=day_records[0].source,
+                source_row=day_records[0].source_row, key=key,
+                raw_name=day_records[0].raw_name, date=day,
+                raw_entry=f"{merged[0].start:%H:%M}",
+                raw_exit=f"{merged[-1].end:%H:%M}",
+                detail=f"günlük süre {worktime.hhmm(gross)}, eşik "
+                       f"{worktime.hhmm(settings.plausibility.short_day)}",
+            ))
+            tags.add("kısa-gün")
 
         workdays.append(WorkDay(
             key=key, date=day, intervals=merged, gross=gross,
@@ -90,7 +117,63 @@ def build_workdays(
         ))
 
     workdays.sort(key=lambda w: (w.key, w.date))
-    return workdays, anomalies, accepted_count, accepted_total
+    return workdays, anomalies, accepted_count, union_total, measured_total
+
+
+def _apply_remote_precedence(
+    day_records: list[PunchRecord], key: NameKey, day: object, settings: Settings,
+) -> tuple[list[PunchRecord], Anomaly | None]:
+    """On a declared remote-work day, let the remote hours stand alone — ADR-018.
+
+    HR's instruction: for a remote day, take the remote hours. The reason it is not
+    unconditional is what the attendance side actually contains:
+
+    * a nominal `09:00–18:00` placeholder is not evidence of anything. Dropping it and
+      keeping the declaration loses nothing and stops a 9-hour placeholder stretching
+      the day to 10:30. This is 35 of 37 May cases and 75 of 80 in June.
+    * a real turnstile reading IS evidence — somebody walked through a door. Dropping
+      it would discard recorded work: on 2026-06-23 the person badged out at 18:34
+      while their declaration ended at 13:45, so `always` would pay 6:15 instead of
+      11:04. Seven person-days across the two months are like this.
+
+    `nominal_only` therefore drops placeholders and keeps real punches. `always`
+    applies HR's instruction literally; `never` restores pre-ADR-018 behaviour.
+    """
+    mode = settings.remote_replaces
+    if mode == "never":
+        return day_records, None
+
+    remote = [r for r in day_records if r.tag == "uzaktan"
+              and r.entry is not None and r.exit is not None]
+    if not remote:
+        return day_records, None
+
+    attendance = [r for r in day_records if r.tag != "uzaktan"]
+    if not attendance:
+        return day_records, None
+
+    nominal = settings.nominal_day
+    if mode == "nominal_only":
+        if nominal is None:
+            return day_records, None
+        # Every attendance record must be a placeholder. A single real punch means the
+        # day has evidence we are not entitled to throw away.
+        if not all(nominal.matches(r.source, r.entry, r.exit) for r in attendance):
+            return day_records, None
+
+    dropped = ", ".join(
+        f"{r.entry:%H:%M}-{r.exit:%H:%M}" if r.entry and r.exit else "eksik kayıt"
+        for r in attendance)
+    note = Anomaly(
+        kind=AnomalyKind.REMOTE_REPLACED_NOMINAL, source="izin",
+        source_row=remote[0].source_row, key=key, raw_name=remote[0].raw_name,
+        date=remote[0].date,
+        raw_entry=", ".join(f"{r.entry:%H:%M}-{r.exit:%H:%M}" for r in remote),
+        raw_exit=dropped,
+        detail="uzaktan çalışma saatleri esas alındı, puantajdaki kayıt "
+               "hesaba katılmadı",
+    )
+    return remote, note
 
 
 def _repair_orphans(
@@ -160,11 +243,18 @@ def _repair_orphans(
 
 
 def _remote_overlap(
-    day_records: list[PunchRecord], merged: tuple[Interval, ...], key: NameKey
+    day_records: list[PunchRecord], merged: tuple[Interval, ...], key: NameKey,
+    settings: Settings,
 ) -> Anomaly | None:
-    """Flag a remote-work day where the person also physically badged in.
+    """Note a remote-work day that also carries an attendance record.
 
-    The union already counts the overlap once; this only surfaces it for review.
+    **Expected, not a defect** (ADR-017). The Teknopark timesheet writes a nominal
+    9-hour day when a workday has no turnstile data, and a declared remote day is one
+    of the things that triggers it — 37 of 39 such overlaps in May 2026 and 76 of 83
+    in June had a nominal `09:00–18:00` row on the attendance side rather than a real
+    punch. Whichever it is, the record is counted and the union counts the shared time
+    once. Emitted at `info` severity so the audit trail is complete without implying
+    that 21 people did something wrong.
     """
     remote = [r for r in day_records if r.tag == "uzaktan"]
     badged = [r for r in day_records
@@ -179,15 +269,41 @@ def _remote_overlap(
             if b.entry is None or b.exit is None:
                 continue
             if r.entry < b.exit and b.entry < r.exit:
+                kind, detail = _classify_overlap(b, settings)
                 return Anomaly(
-                    kind=AnomalyKind.REMOTE_OVERLAP, source="izin",
+                    kind=kind, source="izin",
                     source_row=r.source_row, key=key, raw_name=r.raw_name,
                     date=r.date,
                     raw_entry=f"{r.entry:%H:%M}-{r.exit:%H:%M} (uzaktan)",
                     raw_exit=f"{b.entry:%H:%M}-{b.exit:%H:%M} ({b.source})",
-                    detail="çakışan süre bir kez sayıldı",
+                    detail=detail,
                 )
     return None
+
+
+def _classify_overlap(
+    badged: PunchRecord, settings: Settings
+) -> tuple[AnomalyKind, str]:
+    """Placeholder or real punch — two different questions, so two anomaly kinds.
+
+    A nominal `09:00–18:00` line means the person did not badge in and the timesheet
+    filled the day in: the overwhelming majority, and nothing to ask about. A real
+    punch on a declared remote day is the rare case worth a question — 2 of 39 in
+    May 2026, 7 of 83 in June.
+
+    With no `nominal_day` configured every overlap is reported as the real-punch case.
+    That is the safe direction: it over-asks rather than silently calling a real punch
+    expected.
+    """
+    nominal = settings.nominal_day
+    if nominal is not None and nominal.matches(
+            badged.source, badged.entry, badged.exit):
+        return (AnomalyKind.REMOTE_OVERLAP,
+                "puantajdaki kayıt nominal tam gün, turnike okuması değil — "
+                "çakışan süre bir kez sayıldı")
+    return (AnomalyKind.REMOTE_OVERLAP_REAL,
+            "puantajdaki kayıt gerçek turnike okuması — çakışan süre bir kez "
+            "sayıldı, kişi o gün binaya girmiş görünüyor")
 
 
 def _note(kind: AnomalyKind, record: PunchRecord, detail: str = "") -> Anomaly:

@@ -46,12 +46,14 @@ lunch:
   end:   "12:15"
   minutes: 45
   min_workday_for_deduction_hours: 6   # see §5
-expected_daily_net_hours: 8.25         # 09:00 span - 45 min
+expected_daily_net_hours: 8.25         # STALE — see below
 ```
 
-`16:30 − 07:30 = 9 h 00`, minus 45 min lunch = **8 h 15 (8.25 h) net expected per
-working day**. Confirm this against payroll before Phase 2 — an 8.25 h standard day
-is unusual and drives every overtime figure. Open question Q5.
+> **`expected_daily_net_hours: 8.25` is known to be wrong** and is not used by any
+> code. It assumed `16:30 − 07:30 = 9 h 00` minus a 45-minute lunch. Since ADR-016 the
+> break is not deducted, so a full day is **9 hours** — and the leave export's own
+> arithmetic independently agrees, dividing hours by 9 to produce `Kullanılan Gün`
+> (`DATA-SOURCES.md` D7). Fix the key before wiring any Phase 2 overtime rule. Q5.
 
 ---
 
@@ -97,6 +99,25 @@ not silently add 30 hours to someone's month.
 > Rules 3.5 and 3.6 differ deliberately: a suspiciously short interval is
 > harmless if wrong, a suspiciously long one is not.
 
+**3.7 Short person-day (ADR-019).** A different question from 3.5, and checked in a
+different place. 3.5 asks "is this record broken?" and looks at one interval; this asks
+"did this person barely work today?" and looks at the **whole day**, after §5 has
+measured it.
+
+```
+if measured_day < plausibility.short_day_hours   (2.0, HR's number):
+        emit SHORT_DAY, tag the day `kısa-gün`, keep the hours
+```
+
+Strictly less than the threshold — exactly 2:00 does not flag, so there is no boundary
+ambiguity. The hours are **not** changed: a genuinely short day exists (someone left
+ill) and the tool must not decide which is which. 15 person-days in May 2026, 20 in
+June.
+
+Note this cannot be done by raising `min_minutes` to two hours: a 20-minute afternoon
+segment of a normal split day is not a problem, and flagging it would bury the real
+signal.
+
 ---
 
 ## 4. Merging the two sites — the central rule
@@ -127,28 +148,39 @@ gross   12 h 36 m          not 13 h 21 m
 Merging touching intervals (`a.end == b.start`) is intentional: an exit at one
 gate and an entry at another in the same minute is one continuous presence.
 
-### 4.2 Union, not "earliest entry to latest exit"
+### 4.2 What the union is for — and what it is not
 
-The tempting shortcut — take the earliest entry and the latest exit of the day — is
-wrong, and measurably so.
+The union answers one question only: **did two sources record the same time twice?**
+It is a de-duplication step, and it is not negotiable. Without it the 76 dual-site
+employees are double-counted; that is ADR-001.
 
-If a person has `08:00–12:00` and `13:00–17:00`, the union is two intervals totalling
-**8 h**. Earliest-to-latest would say `08:00 → 17:00` = **9 h**, paying for an hour
-nobody worked.
+The union does **not** decide the day's hours. That is §5.0, and it is a company
+policy choice rather than an arithmetic one. Keeping the two apart matters, because an
+earlier version of this document conflated them and argued that measuring a day from
+its earliest entry to its latest exit was simply *wrong*. It is not wrong; it is a
+different policy, and it is the one this company uses (ADR-015).
 
-Measured on May 2026: **171 person-days have more than one interval, and the shortcut
-would add 159 h 11 m** across them. Worst single day:
-`07:30–08:00` + `12:37–19:10` → union 7 h 03, shortcut 11 h 40, a 4 h 37 error.
+The arithmetic in that argument still holds and is worth keeping, because it is the
+cost of the chosen rule:
 
-Where the two coincide — and this is the case that makes the shortcut *feel* right —
-is when the intervals genuinely overlap. 138 May person-days had two sites' records
-collapse into a single merged interval; for those, the union **is** earliest entry to
-latest exit. Example: entering at Macunköy `07:51` and leaving Teknopark `18:00` with
-overlapping coverage yields one interval of 10 h 08.
+- `08:00–12:00` + `13:00–17:00` — union 2 intervals totalling **8 h**; earliest to
+  latest is `08:00 → 17:00` = **9 h**. The extra hour is real time not present at a
+  badge reader, and under ADR-015 it is paid.
+- May 2026: **174 of 1 823 person-days have more than one interval**, and measuring
+  them by span rather than by sum adds **172 h 41 m**. 49 of those days have a gap
+  over 1 h, 13 over 2 h. Largest: `07:30–09:30` + `15:30–16:30` — presence 3 h 00,
+  paid 9 h 00.
+- The remaining 1 649 person-days have a single interval, where the two readings are
+  identical by definition.
 
-So: union gives the intuitive answer whenever the intuition is correct, and the
-correct answer when it is not. Only §5 handles the implicit lunch break for people
-who never badge out.
+Where two sites' records genuinely overlap the question does not arise at all: 87 May
+person-days collapse into one merged interval, so span and sum agree. Example:
+entering at Macunköy `07:51` and leaving Teknopark `18:00` with overlapping coverage
+yields one interval of 10 h 08 either way.
+
+So the union removes double counting, and §5.0 decides what the merged day is worth.
+Every paid gap is printed in the `Gün İçi Boşluk` column of `Günlük Detay`, so the
+cost of the policy is visible per day rather than buried in a total.
 
 ### 4.3 Cross-site repair of a one-sided record
 
@@ -220,12 +252,51 @@ Exclusion filter for non-employees: `Ad == Soyad` **and** token matches a prefix
 
 ---
 
-## 5. Gross vs net hours
+## 5. Turning a merged day into hours
 
-Employees do not badge out for lunch, so a normal day's badge span contains the
-45-minute break. Both figures are reported (ADR-002).
+Two config switches decide this, and both are **required** keys in
+`config/settings.yaml` — neither is defaulted, so a config predating a rule change
+fails the run instead of silently applying the old rule.
 
-### 5.1 Residual break deduction (ADR-008)
+| Switch | Shipped value | Effect |
+| --- | --- | --- |
+| `daily_hours` | `envelope` | first entry → last exit, in-day gaps paid (ADR-015) |
+| `break.deduct` | `false` | no break deduction at all (ADR-016) |
+| `remote_day_replaces_attendance` | `nominal_only` | a remote declaration overrides a nominal placeholder, but never a real punch (ADR-018) |
+
+With the shipped values, **a person-day is worth exactly `last exit − first entry`**,
+and gross equals net. `worktime.measure()` is the only place these combine; no other
+module decides whether a break applies.
+
+Every hours sheet in the report carries a `HESAP KURALI:` banner naming the active
+rule, because the rule is configurable and a reader must not have to assume.
+
+### 5.0 The daily measure (ADR-015)
+
+```
+measured = max(exit) − min(entry)          # daily_hours: envelope  (shipped)
+measured = Σ interval durations            # daily_hours: union
+```
+
+The company's reading is the classic timesheet one: the day starts when you first
+badge in and ends when you last badge out. Time in between is not deducted — see §4.2
+for what that costs and why it is a policy choice, not an error.
+
+`Günlük Detay` prints both `Çalışma Süresi` and `Gün İçi Boşluk`, so any row can be
+checked by subtraction: `Son Çıkış − İlk Giriş = Çalışma Süresi`, of which
+`Gün İçi Boşluk` was time away from the readers.
+
+### 5.1 Residual break deduction (ADR-008 — implemented, currently OFF)
+
+**Not applied in the shipped configuration.** `break.deduct: false` since ADR-016:
+breaks are not deducted, because entry and exit are what count. The rule below stays
+implemented and unit-tested, and `break.deduct: true` reproduces the pre-ADR-016
+report exactly — but it now takes three switches together, not just this one:
+`break.deduct: true`, `daily_hours: union` and `remote_day_replaces_attendance: never`
+(ADR-018). Verified end to end on June 2026: brüt `26964:33`, net `24971:48`.
+
+Read the rest of this section as the fallback if HR reinstates the deduction, not as
+a description of what the report currently does.
 
 The naive rule — "deduct 45 minutes unless they badged out for at least 45 minutes"
 — needs an arbitrary threshold, and a 42-minute gap then either loses 3 minutes of
@@ -291,13 +362,32 @@ remote_gross = end_datetime − start_datetime
 A full-day row (`07:30–16:30`) yields 9 h gross, 8.25 h net after the break
 deduction — identical to a badged normal day, which is the point.
 
-**Double-counting guard.** 48 of the 56 remote-work records belong to people who
-also have badge records that month, so a remote interval is treated as just another
-interval entering the union of §4.1. If someone worked remotely 07:30–12:00 and then
-badged in at 13:00, the union yields both periods with no overlap. If a remote
-record overlaps a badge record — remote work logged for a day the person was
-physically present — the union counts the overlap once and the day is tagged
-`uzaktan-çakışma` for HR review.
+**A remote day overrides a nominal placeholder (ADR-018).** Most remote days also carry
+a nominal `09:00–18:00` row in the Teknopark timesheet (`DATA-SOURCES.md` D9) — the
+timesheet filling in a day nobody badged. Unioning both stretched the day to
+`07:30–18:00` = 10:30 on the strength of a row that is not evidence. So:
+
+```
+if the day has a remote declaration
+   and EVERY attendance record that day is the nominal placeholder:
+        measure the day from the remote records alone
+else:
+        union everything, as §4.1
+```
+
+**One real punch protects the whole day.** A single genuine turnstile reading — or even
+a one-sided record, which by failing to match the placeholder counts as real — means
+the day keeps all of its records. Discarding a real punch would take hours off somebody
+who demonstrably worked them: on `2026-06-23` the declaration ends at 13:45 while the
+person badged out at 18:34.
+
+Days where the override applied get an `info` anomaly, `REMOTE_REPLACED_NOMINAL`, with
+the discarded times recorded. Days where a real punch survived get
+`REMOTE_OVERLAP_REAL` at `included` severity — 2 in May, 5 in June, and those are the
+only ones worth asking HR about.
+
+If someone worked remotely 07:30–12:00 and badged in at 13:00 with no placeholder
+involved, nothing is overridden: the union yields both periods, as it always did.
 
 Remote intervals are tagged `uzaktan` and their source is `izin`, so the
 `Günlük Detay` sheet always shows which hours came from a badge and which from a
@@ -313,19 +403,31 @@ non-worked time.
 ```
 for each employee:
     for each date in the period:
-        intervals = union of accepted intervals from all sources   (§3, §4)
-        gross_day = sum of interval durations
-        net_day   = gross_day − lunch_deduction                    (§5)
-    gross_month = Σ gross_day
-    net_month   = Σ net_day
-    worked_days = count of dates with gross_day > 0
+        intervals    = union of accepted intervals from all sources    (§3, §4)
+        measured_day = last exit − first entry                         (§5.0)
+        net_day      = measured_day − break_deduction                  (§5.1, off)
+    measured_month = Σ measured_day
+    worked_days    = count of dates with measured_day > 0
 ```
 
 Reported alongside: anomaly count, and leave days from the HCM export.
 
 **Invariant that must hold and must be unit-tested:**
-`Σ over employees of gross_month == Σ duration of all accepted merged intervals`.
+`Σ over employees of measured_month == Σ measured_day over all person-days`.
 If it does not, a record was double-counted or lost.
+
+Note what this invariant is **not**. Before ADR-015 it read "== Σ duration of all
+accepted merged intervals", which is false once in-day gaps are paid — it would fail
+on every run by design. The two figures are still both reported on `Kontrol`, with the
+difference labelled `Gün İçi Boşluklar`, so the gap between presence and paid time is
+an explicit line on the report rather than a mismatch nobody can explain:
+
+```
+Kabul edilen aralıkların toplamı   16931:16   (presence)
+Gün içi boşluklar                    172:41   (paid under ADR-015)
+Günlük ölçülen sürelerin toplamı   17103:58   (what the report pays)
+Kişi toplamlarının toplamı         17103:58   <- must equal the line above
+```
 
 ---
 

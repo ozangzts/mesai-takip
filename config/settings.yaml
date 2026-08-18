@@ -6,7 +6,18 @@ normal_shift:
   start: "07:30"
   end: "16:30"
 
+# How one person-day is turned into hours. See ADR-015.
+#   envelope = earliest entry -> latest exit; gaps inside the day are paid
+#   union    = sum of the merged intervals; gaps inside the day are unpaid
+# Cross-site overlap is de-duplicated either way — that is ADR-001 and not
+# configurable.
+daily_hours: envelope
+
 break:
+  # deduct: false pays through the break — the badged day is the payroll figure.
+  # See ADR-016. The residual-break arithmetic below stays implemented and tested;
+  # flipping this to true re-enables it without a code change.
+  deduct: false
   # Unpaid break per day, and the window in which a gap counts as that break.
   minutes: 45
   window_from: "11:00"
@@ -15,11 +26,24 @@ break:
   min_workday_hours: 6.0
 
 plausibility:
-  # An interval shorter than this is kept but flagged.
+  # A single interval shorter than this is kept but flagged — badge-test artefacts
+  # like 13:32 -> 13:34.
   min_minutes: 5
+  # A whole PERSON-DAY shorter than this is kept but flagged. Different question from
+  # min_minutes: that one catches a bad record, this one catches a real person who
+  # barely worked. HR asked for 2 hours (ADR-019).
+  short_day_hours: 2.0
   # An interval longer than this is excluded and flagged. Also the ceiling for
   # accepting a midnight-crossing repair.
   max_shift_hours: 16.0
+
+# What a declared remote-work day does to that day's attendance records (ADR-018).
+#   nominal_only — remote hours replace the attendance record only when every
+#                  attendance record for that day is the nominal_day placeholder.
+#                  Real turnstile readings are kept and unioned as before.
+#   always       — remote hours always replace the day's attendance records
+#   never        — pre-ADR-018 behaviour: everything is unioned
+remote_day_replaces_attendance: nominal_only
 
 # Input file discovery. The CLI globs these patterns in the input directory, so
 # a Drive-synced folder can be pointed at directly. First match wins.
@@ -46,6 +70,17 @@ sources:
 # See ADR-007.
 worked_leave_types:
   - "Uzaktan Çalışma"
+
+# The Teknopark timesheet writes a NOMINAL day when an expected workday has no
+# turnstile data: exactly these times, duration exactly 09:00, never at a weekend.
+# 319 of 1 607 May rows and 418 of 2 557 June rows. It is not a badge reading, but it
+# IS counted as worked time — that is ADR-017. Recorded here only so the report can
+# tell the reader which side of a remote-work overlap was nominal.
+# If the vendor's default changes, change it here; nothing else needs to know.
+nominal_day:
+  source: teknopark
+  entry: "09:00"
+  exit: "18:00"
 
 # ---------------------------------------------------------------------------
 # Phase 2 parameters. Defined but NOT yet used by any code — the rules they

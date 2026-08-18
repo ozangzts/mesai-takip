@@ -74,7 +74,7 @@ src/mesai/
 │   ├── teknopark.py   ✅  block-layout reader
 │   └── izin.py        ✅  leave reader + remote-work intervals
 ├── rules/
-│   ├── worktime.py    ✅  gross/net, residual break, midnight crossing
+│   ├── worktime.py    ✅  daily measure (measure()), residual break, midnight crossing
 │   ├── shifts.py      ○   automatic shift detection               [Phase 2]
 │   ├── overtime.py    ○   daily/weekly/monthly excess, shortfall  [Phase 2]
 │   ├── multinet.py    ○   weekly entitlement                      [Phase 2]
@@ -147,10 +147,14 @@ class WorkDay:
     key: NameKey              # not the Employee object — keeps merge.py free of it
     date: date
     intervals: tuple[Interval, ...]   # already merged
-    gross: timedelta
-    break_deduction: timedelta        # residual break, ADR-008
-    net: timedelta
+    gross: timedelta          # the MEASURED day per settings.daily_hours (ADR-015);
+                              # by default last exit - first entry, so NOT
+                              # necessarily the sum of `intervals`
+    break_deduction: timedelta        # residual break, ADR-008 — zero while ADR-016
+    net: timedelta                    # == gross whenever the deduction is off
     tags: frozenset[str]      # "gece-geçişi", "çapraz-eşleşti", "uzaktan", ...
+    # interval_total / gap_total are derived properties: presence, and the in-day
+    # gap the envelope rule pays. The Kontrol guard reconciles against them.
 
 @dataclass(frozen=True)
 class Anomaly:

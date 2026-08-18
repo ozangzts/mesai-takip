@@ -14,7 +14,7 @@ from pathlib import Path
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ..anomalies import Collector
+from ..anomalies import IMPACT_TEXT, Collector
 from ..config import Settings
 from ..models import Employee, LeaveRecord, MonthSummary, NameKey, RunStats, WorkDay
 from ..normalize import sort_key
@@ -26,6 +26,29 @@ class ReportLocked(Exception):
 
 
 _DAY_NAMES = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
+
+# Worst first, expected-behaviour last: the reader should hit the hours-losing
+# problems before the informational rows.
+_SEVERITY_ORDER = {"excluded": 0, "included": 1, "info": 2}
+
+
+def _hours_rule_note(settings: Settings) -> str:
+    """One sentence stating the active calculation rule, on every hours sheet.
+
+    The rule is a config switch, so the report must say which way it ran rather than
+    leave the reader to assume last month's rule still applies.
+    """
+    if settings.daily_hours == "union":
+        measure = ("Süre, gün içindeki giriş-çıkış aralıklarının toplamıdır; "
+                   "aralar arasındaki boşluklar sayılmaz")
+    else:
+        measure = ("Süre, günün ilk girişinden son çıkışına kadar hesaplanır; "
+                   "gün içindeki boşluklar düşülmez")
+    if settings.brk.deduct:
+        brk = f"öğle arası için {settings.brk.minutes} dk kesinti uygulanır"
+    else:
+        brk = "öğle arası için kesinti UYGULANMAZ"
+    return f"HESAP KURALI: {measure}. Ayrıca {brk}."
 
 # How an interval's origin is shown to the reader.
 _SOURCE_LABEL = {"macunkoy": "Macunköy", "teknopark": "Teknopark", "izin": "Uzaktan"}
@@ -55,7 +78,7 @@ def build(
     footer = _footer_lines(period, stats, generated_at)
 
     _sheet_summary(workbook.create_sheet("Aylık Özet"), period, summaries,
-                   anomalies, footer)
+                   anomalies, settings, footer)
     _sheet_daily(workbook.create_sheet("Günlük Detay"), workdays, employees,
                  settings, footer)
     _sheet_worklist(workbook.create_sheet("Sorulacaklar"), period, anomalies,
@@ -86,24 +109,51 @@ def build(
 # Sheet 1 — Aylık Özet
 # ---------------------------------------------------------------------------
 
-_SUMMARY_HEADERS = [
-    "Ad Soyad", "Sicil No", "Departman", "Görev", "Tesis", "Kayıt Kaynağı",
-    "Çalışılan Gün", "Brüt Süre", "Brüt (Saat)", "Net Süre", "Net (Saat)",
-    "Uzaktan Çalışma (Gün)", "İzin Günü", "Şüpheli Kayıt", "Not",
-]
-_SUMMARY_WIDTHS = [28, 10, 30, 32, 17, 20, 13, 11, 11, 11, 11, 14, 11, 12, 34]
+_SUMMARY_HEAD = ["Ad Soyad", "Sicil No", "Departman", "Görev", "Tesis",
+                 "Kayıt Kaynağı", "Çalışılan Gün"]
+_SUMMARY_HEAD_WIDTHS = [28, 10, 30, 32, 17, 20, 13]
+_SUMMARY_TAIL = ["Uzaktan Çalışma (Gün)", "İzin Günü", "Şüpheli Kayıt", "Not"]
+_SUMMARY_TAIL_WIDTHS = [14, 11, 12, 34]
+
+
+def _hours_columns(settings: Settings) -> tuple[list[str], list[int]]:
+    """The hours columns, which depend on whether a break is deducted.
+
+    With the deduction off, gross and net are the same number. Printing both would
+    make an HR reader ask which one payroll uses — so one pair of columns is shown,
+    named for what it is. See ADR-016.
+    """
+    if settings.brk.deduct:
+        return (["Brüt Süre", "Brüt (Saat)", "Net Süre", "Net (Saat)"],
+                [11, 11, 11, 11])
+    return ["Çalışma Süresi", "Çalışma (Saat)"], [14, 14]
 
 
 def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
-                   anomalies: Collector, footer: list[str]) -> None:
-    span = len(_SUMMARY_HEADERS)
+                   anomalies: Collector, settings: Settings,
+                   footer: list[str]) -> None:
+    hours_headers, hours_widths = _hours_columns(settings)
+    headers = _SUMMARY_HEAD + hours_headers + _SUMMARY_TAIL
+    widths = _SUMMARY_HEAD_WIDTHS + hours_widths + _SUMMARY_TAIL_WIDTHS
+    span = len(headers)
+
+    # Column positions are derived, never hard-coded: the hours block changes width
+    # with the config and off-by-one formatting here would mislabel payroll figures.
+    first_hours = len(_SUMMARY_HEAD) + 1
+    hours_cols = range(first_hours, first_hours + len(hours_headers))
+    decimal_cols = {c for i, c in enumerate(hours_cols) if i % 2 == 1}
+    right_cols = set(hours_cols) | {len(_SUMMARY_HEAD)}          # + "Çalışılan Gün"
+    day_cols = {first_hours + len(hours_headers), first_hours + len(hours_headers) + 1}
+    right_cols |= day_cols | {first_hours + len(hours_headers) + 2}
+
     styles.write_title(sheet, 1, f"AYLIK ÇALIŞMA ÖZETİ — {_period_label(period)}", span)
     styles.write_banner(
         sheet, 2,
         "DİKKAT: Şüpheli olarak işaretlenen kayıtlar 0 saat sayılmıştır — "
         "'Şüpheli Kayıtlar' sayfasına bakın. Bu rapor bir DOĞRULAMA koşusudur, "
         "bordro için nihai değildir.", span)
-    styles.write_header(sheet, 4, _SUMMARY_HEADERS, _SUMMARY_WIDTHS)
+    styles.write_banner(sheet, 3, _hours_rule_note(settings), span)
+    styles.write_header(sheet, 4, headers, widths)
 
     row = 5
     total_gross = timedelta()
@@ -126,15 +176,14 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
             _sources_label(employee.sources),
         ]
         if summary.has_attendance:
-            values += [
-                summary.worked_days,
-                hhmm(summary.gross), decimal_hours(summary.gross),
-                hhmm(summary.net), decimal_hours(summary.net),
-            ]
+            hours: list[object] = [hhmm(summary.gross), decimal_hours(summary.gross)]
+            if settings.brk.deduct:
+                hours += [hhmm(summary.net), decimal_hours(summary.net)]
+            values += [summary.worked_days] + hours
             total_gross += summary.gross
             total_net += summary.net
         else:
-            values += ["", "", "", "", ""]
+            values += [""] * (1 + len(hours_headers))
         values += [
             summary.remote_days or "",
             summary.leave_days or "",
@@ -144,28 +193,30 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
 
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
-            if index in (8, 9, 10, 11, 7, 12, 13, 14):
+            if index in right_cols:
                 cell.alignment = styles.RIGHT
-            if index in (9, 11):
+            if index in decimal_cols:
                 cell.number_format = "0.00"
-            if index in (12, 13):
+            if index in day_cols:
                 cell.number_format = "0.0#"
         styles.style_row(sheet, row, span, fill)
         row += 1
 
     with_attendance = sum(1 for s in summaries if s.has_attendance)
     sheet.cell(row=row, column=1, value=f"TOPLAM ({with_attendance} kişi)")
-    sheet.cell(row=row, column=8, value=hhmm(total_gross)).alignment = styles.RIGHT
-    sheet.cell(row=row, column=9, value=decimal_hours(total_gross)).alignment = styles.RIGHT
-    sheet.cell(row=row, column=10, value=hhmm(total_net)).alignment = styles.RIGHT
-    sheet.cell(row=row, column=11, value=decimal_hours(total_net)).alignment = styles.RIGHT
+    totals: list[object] = [hhmm(total_gross), decimal_hours(total_gross)]
+    if settings.brk.deduct:
+        totals += [hhmm(total_net), decimal_hours(total_net)]
+    for offset, value in enumerate(totals):
+        cell = sheet.cell(row=row, column=first_hours + offset, value=value)
+        cell.alignment = styles.RIGHT
     for index in range(1, span + 1):
         cell = sheet.cell(row=row, column=index)
         cell.font = styles.TOTAL_FONT
         cell.fill = styles.TOTAL_FILL
         cell.border = styles.BORDER
-    sheet.cell(row=row, column=9).number_format = "0.00"
-    sheet.cell(row=row, column=11).number_format = "0.00"
+    for index in decimal_cols:
+        sheet.cell(row=row, column=index).number_format = "0.00"
 
     styles.write_footer(sheet, row + 2, footer, span)
 
@@ -174,24 +225,36 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
 # Sheet 2 — Günlük Detay
 # ---------------------------------------------------------------------------
 
-_DAILY_HEADERS = [
-    "Ad Soyad", "Tarih", "Gün", "İlk Giriş", "Son Çıkış", "Aralık Sayısı",
-    "Brüt", "Öğle Kesintisi", "Net", "Kaynak", "Etiket",
-]
-_DAILY_WIDTHS = [28, 12, 13, 10, 10, 13, 10, 14, 10, 24, 26]
+_DAILY_HEAD = ["Ad Soyad", "Tarih", "Gün", "İlk Giriş", "Son Çıkış", "Aralık Sayısı"]
+_DAILY_HEAD_WIDTHS = [28, 12, 13, 10, 10, 13]
+_DAILY_TAIL = ["Kaynak", "Etiket"]
+_DAILY_TAIL_WIDTHS = [24, 26]
 
 
 def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
                  employees: dict[NameKey, Employee], settings: Settings,
                  footer: list[str]) -> None:
-    span = len(_DAILY_HEADERS)
+    if settings.brk.deduct:
+        middle, middle_widths = ["Brüt", "Öğle Kesintisi", "Net"], [10, 14, 10]
+    else:
+        # Gaps are paid, so showing them is how a reader checks the day themselves:
+        # Son Çıkış − İlk Giriş must equal Çalışma Süresi, and the gap column says
+        # how much of it was time away from the badge readers.
+        middle, middle_widths = ["Çalışma Süresi", "Gün İçi Boşluk"], [15, 15]
+
+    headers = _DAILY_HEAD + middle + _DAILY_TAIL
+    widths = _DAILY_HEAD_WIDTHS + middle_widths + _DAILY_TAIL_WIDTHS
+    span = len(headers)
+    right_cols = set(range(4, len(_DAILY_HEAD) + len(middle) + 1))
+
     styles.write_title(sheet, 1, "GÜNLÜK DETAY — özetin denetim izi", span)
     styles.write_banner(
         sheet, 2,
         "Her satır bir kişi-gün. 'Aralık Sayısı' 1'den büyükse gün bölünmüş "
         "(ara giriş-çıkış) demektir. Kaynak birden fazlaysa iki tesisin kaydı "
         "birleştirilmiştir; çakışan süre bir kez sayılır.", span)
-    styles.write_header(sheet, 4, _DAILY_HEADERS, _DAILY_WIDTHS)
+    styles.write_banner(sheet, 3, _hours_rule_note(settings), span)
+    styles.write_header(sheet, 4, headers, widths)
 
     row = 5
     for workday in sorted(
@@ -203,6 +266,12 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
         label = settings.calendar.holidays.get(workday.date)
         day_label = "Resmi Tatil" if label else _DAY_NAMES[workday.date.weekday()]
 
+        if settings.brk.deduct:
+            middle_values = [hhmm(workday.gross), hhmm(workday.break_deduction),
+                             hhmm(workday.net)]
+        else:
+            middle_values = [hhmm(workday.gross), hhmm(workday.gap_total)]
+
         values = [
             employee.display_name if employee else "",
             workday.date.strftime("%d.%m.%Y"),
@@ -210,15 +279,13 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
             workday.first_entry.strftime("%H:%M") if workday.first_entry else "",
             workday.last_exit.strftime("%H:%M") if workday.last_exit else "",
             len(workday.intervals),
-            hhmm(workday.gross),
-            hhmm(workday.break_deduction),
-            hhmm(workday.net),
+            *middle_values,
             _sources_label(workday.sources),
             ", ".join(sorted(workday.tags)),
         ]
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
-            if index in (4, 5, 6, 7, 8, 9):
+            if index in right_cols:
                 cell.alignment = styles.RIGHT
 
         fill = None
@@ -258,9 +325,10 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
     styles.write_banner(
         sheet, 2,
         "Bu sayfa İK'ya / IT'ye sormak için hazırlanmıştır: her satır bir kişi ve "
-        "bir sorun türü, hangi günlerde olduğu yazılı. Kırmızı satırlardaki günler "
-        "0 saat sayıldı. Satır bazlı denetim izi için 'Şüpheli Kayıtlar' sayfasına "
-        "bakın.", span)
+        "bir konu, hangi günlerde olduğu yazılı. KIRMIZI: o günler 0 saat sayıldı, "
+        "kayıp saat var. SARI: sayıldı ama bakılması iyi olur. GRİ: beklenen durum, "
+        "sorun değil — bilgi için listelenmiştir. Satır bazlı denetim izi için "
+        "'Şüpheli Kayıtlar' sayfasına bakın.", span)
     styles.write_header(sheet, 4, _WORKLIST_HEADERS, _WORKLIST_WIDTHS)
 
     # (employee key, problem label) -> dates
@@ -280,7 +348,7 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
 
     def order(item):
         (key, label), dates = item
-        return (severity[(key, label)] != "excluded", -len(dates),
+        return (_SEVERITY_ORDER[severity[(key, label)]], -len(dates),
                 sort_key(names.get(key, "")), label)
 
     row = 5
@@ -296,7 +364,7 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
             label,
             len(unique_days) or "",
             _day_list(unique_days, period),
-            _IMPACT_TEXT[severity[(key, label)]],
+            _impact_text(severity[(key, label)]),
         ]
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
@@ -304,18 +372,24 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
                 cell.alignment = styles.RIGHT
             if index == 7:
                 cell.alignment = styles.LEFT
-        fill = (styles.RED_FILL if severity[(key, label)] == "excluded"
-                else styles.AMBER_FILL)
+        level = severity[(key, label)]
+        fill = {"excluded": styles.RED_FILL, "info": styles.GREY_FILL}.get(
+            level, styles.AMBER_FILL)
         styles.style_row(sheet, row, span, fill)
         row += 1
 
     styles.write_footer(sheet, row + 1, footer, span)
 
 
-_IMPACT_TEXT = {
-    "excluded": "Bu günler 0 saat sayıldı",
-    "included": "Toplama dahil edildi",
-}
+# Plural wording for this sheet, which groups several days into one row. Only the
+# excluded text differs from `anomalies._IMPACT`; the rest defers to it so a new
+# severity cannot be added there and silently KeyError here.
+_IMPACT_TEXT_PLURAL = {"excluded": "Bu günler 0 saat sayıldı"}
+
+
+def _impact_text(severity: str) -> str:
+    return _IMPACT_TEXT_PLURAL.get(severity, IMPACT_TEXT[severity])
+
 
 _MONTHS_LOWER = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
                  "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
@@ -347,15 +421,17 @@ def _sheet_anomalies(sheet: Worksheet, anomalies: Collector,
     styles.write_banner(
         sheet, 2,
         "Kırmızı satırlar toplama DAHİL EDİLMEDİ (o gün 0 saat). Sarı satırlar "
-        "toplama dahil edildi ama kontrol edilmeli. 'Kaynak Satır' orijinal "
-        "dosyadaki satır numarasıdır — açıp bakabilirsiniz.", span)
+        "toplama dahil edildi ama kontrol edilmeli. Gri satırlar beklenen "
+        "durumdur, sorun değil — denetim izi tam olsun diye listelenir. "
+        "'Kaynak Satır' orijinal dosyadaki satır numarasıdır — açıp "
+        "bakabilirsiniz.", span)
     styles.write_header(sheet, 4, _ANOMALY_HEADERS, _ANOMALY_WIDTHS)
 
     row = 5
     ordered = sorted(
         anomalies.items,
         key=lambda a: (
-            a.severity != "excluded",
+            _SEVERITY_ORDER[a.severity],
             sort_key(employees[a.key].display_name
                      if a.key in employees else a.raw_name),
             a.date or date.min,
@@ -379,7 +455,8 @@ def _sheet_anomalies(sheet: Worksheet, anomalies: Collector,
             cell = sheet.cell(row=row, column=index, value=value)
             if index == 5:
                 cell.alignment = styles.RIGHT
-        fill = styles.RED_FILL if anomaly.severity == "excluded" else styles.AMBER_FILL
+        fill = {"excluded": styles.RED_FILL, "info": styles.GREY_FILL}.get(
+            anomaly.severity, styles.AMBER_FILL)
         styles.style_row(sheet, row, span, fill)
         row += 1
 
@@ -517,12 +594,21 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     computed = timedelta()
     for summary in summaries:
         computed += summary.gross
+    gaps = stats.accepted_total - stats.union_total
     line("Kabul edilen aralık sayısı", stats.intervals_accepted)
-    line("Kabul edilen aralıkların toplamı", hhmm(stats.accepted_total))
+    line("Kabul edilen aralıkların toplamı", hhmm(stats.union_total),
+         "Sadece varlık süresi — gün içi boşluklar hariç")
+    if settings.daily_hours == "union":
+        line("Gün içi boşluklar", hhmm(gaps), "Sayılmadı — daily_hours: union")
+    else:
+        line("Gün içi boşluklar", hhmm(gaps),
+             "Zarf kuralıyla ödendi — ADR-015", styles.GREY_FILL)
+    line("Günlük ölçülen sürelerin toplamı", hhmm(stats.accepted_total),
+         "Raporun ödediği süre")
     line("Kişi toplamlarının toplamı", hhmm(computed))
     matches = abs((computed - stats.accepted_total).total_seconds()) < 1
     line("Mutabakat", "TAMAM" if matches else "HATA",
-         "Σ kişi brüt == Σ kabul edilen aralık" if matches
+         "Σ kişi = Σ günlük ölçülen süre" if matches
          else "Kayıt çift sayılmış veya kaybolmuş — inceleyin",
          styles.GREEN_FILL if matches else styles.RED_FILL)
     row += 1
@@ -539,6 +625,10 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     line("Şüpheli kayıt (toplam)", len(anomalies))
     line("  toplama dahil edilmeyen",
          sum(1 for a in anomalies.items if a.severity == "excluded"))
+    line("  bilgi amaçlı (sorun değil)",
+         sum(1 for a in anomalies.items if a.severity == "info"),
+         "Beklenen durum — kişilerin 'Şüpheli Kayıt' sayısına dahil edilmez, "
+         "ADR-017", styles.GREY_FILL)
     row += 1
 
     section("5. Personel listesinde tekrarlanan kayıtlar")
@@ -568,9 +658,17 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
          "Veriden ÇIKARILDI, İK onaylamadı — ROADMAP.md Q16", styles.AMBER_FILL)
     for day, label in sorted(settings.calendar.holidays.items()):
         line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()], label)
-    line("Öğle arası", f"{settings.brk.minutes} dk",
-         f"kalan mola kuralı, pencere {settings.brk.window_from:%H:%M}-"
-         f"{settings.brk.window_to:%H:%M} — ADR-008")
+    if settings.brk.deduct:
+        line("Öğle arası", f"{settings.brk.minutes} dk",
+             f"kalan mola kuralı, pencere {settings.brk.window_from:%H:%M}-"
+             f"{settings.brk.window_to:%H:%M} — ADR-008")
+    else:
+        line("Öğle arası kesintisi", "YOK",
+             f"{settings.brk.minutes} dk kesinti İK talebiyle kapatıldı — ADR-016")
+    line("Günlük süre ölçümü",
+         "ilk giriş → son çıkış" if settings.daily_hours == "envelope"
+         else "aralıkların toplamı",
+         f"config: daily_hours: {settings.daily_hours} — ADR-015")
     _roster_age_line(line, stats, period)
     row += 1
 

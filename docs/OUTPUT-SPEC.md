@@ -39,34 +39,47 @@ One row per employee, sorted by name. **This is what the project was asked for.*
 | C | Departman | `YAZILIM TASARIM EKİBİ` | From the IAS roster; attendance-file department as fallback |
 | D | Görev | `YAZILIM TASARIM MÜHENDİSİ` | From the IAS roster |
 | E | Tesis | `DEICO TESİS` / `MACUNKÖY TESİSİ` | **Home facility from the roster** — a fact about the employee (ADR-010) |
-| F | Kayıt Kaynağı | `Teknopark` / `Macunköy` / `Her ikisi` | Which terminals they actually badged at. Differs from Tesis for site visitors — that difference is informative, not an error |
+| F | Kayıt Kaynağı | `Macunköy + Teknopark` / `Macunköy` / `Teknopark + Uzaktan` … | Which sources contributed. Differs from Tesis for site visitors — that difference is informative, not an error. **This is where you find the dual-site people**: 79 in May 2026 have both sites (58 badge-only + 21 also remote) |
 | G | Çalışılan Gün | `19` | days with a non-zero interval, remote days included |
-| H | Brüt Süre | `146:18` | `HH:MM`, may exceed 24 |
-| I | Brüt (Saat) | `146.30` | decimal, for HR's own formulas |
-| J | Net Süre | `132:03` | residual break deducted per `DOMAIN-RULES.md §5.1` |
-| K | Net (Saat) | `132.05` | |
-| L | Uzaktan Çalışma | `4.0` | days counted as worked from the leave export (ADR-007) |
-| M | İzin Günü | `1.5` | genuine leave — **excludes** `Uzaktan Çalışma` |
-| N | Şüpheli Kayıt | `3` | anomaly count; >0 shaded amber |
-| O | Not | `Eksik çıkış var` | short human-readable summary |
+| H | Çalışma Süresi | `168:37` | `HH:MM`, may exceed 24. Σ of `last exit − first entry` per day (§5.0) |
+| I | Çalışma (Saat) | `168.62` | decimal, for HR's own formulas |
+| J | Uzaktan Çalışma | `4.0` | days counted as worked from the leave export (ADR-007) |
+| K | İzin Günü | `1.5` | genuine leave — **excludes** `Uzaktan Çalışma` |
+| L | Şüpheli Kayıt | `3` | anomaly count; >0 shaded amber |
+| M | Not | `Eksik çıkış var` | short human-readable summary |
+
+**The hours block is one pair of columns, not two.** With `break.deduct: false`
+(ADR-016) gross and net are the same number, and printing both would make a reader ask
+which one payroll uses. Flip the switch back to `true` and columns H–I become the
+four-column `Brüt Süre` / `Brüt (Saat)` / `Net Süre` / `Net (Saat)` layout of ADR-002,
+shifting J–M right by two. Column positions in the writer are derived from the header
+list for exactly this reason — never hard-code an index here.
 
 Sorted by name (ADR-009). Header row frozen, autofilter on. A `TOPLAM` row at the
 bottom for reconciliation.
 
-Columns L and M must never overlap: a `Uzaktan Çalışma` day is worked time and is
-already inside H/J, so counting it again as leave would misrepresent both.
+A second banner under the first states the active calculation rule
+(`HESAP KURALI: …`), because that rule is a config switch and the reader must not
+have to assume last month's applied.
+
+Columns J and K must never overlap: a `Uzaktan Çalışma` day is worked time and is
+already inside H, so counting it again as leave would misrepresent both.
 
 **E-mail is deliberately not a column here.** It exists in the roster and is needed
 for Phase 4, but putting 162 addresses in a circulated workbook serves no reporting
 purpose. It stays in the mail step's own data.
 
-**People with no attendance data** (Q4) appear as rows with H–K blank — **not
+**People with no attendance data** (Q4) appear as rows with G–I blank — **not
 zero** — and `Mesai verisi yok` in the Not column. A blank and a zero mean different
 things and the sheet must preserve the difference.
 
 **People with attendance but no roster entry** (11 in May 2026, Q4b) get full hour
 figures with C, D, E blank and `Personel listesinde yok` in the Not column. Their
 hours are real and are counted; only their metadata is missing.
+
+**`TOPLAM` for May 2026 is `17103:58`.** If a run produces `15717:08` instead it is
+using the pre-2026-08-17 rules — check `break.deduct`, `daily_hours` and
+`remote_day_replaces_attendance`.
 
 > A visible banner above the table states: *flagged records count as zero hours;
 > see the `Şüpheli Kayıtlar` sheet.* Without it the totals will be read as final.
@@ -83,13 +96,32 @@ One row per employee-day — 1 823 for May 2026. The audit trail for sheet 1.
 | D | İlk Giriş | earliest entry of the merged union |
 | E | Son Çıkış | latest exit |
 | F | Aralık Sayısı | number of merged intervals — `>1` means a split day |
-| G | Brüt | `12:36` |
-| H | Öğle Kesintisi | `0:45` or `0:00` |
-| I | Net | `11:51` |
-| J | Kaynak | `Teknopark`, `Macunköy`, `Teknopark+Macunköy` |
-| K | Etiket | `gece-geçişi`, `çapraz-eşleşti`, … |
+| G | Çalışma Süresi | `12:42` — **must equal E − D** |
+| H | Gün İçi Boşluk | `0:42` — time between intervals, paid under ADR-015 |
+| I | Kaynak | `Teknopark`, `Macunköy`, `Teknopark+Macunköy` |
+| J | Etiket | `gece-geçişi`, `çapraz-eşleşti`, `kısa-gün`, … |
 
-Grouped by employee, sorted by date. Rows carrying a tag are shaded.
+**The tags, and what to filter on** (May 2026 counts):
+
+| Tag | May | Meaning |
+| --- | --- | --- |
+| `çapraz-eşleşti` | 165 | a one-sided record was resolved against the other site (ADR-003) |
+| `çapraz-tesis` | 105 | the day genuinely spans both sites — the ADR-001 case |
+| `uzaktan` | 52 | contains declared remote hours |
+| `kısa-gün` | 15 | day under the 2-hour threshold (ADR-019) |
+| `gece-geçişi` | 7 | midnight crossing repaired |
+| `uzaktan-çakışma` | 2 | remote declaration **and** a real punch — the ones to ask about |
+
+Grouped by employee, sorted by date. Rows carrying a tag are shaded. The same
+`HESAP KURALI:` banner as sheet 1 sits above the table.
+
+**Column H exists so the rule is auditable from the report alone.** ADR-015 pays
+in-day gaps; without this column a reader could not tell a continuous 12-hour day from
+a 7-hour day with a 5-hour gap. Sorting by it descending is how you find the
+questionable days — 49 exceed 1 h in May 2026, 13 exceed 2 h.
+
+With `break.deduct: true`, G–H become the three-column `Brüt` / `Öğle Kesintisi` /
+`Net` layout and I–J shift right by one.
 
 ### Sheet 3 — `Sorulacaklar`
 
@@ -111,8 +143,21 @@ into a per-person question: **144 rows**, each naming the days.
 One row per **(person, problem type)** pair — a person with both a missing entry and
 a missing exit gets two rows, because they are two different questions.
 
-Sorted most-affected first: excluded-from-totals before included, then by day count
-descending. The person costing the most hours is the first thing you see.
+**Three colours, three meanings** (ADR-017):
+
+| Colour | Severity | Meaning |
+| --- | --- | --- |
+| Red | `excluded` | those days counted as 0 hours — real lost time |
+| Amber | `included` | counted, but worth a look |
+| Grey | `info` | **expected behaviour, not a problem** — listed so the audit trail is complete |
+
+Grey rows exist so that a genuine question is not buried among expected ones. For May
+2026 the remote-work overlap produces 19 grey rows and **2 amber** — and those 2 are
+the only cases anyone needs to ask about.
+
+Sorted worst first: `excluded`, then `included`, then `info`, and within each by day
+count descending. The person costing the most hours is the first thing you see; the
+expected-behaviour rows are at the bottom where they belong.
 
 Problems with no specific date (`Mesai verisi hiç yok`, which covers the whole
 month) show `tüm ay` in column G.
@@ -131,11 +176,21 @@ mostly `MISSING_EXIT`. Use `Sorulacaklar` to ask questions; use this to verify o
 | E | Kaynak Satır | `17` — the row number in the original file |
 | F | Ham Giriş | as recorded |
 | G | Ham Çıkış | as recorded |
-| H | Etki | `Bu gün 0 saat sayıldı` / `Toplama dahil edildi` |
+| H | Etki | `Bu gün 0 saat sayıldı` / `Toplama dahil edildi` / `Toplama dahil edildi — beklenen durum` |
 | I | Açıklama | |
 
 Colour-coded by severity: red = excluded from totals, amber = included but
-questionable.
+questionable, grey = expected behaviour recorded for completeness (ADR-017).
+
+The severity → impact-text map has **one** home, `anomalies.IMPACT_TEXT`. The writer
+imports it. It used to keep a private copy, and adding the `info` severity then broke
+every month-end run with `KeyError` while all 112 unit tests passed —
+`tests/test_report.py` now builds a workbook containing every anomaly kind.
+
+Column I is where a remote-work overlap says which it is: `puantajdaki kayıt nominal
+tam gün, turnike okuması değil` versus `puantajdaki kayıt gerçek turnike okuması`.
+Column G shows the attendance side's raw times, so `09:00-18:00 (teknopark)` is the
+placeholder and anything with odd minutes is real.
 
 ### Sheet 5 — `İzin Özeti`
 

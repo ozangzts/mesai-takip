@@ -171,6 +171,42 @@ correct. A mismatch is reported as `DURATION_MISMATCH`.
 - Very short rows exist and are real: `01.05.2026 13:32 → 13:34` = `00:02`.
   Probably a badge test on a public holiday. Flag as suspicious, do not delete.
 
+### D9 — The nominal `09:00–18:00` day is a placeholder, not a punch
+
+**319 of 1 607 May rows and 418 of 2 557 June rows are exactly `09:00–18:00`, duration
+exactly `09:00`.** They are structurally identical to real rows — same columns, same
+string format, no marker of any kind. Four independent findings identify them:
+
+1. **No odd minutes.** Real punches look like `07:17 → 18:46`. This pattern never
+   deviates by a minute, across 737 rows over two months.
+2. **Sole record for the day.** In every remote-work overlap it is the only record for
+   that person-day, in either attendance file. No physical trace exists.
+3. **Present when the office was shut.** On 25–26 May — the Kurban Bayramı bridge —
+   15 of 15 and 15 of 16 Teknopark records are exactly this pattern. A closed office
+   cannot produce 15 identical punches.
+4. **Present during leave.** 19 May person-days carry it while the person was on
+   leave, including one day of `İstirahat (Raporlu)`.
+
+Distribution is consistent with "fill in an expected workday that has no turnstile
+data": **never at a weekend** (0 rows Sat/Sun), 15–26 % of rows on each weekday, no
+single-day concentration, and 81 people affected in May of whom **none** has only
+nominal rows — everyone also has real punches.
+
+**Do not read it as a remote-work marker.** Measured in that direction it fails: only
+10 % (May) and 18 % (June) of nominal rows have a `Uzaktan Çalışma` declaration on the
+same day, and the two people with the most nominal days (11 and 16) have no remote
+declarations at all. Remote work is one trigger among several; the others are not
+determinable from any file we have.
+
+**It is nevertheless counted as worked time (ADR-017)**, because the file's own
+`Dönemdeki Toplam` counts it and 110/110 blocks reconcile with that figure. The
+pattern is declared in `config/settings.yaml:nominal_day` so the report can tell a
+reader which side of a remote overlap was a placeholder. If the vendor's default
+changes, change it there — no code knows the times.
+
+Weight: 319 rows × 9 h = **2 871 h, about 17 % of May's reported total.** Anyone
+revisiting whether these should be paid should start from that number.
+
 ---
 
 ## 3. `HCMT34_MAYIS_IZIN.xlsx`
@@ -197,7 +233,7 @@ Leave export from the HCM system.
 | L | `Mesai Kaydet` | Observed value: `Mesai Kaydetme` (do not count as work) |
 | M | `Bordro Kodu` | `NORM` |
 | N–O | `Açıklama` / `İzin Sebebi` | Free text, often duplicated |
-| P | `Kullanılan Gün` | Days used, fractional (`0.22`, `0.5`, `1.0`, `1.5`) |
+| P | `Kullanılan Gün` | Days used, fractional (`0.22`, `0.5`, `1.0`, `1.5`) — see D7 |
 
 **D6 — Per-person subtotal row. This will silently double every total if missed.**
 The first row for each person has columns E–O empty and column P holding the sum
@@ -224,6 +260,51 @@ Rule: skip any row where `İzin Tipi` is empty.
 | `Doğum İzni (Tam Ödeme)` (parental, paid) | 2 | No |
 | `Ücretsiz İzin` (unpaid) | 2 | No |
 
+**D7 — `Kullanılan Gün` is hours ÷ 9, and that tells us the workday is 9 hours.**
+
+Fractional day values are not noise. For a single-day row the HCM computes
+
+```
+Kullanılan Gün = round((Bitiş − Başlangıç) / 9 saat, 2)
+```
+
+Verified: the ratio is exactly **9.0** for 346 of 347 single-day annual-leave rows.
+The apparent outliers (9.09, 8.93) are the 2-decimal rounding read backwards — 1 hour
+÷ 9 = 0.1111 is stored as `0.11`, which divides back to 9.09.
+
+| Duration | Days | | Duration | Days |
+| --- | --- | --- | --- | --- |
+| 1 h | 0.11 | | 5 h | 0.56 |
+| 2 h | 0.22 | | 6 h | 0.67 |
+| 3 h | 0.33 | | 7 h | 0.78 |
+| 4 h | 0.44 | | 8 h | 0.89 |
+| 4.5 h | 0.50 | | 9 h | 1.00 |
+
+**Multi-day rows are different**: there `Kullanılan Gün` is the count of working days
+covered, not the span ÷ 9. `07.05 07:30 → 08.05 16:30` spans 33 hours and is recorded
+as `2.0`.
+
+A person's monthly figure is the sum, which is why the `İzin Özeti` sheet is full of
+values like `3.78`. A real May example:
+
+```
+Uzaktan Çalışma   05.05  07:30-16:30   9.00 h  ->  1.0
+Mazeret           15.05  14:00-16:30   2.50 h  ->  0.28
+Yıllık İzin       20.05  07:30-16:30   9.00 h  ->  1.0
+Yıllık İzin       25.05  07:30-16:30   9.00 h  ->  1.0
+Yıllık İzin       26.05  07:30-12:00   4.50 h  ->  0.5
+                                                  ─────  3.78
+```
+
+149 of 160 people in May have a fractional total. It is the norm, not an anomaly.
+
+**Why this matters beyond the leave sheet:** the HCM's own workday is **9 hours**, and
+a June row splits one day as `Mazeret 0.44` + `Uzaktan Çalışma 0.56` = exactly `1.00`.
+That is independent confirmation of the 9-hour day the report now pays after ADR-016,
+and it is evidence that `overtime.expected_daily_net_hours: 8.25` in
+`config/settings.yaml` is wrong. The key is unused (Phase 2, Q5) but must be corrected
+before any overtime rule ships.
+
 ### `Uzaktan Çalışma` is worked time (ADR-007)
 
 Confirmed by the project owner, 2026-08-03: remote work is **not** leave. The person
@@ -241,6 +322,17 @@ The rows carry usable times, so the hours are computable without any assumption:
 
 Because start and end times are present on every row, remote hours are derived from
 the record itself, not from a per-day constant.
+
+**Most remote days also appear in the Teknopark timesheet, and that is expected.**
+39 of 56 May records and 83 of 106 June records overlap an attendance record for the
+same person-day. In 37 of 39 and 76 of 83 the attendance side is the nominal
+`09:00–18:00` placeholder of D9, not a real punch — the timesheet filling in a day
+with no turnstile data. The union counts the shared time once, and the report records
+these at `info` severity: expected, not a defect (ADR-017).
+
+The residue is the interesting part: **2 May records and 7 June records overlap a real
+punch.** Those are the only cases where somebody declared remote work and a turnstile
+genuinely recorded them, and they appear on `Sorulacaklar` as their own question.
 
 **Free-text fields contain sensitive personal detail** (medical reasons, personal
 excuses). They must not be reproduced in any report that is circulated more widely

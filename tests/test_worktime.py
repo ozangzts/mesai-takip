@@ -1,4 +1,4 @@
-"""Interval construction, union, and the residual break rule.
+"""Interval construction, union, the daily measure, and the residual break rule.
 
 Every expected value here was computed by hand.
 """
@@ -8,8 +8,8 @@ from datetime import date, datetime, timedelta
 from mesai.anomalies import AnomalyKind
 from mesai.models import Interval, PunchRecord
 from mesai.rules.worktime import (
-    break_deduction, build_interval, decimal_hours, gross_duration, hhmm,
-    merge_intervals,
+    break_deduction, build_interval, decimal_hours, envelope_duration,
+    gap_duration, gross_duration, hhmm, measure, merge_intervals,
 )
 
 
@@ -141,7 +141,70 @@ def test_merge_of_nothing():
     assert gross_duration(()) == timedelta()
 
 
-# --- residual break (ADR-008) ----------------------------------------------
+# --- daily measure: envelope (ADR-015) -------------------------------------
+
+def test_envelope_spans_first_entry_to_last_exit():
+    # The real BURAK ÖRNEK, 2026-05-04: out at 13:48, back at 14:30.
+    merged = merge_intervals([iv("08:21", "13:48"), iv("14:30", "18:00")])
+    assert hhmm(envelope_duration(merged)) == "9:39"
+    assert hhmm(gross_duration(merged)) == "8:57", "presence is still 8:57"
+    assert hhmm(gap_duration(merged)) == "0:42"
+
+
+def test_envelope_equals_union_on_a_continuous_day():
+    merged = merge_intervals([iv("07:30", "16:30")])
+    assert envelope_duration(merged) == gross_duration(merged)
+    assert gap_duration(merged) == timedelta()
+
+
+def test_envelope_of_nothing():
+    assert envelope_duration(()) == timedelta()
+    assert gap_duration(()) == timedelta()
+
+
+def test_envelope_ignores_a_contained_interval():
+    # A Macunköy visit inside a Teknopark day changes neither figure.
+    merged = merge_intervals([iv("07:09", "19:45"), iv("13:20", "14:05")])
+    assert hhmm(envelope_duration(merged)) == "12:36"
+    assert gap_duration(merged) == timedelta()
+
+
+def test_measure_pays_the_gap_and_deducts_nothing(settings):
+    merged = merge_intervals([iv("08:21", "13:48"), iv("14:30", "18:00")])
+    worked, deduction, net = measure(merged, settings)
+    assert hhmm(worked) == "9:39"
+    assert deduction == timedelta()
+    assert net == worked, "with the break off, net must equal the measured day"
+
+
+def test_measure_under_the_old_rule(settings_break):
+    """The pre-ADR-016 configuration must still reproduce the old numbers."""
+    merged = merge_intervals([iv("08:21", "13:48"), iv("14:30", "18:00")])
+    worked, deduction, net = measure(merged, settings_break)
+    assert hhmm(worked) == "8:57"
+    assert deduction == timedelta(minutes=3)
+    assert hhmm(net) == "8:54"
+
+
+def test_measure_of_an_empty_day(settings):
+    assert measure((), settings) == (timedelta(), timedelta(), timedelta())
+
+
+def test_envelope_never_undercounts_presence(settings):
+    """The measured day can exceed presence but must never fall below it."""
+    for gap_minutes in range(0, 240, 15):
+        start = datetime(2026, 5, 21, 8, 0)
+        first_end = datetime(2026, 5, 21, 11, 30)
+        second_start = first_end + timedelta(minutes=gap_minutes)
+        merged = merge_intervals([
+            Interval(start, first_end),
+            Interval(second_start, second_start + timedelta(hours=4)),
+        ])
+        worked, _, _ = measure(merged, settings)
+        assert worked >= gross_duration(merged)
+
+
+# --- residual break (ADR-008, disabled by ADR-016 but still shipped) --------
 
 def test_continuous_day_pays_the_full_break(settings):
     merged = merge_intervals([iv("08:00", "17:00")])

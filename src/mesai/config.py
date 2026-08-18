@@ -38,6 +38,9 @@ class BreakRule:
     window_from: time
     window_to: time
     min_workday: timedelta
+    # False = pay through the break (ADR-016). The arithmetic below still exists and
+    # is still tested; this only decides whether it is applied.
+    deduct: bool = True
 
     @property
     def duration(self) -> timedelta:
@@ -46,8 +49,27 @@ class BreakRule:
 
 @dataclass(frozen=True)
 class Plausibility:
-    min_duration: timedelta
+    min_duration: timedelta          # per interval — catches a bad record
     max_duration: timedelta
+    short_day: timedelta             # per person-day — catches a barely-worked day
+
+
+@dataclass(frozen=True)
+class NominalDay:
+    """The source system's placeholder for a workday it has no turnstile data for.
+
+    Counted as worked time (ADR-017); this exists only so the report can tell a
+    reader which records are placeholders and which are real punches.
+    """
+    source: str
+    entry: time
+    exit: time
+
+    def matches(self, record_source: str, entry, exit_) -> bool:
+        if record_source != self.source or entry is None or exit_ is None:
+            return False
+        return ((entry.hour, entry.minute) == (self.entry.hour, self.entry.minute)
+                and (exit_.hour, exit_.minute) == (self.exit.hour, self.exit.minute))
 
 
 @dataclass(frozen=True)
@@ -89,6 +111,10 @@ class Personnel:
         return self.aliases.get(key, key)
 
 
+DAILY_HOURS_METHODS = ("envelope", "union")
+REMOTE_REPLACE_MODES = ("nominal_only", "always", "never")
+
+
 @dataclass(frozen=True)
 class Settings:
     shift_start: time
@@ -99,6 +125,12 @@ class Settings:
     worked_leave_types: frozenset[str]
     calendar: Calendar
     personnel: Personnel
+    # "envelope" (first entry -> last exit) or "union" (sum of intervals). ADR-015.
+    daily_hours: str = "envelope"
+    # Optional: absent from the config means "no placeholder pattern known".
+    nominal_day: NominalDay | None = None
+    # "nominal_only" | "always" | "never" — see ADR-018.
+    remote_replaces: str = "nominal_only"
 
 
 _WEEKDAYS = {
@@ -149,11 +181,44 @@ def load(config_dir: Path, period: str) -> Settings:
         window_to=_time(_require(brk_raw, "window_to", "settings.yaml:break"),
                         "settings.yaml:break.window_to"),
         min_workday=timedelta(hours=float(brk_raw.get("min_workday_hours", 6.0))),
+        deduct=bool(_require(brk_raw, "deduct", "settings.yaml:break")),
     )
     plaus = Plausibility(
         min_duration=timedelta(minutes=float(pl_raw.get("min_minutes", 5))),
         max_duration=timedelta(hours=float(pl_raw.get("max_shift_hours", 16))),
+        short_day=timedelta(hours=float(pl_raw.get("short_day_hours", 2))),
     )
+
+    # A payroll-affecting switch: required, and validated rather than defaulted, so a
+    # typo fails the run instead of quietly reverting to the other rule.
+    daily_hours = str(_require(raw, "daily_hours", "settings.yaml")).strip().lower()
+    if daily_hours not in DAILY_HOURS_METHODS:
+        raise ConfigError(
+            f"settings.yaml:daily_hours: {daily_hours!r} geçersiz — "
+            f"beklenen: {' | '.join(DAILY_HOURS_METHODS)}"
+        )
+
+    # Payroll-affecting, so required and validated — same reasoning as daily_hours.
+    remote_replaces = str(_require(
+        raw, "remote_day_replaces_attendance", "settings.yaml")).strip().lower()
+    if remote_replaces not in REMOTE_REPLACE_MODES:
+        raise ConfigError(
+            f"settings.yaml:remote_day_replaces_attendance: {remote_replaces!r} "
+            f"geçersiz — beklenen: {' | '.join(REMOTE_REPLACE_MODES)}"
+        )
+
+    # Optional — it is a source-file quirk, not a rule, so a config without it is
+    # valid and simply loses the placeholder/real distinction in the report.
+    nominal_raw = raw.get("nominal_day")
+    nominal = None
+    if nominal_raw:
+        nominal = NominalDay(
+            source=str(_require(nominal_raw, "source", "settings.yaml:nominal_day")),
+            entry=_time(_require(nominal_raw, "entry", "settings.yaml:nominal_day"),
+                        "settings.yaml:nominal_day.entry"),
+            exit=_time(_require(nominal_raw, "exit", "settings.yaml:nominal_day"),
+                       "settings.yaml:nominal_day.exit"),
+        )
 
     sources_raw = _require(raw, "sources", "settings.yaml")
     sources = {name: tuple(patterns) for name, patterns in sources_raw.items()}
@@ -198,4 +263,7 @@ def load(config_dir: Path, period: str) -> Settings:
         calendar=calendar,
         personnel=Personnel(exclude_prefixes=prefixes, aliases=aliases,
                             alias_pairs=tuple(pairs)),
+        daily_hours=daily_hours,
+        nominal_day=nominal,
+        remote_replaces=remote_replaces,
     )

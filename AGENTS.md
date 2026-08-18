@@ -170,7 +170,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 81 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 127 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -187,8 +187,11 @@ anything. One month per folder is a contract (ADR-014).
 Three guards exist specifically to catch the kinds of bug this data produces. Do not
 weaken any of them without an ADR:
 
-1. **Reconciliation invariant** — Σ per-person gross must equal Σ accepted interval
-   durations. Written to the report's `Kontrol` sheet every run.
+1. **Reconciliation invariant** — Σ per-person total must equal Σ measured
+   person-days. Written to the report's `Kontrol` sheet every run, alongside the
+   presence total and the in-day gap total, whose difference it is. Note it is *not*
+   "Σ accepted interval durations": in-day gaps are paid since ADR-015, so that older
+   form would fail every run by design.
 2. **Teknopark block totals** — each block is checked against the file's own
    `Dönemdeki Toplam` figure. This caught a reader that was silently dropping 838 of
    1 607 rows while appearing to succeed. Currently 110/110 agree.
@@ -285,10 +288,21 @@ Headline defects (all verified, not assumed):
   `config/personel.yaml`. No fuzzy matcher ships.
 - The leave export has a **per-person subtotal row** before each person's real
   rows (leave-type column empty, "days used" column holds the sum). Skipping it
-  is mandatory or every person's leave doubles.
+  is mandatory or every person's leave doubles. That row is also an unused checksum:
+  it equals the sum of the person's real rows in 162 of 162 cases.
 - `Uzaktan Çalışma` rows in the leave export are **worked time**, not leave
   (ADR-007). They carry start/end times and become intervals in the same union as
   badge records.
+- **319 of 1 607 Teknopark rows are a nominal `09:00–18:00` placeholder**, not a badge
+  reading — written when an expected workday has no turnstile data. They are counted
+  as worked time (ADR-017) and are ~17 % of reported hours. Declared in
+  `config/settings.yaml:nominal_day`. Do not read them as a remote-work marker: 90 %
+  have no remote declaration behind them. `DATA-SOURCES.md` D9.
+- **Leave days are fractional because the HCM divides hours by 9** (`0.11` = 1 h,
+  `0.44` = 4 h, `1.00` = 9 h). Multi-day rows instead count working days. Two
+  independent sources therefore put the workday at **9 hours**, which is what the
+  report now pays — and which makes `expected_daily_net_hours: 8.25` wrong (Q5).
+  `DATA-SOURCES.md` D7.
 
 After excluding visitors/temps and unioning both sites: **162 real employees**,
 of whom 24 have no attendance record at all and must be reported as
@@ -298,7 +312,10 @@ of whom 24 have no attendance record at all and must be reported as
 
 ## 6. Conventions
 
-**Language.** Code, identifiers, comments, commit messages, `docs/`: English.
+**Language.** Code, identifiers, comments, `docs/`: English.
+**Commit messages: Turkish**, matching the existing history (all commits to date).
+This line used to say English, which contradicted every commit in the log — practice
+wins, and ASCII-folded Turkish is fine (`duzelt`, not `düzelt`).
 User-facing output (Excel sheet names, headers, CLI messages), `README.md`: Turkish.
 
 **Time.** Internally `datetime`/`timedelta`, never floats-as-hours and never
@@ -310,6 +327,12 @@ reimplement `HH:MM` formatting inline.
 thresholds, Multinet counts, holiday dates: all in `config/`. A rule change must
 be a YAML edit, never a code edit.
 
+Three of those keys change payroll figures directly — `daily_hours` (ADR-015),
+`break.deduct` (ADR-016) and `remote_day_replaces_attendance` (ADR-018). All are
+**required**, not defaulted, and an unknown value fails the run. A config file
+predating a rule change must not silently apply the old rule. When adding another
+switch of this kind, require it too.
+
 **Readers return one shape.** Every reader in `src/mesai/readers/` returns the same
 normalized record type regardless of how ugly its source file is. All
 file-format weirdness is contained inside its reader and nowhere else.
@@ -317,6 +340,13 @@ file-format weirdness is contained inside its reader and nowhere else.
 **Errors are data.** Anomalies (missing punch, negative duration, unresolvable
 name, implausible duration) are collected into a structured list and written to a
 report sheet. They are not printed warnings and not silent skips.
+
+Three severities, and the third one earns its keep: `excluded` (counted as zero
+hours), `included` (counted, worth a look), `info` (counted, **expected behaviour**).
+Info items are recorded for the audit trail but do not count as anybody's problem —
+use `anomaly.is_problem`, never a severity comparison, when counting problems. Without
+this, expected behaviour shades 21 people's rows and buries the 2 real questions
+among them (ADR-017).
 
 **Testing.** Every business rule gets a unit test with a hand-computed expected
 value. Every reader gets a fixture test against a small synthetic workbook.
@@ -334,7 +364,8 @@ will be.
 - [ ] Tests written and passing
 - [ ] Nothing under `data/` was committed
 - [ ] No real employee name added to a test fixture
-- [ ] Totals still reconcile: sum of per-person hours == sum of accepted intervals
+- [ ] Totals still reconcile: Σ per-person hours == Σ measured person-days, and the
+      `Kontrol` sheet still shows presence and in-day gaps as separate lines
 
 ---
 

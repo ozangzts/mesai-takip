@@ -87,11 +87,12 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     employees = _resolve_employees(records, leave, roster_entries)
 
     # --- stage 4 + 5: merge and compute ------------------------------------
-    workdays, merge_anomalies, accepted, accepted_total = build_workdays(
+    workdays, merge_anomalies, accepted, union_total, measured_total = build_workdays(
         records, settings)
     anomalies.extend(merge_anomalies)
     stats.intervals_accepted = accepted
-    stats.accepted_total = accepted_total
+    stats.union_total = union_total
+    stats.accepted_total = measured_total
 
     summaries = _summarise(period, employees, workdays, leave, anomalies, settings)
 
@@ -113,7 +114,7 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
         "anomalies": len(anomalies),
         "excluded_anomalies": sum(
             1 for a in anomalies.items if a.severity == "excluded"),
-        "gross": accepted_total,
+        "gross": measured_total,
         "stats": stats,
     }
 

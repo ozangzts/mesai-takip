@@ -1,9 +1,10 @@
+from dataclasses import replace
 from datetime import time, timedelta
 
 import pytest
 
 from mesai.config import (
-    BreakRule, Calendar, Personnel, Plausibility, Settings,
+    BreakRule, Calendar, NominalDay, Personnel, Plausibility, Settings,
 )
 
 
@@ -13,15 +14,18 @@ def settings() -> Settings:
     return Settings(
         shift_start=time(7, 30),
         shift_end=time(16, 30),
+        daily_hours="envelope",
         brk=BreakRule(
             minutes=45,
             window_from=time(11, 0),
             window_to=time(14, 30),
             min_workday=timedelta(hours=6),
+            deduct=False,
         ),
         plausibility=Plausibility(
             min_duration=timedelta(minutes=5),
             max_duration=timedelta(hours=16),
+            short_day=timedelta(hours=2),
         ),
         sources={
             "roster": ("SYST03*.xlsx",), "izin": ("*IZIN*.xlsx",),
@@ -31,4 +35,20 @@ def settings() -> Settings:
         calendar=Calendar(holidays={}, half_days=frozenset(),
                           rest_weekdays=frozenset({5, 6})),
         personnel=Personnel(exclude_prefixes=("ZIYARETCI", "GECICI", "STJ")),
+        nominal_day=NominalDay(source="teknopark", entry=time(9, 0),
+                               exit=time(18, 0)),
+    )
+
+
+@pytest.fixture
+def settings_break(settings: Settings) -> Settings:
+    """The pre-ADR-016 rule: union of intervals, residual break deducted.
+
+    Kept as a fixture because ADR-008's arithmetic is still shipped behind a config
+    switch, and a rule that is still shipped must still be tested.
+    """
+    return replace(
+        settings,
+        daily_hours="union",
+        brk=replace(settings.brk, deduct=True),
     )

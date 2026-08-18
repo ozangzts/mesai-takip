@@ -57,13 +57,20 @@ Completed 2026-08-03.
 - [x] `models.py`, `config.py`, `normalize.py`, `anomalies.py`
 - [x] Readers: `roster.py`, `macunkoy.py`, `teknopark.py`, `izin.py`
 - [x] `merge.py` — interval union, cross-site repair (ADR-001, ADR-003)
-- [x] `rules/worktime.py` — midnight crossing, gross/net, residual break
+- [x] `rules/worktime.py` — midnight crossing, daily measure, residual break
 - [x] Report sheets per `OUTPUT-SPEC.md §2` — six of them, including
       `Sorulacaklar` (per-person worklist) and `Kontrol` (reconciliation)
 - [x] `cli.py` plus `rapor.cmd` — runs without activating the conda environment
-- [x] 96 unit tests, all passing
+- [x] 127 unit tests, all passing
 - [x] Determinism verified: two runs produce 23 273 identical cells
-- [x] Reconciliation invariant holds: Σ per-person gross == Σ accepted intervals
+- [x] Reconciliation invariant holds: Σ per-person == Σ measured person-days
+- [x] **2026-08-17 — calculation rules revised.** No break deduction (ADR-016), the
+      day measured first entry → last exit (ADR-015), remote hours overriding a
+      nominal placeholder (ADR-018), and days under 2 h flagged (ADR-019). All are
+      config switches. Reproducing the pre-2026-08-17 report takes three of them
+      together — `break.deduct: true`, `daily_hours: union`,
+      `remote_day_replaces_attendance: never` — verified end to end: June brüt
+      `26 964:33`, net `24 971:48`.
 - [ ] **Remaining:** HR spot-checks three people against the source files
 
 Input files are located by glob pattern rather than fixed name, so a Drive-synced
@@ -78,10 +85,34 @@ folder can be pointed at directly — the Phase 4 automation needs no renaming s
 | without attendance data (Q4) | 26 | 18 |
 | not in the roster (probable leavers) | 11 | 9 |
 | Person-days | 1 823 | 2 820 |
-| Total gross | 17 009:01 | 26 964:33 |
-| Anomalies | 245 (175 excluded) | 421 (269 excluded) |
+| Presence (Σ intervals) | 16 931:16 | 26 834:48 |
+| In-day gaps, paid (ADR-015) | 172:41 | 284:35 |
+| **Total reported** | **17 103:58** | **27 119:24** |
+| Anomalies | 257 (175 excluded) | 441 (269 excluded) |
 | Reconciliation | TAMAM | TAMAM |
 | Teknopark block totals matching | 110 / 110 | 110 / 110 |
+
+Three rule changes landed on 2026-08-17. For May, starting from the previous
+`15 717:08` net / `17 009:01` gross:
+
+| Change | May | June |
+| --- | --- | --- |
+| ADR-016 — no break deduction | +1 291:52 | +1 992:45 |
+| ADR-015 — in-day gaps paid | +159:11 | +284:35 |
+| ADR-018 — remote hours override the placeholder | −64:15 | −129:45 |
+| **Net effect vs the old net figure** | **+1 386:50** | **+2 147:36** |
+
+ADR-019 added 15 (May) and 20 (June) `SHORT_DAY` flags, which is why the anomaly count
+rose; it changes no hours.
+
+The decomposition is a **sequence**, not independent parts. ADR-015's `+159:11` is what
+paying in-day gaps was worth *before* ADR-018; dropping the placeholders afterwards
+exposed three gaps a placeholder had been bridging, so the final gap figure in the table
+above is `172:41`. Both numbers are right for what they measure.
+
+All figures are the report's own `Kontrol` values. `HH:MM` truncates seconds, so
+adding two displayed rows can differ from the displayed total by a minute — June's
+does. The underlying `timedelta` arithmetic is exact; only the rendering rounds.
 
 June is the more representative month: May had only 14 expected working days because
 of the seven-day holiday block, June has ~22. That is the whole difference in gross
@@ -110,8 +141,11 @@ source system's own totals. The export format is stable month to month.
 - **The real gap is on the Macunköy side, not Teknopark.** 20 employees whose home
   facility is `MACUNKÖY TESİSİ` have leave records and zero badge records. Same shape
   in June: 13 people, all Macunköy-based. That is Q4.
-- **37 remote-work records overlap a badge record** on the same day. Hours are
-  counted once, but HR should know.
+- **Most remote-work days also carry a Teknopark record** — 37 of 56 in May, 83 of
+  106 in June. Nearly all of those are the nominal `09:00–18:00` placeholder rather
+  than a real punch (`DATA-SOURCES.md` D9), so since ADR-018 the declared remote hours
+  are used and the placeholder is set aside. Only 2 May and 5 June records overlap a
+  genuine punch, and those keep every hour.
 
 Deliberately not in Phase 1: overtime, shortfall, shifts, Multinet, holiday
 compensation, e-mail.
@@ -212,7 +246,13 @@ mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
 | --- | --- | --- |
 | Q1 | 76 kişinin iki mesai dosyasında birden görünmesi gerçekten çift tesis mi? | **Evet.** Personel listesindeki `Tesis` alanı çözdü: iki dosyada birden olan 79 kişinin 75'i `DEICO TESİS` çalışanı, ve **tek bir** Macunköy personeli iki dosyada birden yok. `DATA-SOURCES.md §3b`, ADR-010 |
 | Q2 | `Uzaktan Çalışma` çalışma sayılacak mı? | **Evet.** Çalışma sayılıyor, saatler kaydın kendi başlangıç/bitiş saatinden alınıyor. ADR-007 |
-| Q3 | Öğle arası: 42 dakikalık boşluk mola kullanılmış sayılır mı? | **Kalan mola kuralı** — `45 − zaten ücretsiz geçen` kadar kesiliyor, eşik yok. ADR-008 |
+| Q3 | Öğle arası: 42 dakikalık boşluk mola kullanılmış sayılır mı? | **Soru geçersiz kaldı.** 2026-08-17: mola hiç kesilmiyor, giriş-çıkış esas. Hiçbir boşluk molaya karşı ölçülmüyor. ADR-016 (kalan mola kuralı ADR-008 olarak duruyor, `break.deduct: true` ile geri açılabilir) |
+| Q3a | Gün içindeki boşluklar ödenecek mi? | **Evet.** Gün, ilk girişten son çıkışa kadar ölçülüyor; aradaki boşluk düşülmüyor. Mayıs'ta 174 kişi-günde +172:41 (ADR-018 sonrası nihai değer). ADR-015 |
+| Q20 | `Uzaktan Çalışma` kaydı aynı gün kart kaydıyla çakışanlar (Mayıs 37, Haziran 80) sorun mu? | **Hayır, beklenen durum.** Kaynak sistemde nasıl oluştuğu bizi ilgilendirmiyor; o gün kaydı varsa sayılıyor. Rapora `bilgi` seviyesinde düşüyor, kimsenin `Şüpheli Kayıt` sayısını artırmıyor. Çakışmaların %94'ünde (Mayıs) / %91'inde (Haziran) puantaj tarafı nominal `09:00–18:00` satırı, gerçek turnike okuması değil. ADR-017 |
+| Q20b | Çakışmaların içinde gerçekten sorulacak olan var mı? | **Evet, ama sadece 2 (Mayıs) ve 5 (Haziran) kayıt** — puantaj tarafı gerçek turnike okuması olanlar. `Sorulacaklar`'da ayrı bir satır türü olarak, sarı renkte duruyorlar. ADR-017 |
+| Q20c | Uzaktan çalışılan günde puantajdaki nominal gün ne olacak? | **Uzaktan saatler esas alınıyor, nominal gün hesaba katılmıyor** (İK talimatı, 2026-08-17). Ama gerçek turnike okuması varsa hiçbir şey atılmıyor — 7 kişi-gün böyle. Mayıs −64:15, Haziran −129:45. ADR-018 |
+| Q22 | Günlük süresi 2 saatten az olanlar tespit edilsin | **Eklendi.** Eşik `plausibility.short_day_hours: 2.0`, kişi-gün bazında. Mayıs'ta 15, Haziran'da 20 gün. Daha önce yapılmıyordu — mevcut 5 dakikalık eşik kayıt bazlıydı ve günü hiç bakmıyordu. ADR-019 |
+| Q5'in bir parçası | Standart iş günü kaç saat? | **9 saat.** İzin dosyasının kendi `Kullanılan Gün` kolonu saati 9'a bölüyor (347 kaydın 346'sında oran tam 9,0). Haziran'da bir gün `Mazeret 0,44` + `Uzaktan 0,56` = tam `1,00`. ADR-016 sonrası ödediğimiz tam gün de 9 saat. `DATA-SOURCES.md` D7 |
 | Q9 | Macunköy dosyasında hangi gün eksik? | `2026-05-03`, **iki dosyada da hiç hareket olmayan bir Pazar**. Veri sorunu değil. `DATA-SOURCES.md §6.2` |
 | Q10 | Dışa aktarım formatı ay ay değişiyor mu? | **Hayır.** Haziran 2026 okuyucularda hiç değişiklik olmadan işlendi: 110 blokta 2 557 Teknopark satırı, 110'unun 110'u dosyanın kendi toplamıyla tutuyor; mutabakat TAMAM |
 | Q14 | Teknopark dosyası kesilmiş mi (31 günün sadece 21'i var)? | **Hayır.** Eksik günler hafta sonları artı 27–31 Mayıs tatil bloğu; ofis kapalıyken Macunköy üretimi çalışıyordu. `DATA-SOURCES.md §6.2` |
@@ -230,13 +270,13 @@ mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
 | Q4a | `DATA-SOURCES.md §6.1`'deki dokuz isim varyantı çiftinin aynı kişiler olduğunu onaylayın, alias tablosuna sabitlenebilsin | Faz 1 | Yanlış bir eşleştirme iki kişinin bordro saatlerini birleştirir |
 | Q4c | Sicil `9001` — izin dosyasında olup personel listesinde olmayan tek kişi. `9xxx` aralığı stajyer mi, taşeron mu? | Faz 1 | Personel listesinin tamamen atladığı bir çalışan kategorisi olabilir |
 | **Q18** | **Personel listesi `İşe Giriş Tarihi` ve `İşten Çıkış Tarihi` kolonlarıyla yeniden alınabilir mi?** | Faz 1 doğruluğu, Faz 4 güvenliği | "Sonradan girdi / önceden ayrıldı / verisi eksik" ayrımını çıkarımdan olguya çevirir. Ayrıca Faz 4'te ayrılmış birine mail gitmesini engeller. ADR-011 |
-| Q5 | Standart gün gerçekten 8 saat 15 dakika net mi (09:00 aralık − 45 dk)? | Faz 2 | Bütün fazla mesai hesabı buna dayanıyor |
-| Q6 | Fazla mesai hafta sınırı (Pzt–Paz mı); eksik çalışma hafta içinde fazla mesaiyi mahsup ediyor mu; brüt mü net mi; tam 3 saat ve tam 7,5 saatte davranış ne | Faz 2 | Multinet hakedişi para demek |
+| Q5 | **Beklenen günlük süre `config/settings.yaml`'da hâlâ `expected_daily_net_hours: 8.25` yazıyor ve bu artık yanlış.** İş gününün 9 saat olduğu iki bağımsız kaynaktan doğrulandı (bkz. Cevaplananlar). İK'nın onaylaması gereken tek şey: fazla mesai eşiği 9 saatin üstünden mi başlıyor? | Faz 2 | Bütün fazla mesai hesabı buna dayanıyor. Kullanılmayan bir parametre, ama Faz 2 açılmadan düzeltilmeli |
+| Q6 | Fazla mesai hafta sınırı (Pzt–Paz mı); eksik çalışma hafta içinde fazla mesaiyi mahsup ediyor mu; tam 3 saat ve tam 7,5 saatte davranış ne. **"Brüt mü net mi" kısmı cevaplandı: brüt** — ADR-016 ile net diye ayrı bir sayı kalmadı | Faz 2 | Multinet hakedişi para demek |
 | Q7 | Otomatik vardiya atamasında giriş saati pencereleri tam olarak ne; `2. Vardiya` henüz yok — ne zaman devreye girecek? | Faz 2 | Yanlış vardiya ⇒ yanlış beklenen saat |
 | Q8 | Resmi tatil çalışmasının ücret mi izin mi olacağına kim nasıl karar veriyor, bu bilgi nereden gelecek? | Faz 2 | Mevcut hiçbir dosyadan çıkarılamıyor |
 | Q11 | `ZİYARETÇİ*` / `GEÇİCİ*` / `STJ*` kartları herhangi bir yerde raporlanacak mı, tamamen düşecek mi? Stajyerler çalışıyor ama kart isimli değil numaralı | Faz 1 | Macunköy'ün 1 208 satırının 420'si. Şu an özetten düşüyor |
 | Q12 | Raporun tamamını kim alabilir? Departman bazlı bölünmesi gerekiyor mu? | Faz 1 çıktısı | 162 kişinin kişisel verisi tek dosyada |
 | Q13 | **`Eğitim İzni` uzaktan çalışma gibi çalışma sayılacak mı?** Mayıs'ta 25 kayıt / 7 kişi, Haziran'da 14 / 8. Kayıtlarda gerçek saat var (`07:30–11:30`, `12:15–16:30`), yani cevap evetse uzaktan çalışmayla birebir aynı şekilde sayılır — varsayım gerekmez | Faz 1 | Q2 ile aynı şekilde bir soru, o "evet" cevaplandı. Şu an devamsızlık sayıldığı için eğitime giden az çalışmış görünüyor |
 | Q16 | Mayıs 2026 resmi tatillerini onaylayın: 1 Mayıs, 19 Mayıs ve Kurban Bayramı bloğu (25 Mayıs köprü, 26 Mayıs yarım gün, 27–29 Mayıs) | Faz 2 | Veriden çıkarıldı, İK söylemedi. Tatil ücretini belirliyor |
-| Q20 | **37 `Uzaktan Çalışma` kaydı aynı gün bir kart kaydıyla çakışıyor.** Kişi uzaktan çalışma talebini iptal edip geldi mi, yoksa günü ikiye mi böldü? | Faz 1 doğruluğu | Çakışan süre bir kez sayılıyor, yani şişme yok — ama beyan edilen saatler gerçek saatlerin yerine geçiyor olabilir |
+| Q20a | **Teknopark puantajındaki nominal `09:00–18:00` satırları neden yazılıyor?** Mayıs'ta 319, Haziran'da 418 satır; %90'ının arkasında uzaktan çalışma beyanı yok, yani tetikleyici sadece uzaktan çalışma değil. Kalanların sebebi hiçbir dosyadan çıkmıyor (görev, seyahat, unutulan kart?) | Hiçbir şeyi bloke etmiyor — ADR-017 ile çalışma sayılıyor | Raporun ~%17'si bu satırlardan geliyor. Cevap "bordroda ödenmiyor" olursa yeni bir ADR ve ~%17 düşüş demek. `DATA-SOURCES.md` D9 |
 | **Q21** | **Kaynak dosyalar her ay Google Drive'a yükleniyor. Hangi entegrasyon?** Elle (bugünkü), Drive for Desktop (sürücü harfi, kod değişikliği yok), Drive API (gözetimsiz, ağ bağımlılığı ekler), ya da mevcut `Y:` ağ sürücüsü. Ayrıca: klasör ay başına ayrı mı? Erişimi kimde? | Faz 4 | 2026-08-03'te **şimdilik elle** kalmasına karar verildi; klasör yapısı ve erişim hâlâ bilinmiyor. README "İleride: Drive otomasyonu" |

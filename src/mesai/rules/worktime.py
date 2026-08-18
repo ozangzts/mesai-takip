@@ -1,13 +1,21 @@
 """Turning raw punch records into clean intervals, and intervals into hours.
 
-Everything here is per docs/DOMAIN-RULES.md §3 and §5. Two rules carry most of the
+Everything here is per docs/DOMAIN-RULES.md §3 and §5. Three rules carry most of the
 weight:
 
 * Midnight crossing (§3.2): the source system produces "-15:-52" for a night shift.
   Add 24 h to the exit, accept only if the result is plausible.
-* Residual break (§5.1): every employee owes 45 min of unpaid break per day. Time
-  already outside the union is already unpaid, so deduct only what is still owed.
-  A 42-minute gap yields a 3-minute deduction — no threshold, no judgement call.
+* Daily measure (§5.0, ADR-015): a person-day is measured from its earliest entry to
+  its latest exit. Gaps inside the day are paid. `daily_hours: union` in the config
+  restores the older rule, which excluded those gaps.
+* Residual break (§5.1, ADR-008): every employee owes 45 min of unpaid break per day.
+  Time already outside the union is already unpaid, so deduct only what is still
+  owed. A 42-minute gap yields a 3-minute deduction — no threshold, no judgement
+  call. **Disabled by default since ADR-016** (`break.deduct: false`); the arithmetic
+  stays here, tested, so re-enabling it is a config edit.
+
+`measure()` is the single place those last two combine. Nothing outside this module
+should decide whether a break is deducted.
 """
 
 from __future__ import annotations
@@ -99,10 +107,56 @@ def merge_intervals(intervals: list[Interval]) -> tuple[Interval, ...]:
 
 
 def gross_duration(intervals: tuple[Interval, ...]) -> timedelta:
+    """Sum of the merged intervals — presence only, in-day gaps excluded."""
     total = timedelta()
     for interval in intervals:
         total += interval.duration
     return total
+
+
+def envelope_duration(intervals: tuple[Interval, ...]) -> timedelta:
+    """Earliest entry to latest exit, gaps included — ADR-015.
+
+    This is the classic timesheet reading: the day starts when you first badge in and
+    ends when you last badge out, and what happened in between is not deducted.
+    """
+    if not intervals:
+        return timedelta()
+    return max(iv.end for iv in intervals) - min(iv.start for iv in intervals)
+
+
+def gap_duration(intervals: tuple[Interval, ...]) -> timedelta:
+    """Time inside the day that is between intervals rather than in one.
+
+    Paid under `envelope`, unpaid under `union`. Reported on the Kontrol sheet so the
+    difference between the two rules is always visible and auditable.
+    """
+    return envelope_duration(intervals) - gross_duration(intervals)
+
+
+def measure(
+    intervals: tuple[Interval, ...], settings: Settings
+) -> tuple[timedelta, timedelta, timedelta]:
+    """One person-day's hours: `(measured, break_deduction, net)`.
+
+    `measured` follows `settings.daily_hours`; the deduction is applied only when
+    `settings.brk.deduct` is on. With the shipped config both totals are equal —
+    that is ADR-016, not a bug.
+    """
+    if not intervals:
+        return timedelta(), timedelta(), timedelta()
+
+    if settings.daily_hours == "union":
+        measured = gross_duration(intervals)
+    else:
+        measured = envelope_duration(intervals)
+
+    deduction = (break_deduction(intervals, measured, settings)
+                 if settings.brk.deduct else timedelta())
+    net = measured - deduction
+    if net < timedelta():
+        net = timedelta()
+    return measured, deduction, net
 
 
 def break_deduction(

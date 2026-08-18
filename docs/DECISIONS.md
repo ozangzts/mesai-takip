@@ -61,7 +61,7 @@ overlapping **and touching** intervals, and measure the union.
 
 ## ADR-002 — Report gross and net hours side by side
 
-2026-08-03 · Status: **Accepted** · Decided by: project owner
+2026-08-03 · Status: **Superseded by ADR-016** · Decided by: project owner
 
 ### Context
 
@@ -265,8 +265,10 @@ Every other leave type remains non-worked time.
 
 ## ADR-008 — Deduct the *residual* break, not a fixed 45 minutes
 
-2026-08-03 · Status: **Accepted** · Decided by: project owner (problem raised),
-implementation (rule proposed)
+2026-08-03 · Status: **Superseded by ADR-016** — no break is deducted at all as of
+2026-08-17. The rule below remains implemented and tested behind
+`break.deduct: true`, because it is the fallback if HR reverses ADR-016. ·
+Decided by: project owner (problem raised), implementation (rule proposed)
 
 ### Context
 
@@ -587,3 +589,328 @@ checking by hand which month is present.
 - An export legitimately spanning a month boundary would have the outside days
   dropped. Correct for a monthly report, but worth remembering if overtime weeks
   straddling months matter in Phase 2.
+
+---
+
+## ADR-015 — A person-day is measured first entry → last exit, not as the sum of intervals
+
+2026-08-17 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+ADR-001 unions each person-day's intervals so that cross-site overlap is counted
+once. Until now the day's *hours* were then the sum of those merged intervals, which
+excludes any gap inside the day. `DOMAIN-RULES.md §4.2` argued for this at length and
+called earliest-to-latest a "shortcut" that "pays for an hour nobody worked".
+
+The project owner rejected that framing: for this company the classic timesheet
+reading is intended — the day starts when you first badge in and ends when you last
+badge out, and time in between is not the report's business. Asked directly whether
+gaps should be deducted, the answer was no.
+
+This is a policy question, not an arithmetic one. §4.2's numbers were never wrong;
+what was wrong was treating a company policy choice as a correctness argument.
+
+### Options considered
+
+1. **Envelope** — earliest entry to latest exit; in-day gaps are paid
+2. Union of merged intervals — gaps unpaid (the previous rule)
+3. Envelope, but collapse to the longest single interval when the day carries a
+   nominal `09:00–18:00` Teknopark row
+4. Envelope with a cap on how large a single paid gap may be
+
+(3) was considered because it was one reading of the owner's instruction; it was
+withdrawn once the instruction was clarified to mean (1). It also cost only 20 h
+across May while adding a second, inconsistent rule. (4) invents a threshold nobody
+asked for, which is the same mistake ADR-008 was written to avoid.
+
+### Decision
+
+Option 1, as `daily_hours: envelope` in `config/settings.yaml`. Option 2 stays
+available as `daily_hours: union` and is still covered by tests.
+
+The union itself is **unchanged and still mandatory** — it is what stops the 76
+dual-site employees being double-counted. ADR-001 governs de-duplication; this ADR
+governs only how the merged day becomes a number.
+
+### Consequences
+
+- May 2026: +159 h 11 m across **171 person-days** that have more than one interval.
+  1 652 of 1 823 person-days are unaffected, having a single interval.
+- 46 of those days have a gap over 1 h and 10 over 2 h. The largest is
+  `07:30–08:00` + `12:37–19:10`: presence 7 h 03, now paid 11 h 40. Reported, not
+  suppressed — see below.
+- `Günlük Detay` gains a **`Gün İçi Boşluk`** column, so every paid gap is visible
+  and `Son Çıkış − İlk Giriş = Çalışma Süresi` can be checked by subtraction. Without
+  it the rule would be unauditable from the report alone.
+- The reconciliation guard had to be restated. "Σ per-person == Σ accepted interval
+  durations" is false under this rule by design; it is now "Σ per-person == Σ measured
+  person-days", with presence and gap totals shown separately on `Kontrol` so the
+  cost of this decision is a number on the report rather than a hidden difference.
+- `DOMAIN-RULES.md §4.2` was rewritten. It now separates the union (correctness) from
+  the daily measure (policy) instead of arguing against this decision.
+- Phase 2 thresholds will be computed on a figure that includes in-day gaps. This
+  partly answers ROADMAP Q6 ("gross or net?") — gross, necessarily.
+
+---
+
+## ADR-016 — Do not deduct the unpaid break; the badged day is the payroll figure
+
+2026-08-17 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+ADR-002 reported gross and net side by side; ADR-008 defined net as gross minus the
+*residual* break — 45 minutes less whatever unpaid gap the day already contained.
+Because of that residual construction, essentially every full day lost about 45
+minutes one way or the other: as a real gap, or as a deduction. Across May 2026 the
+deduction removed **1 291 h 52 m**, roughly 42.5 minutes per person-day.
+
+The project owner instructed that breaks are not to be deducted: entry and exit are
+what count. Combined with ADR-015, the badged day is the payroll figure.
+
+### Options considered
+
+1. **Do not deduct** — one hours figure, equal to the measured day
+2. Keep deducting (ADR-008)
+3. Keep both columns but leave net equal to gross
+4. Delete the break code entirely
+
+(3) prints two identical columns and invites an HR reader to ask which one payroll
+uses — the exact ambiguity that produces payroll errors. (4) throws away a rule that
+took a real decision to design and that HR may reinstate; a config switch costs
+almost nothing to keep.
+
+### Decision
+
+Option 1, as `break.deduct: false`. ADR-008's arithmetic stays in
+`rules/worktime.py`, still unit-tested, and `break.deduct: true` reproduces the
+previous report exactly — verified end to end: brüt `17009:01`, net `15717:08`.
+
+`worktime.measure()` is the only place the switch is read. No other module decides
+whether a break applies.
+
+Both switches are **required** keys in `settings.yaml`, not defaulted, and an
+unknown `daily_hours` value fails the run. A payroll-affecting rule must not be
+silently assumed by a config that predates it.
+
+### Consequences
+
+- May 2026 total goes from `15717:08` to `17168:13` (+1 451 h 04, +9.2 %), of which
+  1 291 h 52 is this ADR and 159 h 11 is ADR-015.
+- With no deduction, gross and net are the same number, so the report shows **one**
+  pair of columns named `Çalışma Süresi` / `Çalışma (Saat)`. The four-column
+  gross/net layout of ADR-002 returns automatically if the switch is flipped back.
+- Every hours sheet carries a one-line `HESAP KURALI:` banner stating the active
+  rule. The rule is now configurable, so the report must say which way it ran rather
+  than let the reader assume last month's rule.
+- ROADMAP Q3 ("does a 42-minute gap count as the break taken?") is moot while this
+  stands: no gap is measured against a break at all.
+- Phase 2's `expected_daily_net_hours: 8.25` is now inconsistent with a 9-hour paid
+  day. It is unused and unconfirmed (Q5), but must be revisited before any overtime
+  rule ships.
+
+---
+
+## ADR-017 — A nominal timesheet day is worked time; the overlap is information, not a defect
+
+2026-08-17 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+Investigating why `Uzaktan Çalışma` days collide with attendance records surfaced an
+undocumented pattern in the Teknopark timesheet: **319 of 1 607 May rows and 418 of
+2 557 June rows are exactly `09:00–18:00` with duration exactly `09:00`.** Four
+findings say these are not turnstile readings:
+
+1. Real punches carry odd minutes (`07:17`, `18:46`); this pattern never does.
+2. In every remote-overlap case it is the *only* record for that person-day — no
+   physical trace anywhere.
+3. On 25–26 May, the holiday bridge with the office closed, 15 of 15 and 15 of 16
+   records are exactly this pattern.
+4. 19 May person-days carry it while the person was on leave, including one day of
+   `İstirahat (Raporlu)`.
+
+The owner's position, given directly: how the data got into the source system is not
+this project's concern. If a day has an attendance record, count it. The company most
+likely credits remote workers with the standard shift, and asking each case is not
+worth it.
+
+A prior version of this analysis over-claimed here, and the correction matters for
+anyone reading the numbers later. "91–94 % of overlaps have a nominal record on the
+attendance side" is conditional on already being an overlap and says nothing about
+what triggers the pattern. Measured the other way round, **90 % (May) and 82 % (June)
+of nominal rows have no remote-work declaration behind them at all**, and the heaviest
+users of the pattern — 11 and 16 nominal days — have zero and zero remote
+declarations. So the placeholder is written for *an expected workday with no turnstile
+data*, of which declared remote work is one minor trigger, not the cause.
+
+That distinction does not change the decision. It changes what the report should
+claim.
+
+### Options considered
+
+1. **Count it, and report the overlap as information** — no defect language
+2. Count it, and report nothing
+3. Exclude nominal rows from totals
+4. Ask HR to confirm each case before counting
+
+(3) would remove roughly 17 % of reported hours on a pattern the source system's own
+`Dönemdeki Toplam` counts as work — we would be overruling the source. (4) is 21
+people × several days a month of manual work, for a pattern that is stable across two
+months. (2) loses the audit trail: a reader could no longer tell that a remote day and
+a timesheet day were reconciled rather than added.
+
+### Decision
+
+Option 1, with the overlap **split into two anomaly kinds**, because they are two
+different questions:
+
+| Kind | Severity | May / June |
+| --- | --- | --- |
+| `REMOTE_OVERLAP` — attendance side is the nominal placeholder | `info` | 35 / 75 |
+| `REMOTE_OVERLAP_REAL` — attendance side is a real punch | `included` | 2 / 7 |
+
+A third severity, `info`, was added: counted, expected, **not a problem**. Info items
+do not count towards a person's `Şüpheli Kayıt` figure, do not shade their summary
+row, sort last, and are shaded grey with the impact text
+`Toplama dahil edildi — beklenen durum`.
+
+The nominal pattern lives in `config/settings.yaml:nominal_day`, not in code — it is a
+vendor default that can change. **With no `nominal_day` configured, every overlap is
+reported as the real-punch case**: the safe direction is over-asking, never silently
+calling a real punch expected.
+
+The `uzaktan-çakışma` tag is now applied only to the real-punch case. Tagging the
+nominal case made 37 ordinary remote days read as defects on `Günlük Detay`.
+
+### Consequences
+
+- `Sorulacaklar` goes from 21 alarming rows to **2 real questions and 19 grey
+  information rows** for May; 4 and 36 for June. The two real cases are now findable
+  instead of buried among the expected ones.
+- Nobody's `Şüpheli Kayıt` count is inflated by expected behaviour. May's total
+  anomaly count is unchanged at 242, but 35 of them are now explicitly marked
+  `bilgi amaçlı (sorun değil)` on the `Kontrol` sheet.
+- **We are faithful to the source and no longer pretending otherwise.** The Teknopark
+  file's own period total counts these rows as work; so do we. If HR later decides the
+  placeholder should not be paid, that is a new ADR and a ~17 % reduction, and the
+  `nominal_day` config already identifies exactly which rows are affected.
+- The 19 leave-days carrying a nominal row — including one `İstirahat (Raporlu)` — are
+  paid. This follows from the decision and is recorded here so it is a known
+  consequence rather than a surprise found later.
+- Adding a severity broke the report at runtime while all 112 unit tests passed,
+  because `report/workbook.py` kept its own copy of the severity → impact-text map.
+  The map now has one home in `anomalies.py`, and `tests/test_report.py` was added to
+  build a workbook containing every anomaly kind and every severity.
+
+---
+
+## ADR-018 — On a declared remote-work day, the remote hours replace a nominal placeholder
+
+2026-08-17 · Status: **Accepted** · Decided by: HR manager, via project owner
+
+### Context
+
+ADR-017 established that the Teknopark timesheet writes a nominal `09:00–18:00` row
+for an expected workday with no turnstile data, and that a declared remote-work day is
+one of the things that triggers it. Both records then entered the union, so a remote
+day measured `07:30–18:00` = 10:30 — the declaration's start joined to the
+placeholder's end.
+
+HR's instruction, after reviewing the report: for remote days, take the remote hours.
+
+### Options considered
+
+1. **`nominal_only`** — the declaration replaces the attendance record only when every
+   attendance record that day is a placeholder
+2. `always` — the declaration always replaces the day's attendance records, HR's
+   instruction read literally
+3. `never` — keep unioning everything (pre-ADR-018)
+4. Cap the placeholder's contribution instead of dropping it
+
+(2) is the literal reading and it discards evidence. On seven person-days across May
+and June the attendance side is a **real turnstile reading**, and dropping it loses
+recorded work — `2026-06-23`: declaration `07:30–13:45`, but the person badged
+`07:30–13:00` and again `13:41–18:34`. `always` pays 6:15 where the day is 11:04.
+Nobody intended to take 4 h 49 off somebody who demonstrably worked it. (4) invents a
+threshold, which is the mistake ADR-008 exists to avoid.
+
+### Decision
+
+Option 1, as `remote_day_replaces_attendance: nominal_only`.
+
+A placeholder is not evidence, so it gives way to the declaration. A real punch is
+evidence, so it survives and the day is unioned as before — and it is already reported
+as `REMOTE_OVERLAP_REAL`, the two-to-seven cases worth a question.
+
+**One real punch protects the whole day.** If a day carries a placeholder *and* a real
+punch, nothing is dropped: the presence of any real timestamp means the day has
+evidence we are not entitled to discard. A one-sided record counts as a real
+timestamp for this purpose — it failed to be a placeholder, so the day is left alone.
+
+`always` and `never` remain available as config values, both covered by tests.
+
+### Consequences
+
+- May 2026: `17168:13` → **`17103:58`** (−64:15) across 35 person-days.
+  June: `27249:09` → **`27119:24`** (−129:45) across 74 person-days.
+- The seven real-punch days keep their hours. `always` would have cost a further
+  5:13 in May and 14:54 in June, taken from people who badged in.
+- A new `info` anomaly, `REMOTE_REPLACED_NOMINAL`, records every day where this
+  happened, with the discarded times in the `Ham Çıkış` column. Nothing is dropped
+  silently — AGENTS.md §2.2.
+- One June day still reports the old `REMOTE_OVERLAP`: its attendance side is a
+  placeholder *plus* a one-sided record, so the day was not replaced. Correct under the
+  rule above, and worth knowing the case exists.
+- Remote days now measure exactly what the declaration says — usually 9:00 for a full
+  day, which agrees with the 9-hour workday the leave file's own arithmetic implies
+  (`DATA-SOURCES.md` D7).
+- **Amends ADR-016's reproduction recipe.** Reproducing the pre-2026-08-17 report now
+  needs three switches, not two: `break.deduct: true`, `daily_hours: union` **and**
+  `remote_day_replaces_attendance: never`. Verified with all three: June brüt
+  `26964:33`, net `24971:48`.
+
+---
+
+## ADR-019 — Flag a person-day shorter than two hours
+
+2026-08-17 · Status: **Accepted** · Decided by: HR manager, via project owner
+
+### Context
+
+HR asked for days with less than two hours between entry and exit to be identified.
+The project owner believed this already happened. It did not: `plausibility.min_minutes`
+is **5 minutes** and applies to a single interval, catching badge-test artefacts like
+`13:32 → 13:34`. Nothing looked at the day as a whole, so a 40-minute working day
+passed without comment.
+
+### Options considered
+
+1. **A separate per-day check** with its own configured threshold
+2. Raise `min_minutes` to 2 hours
+3. Reuse `SUSPICIOUS_SHORT` for both
+
+(2) would exclude or flag every legitimate short interval inside a normal split day —
+a 20-minute afternoon segment is not a problem. (3) merges two different questions
+under one label, so HR could not tell a bad record from a short day.
+
+### Decision
+
+Option 1. `plausibility.short_day_hours: 2.0`, checked against the day's **measured**
+duration after ADR-015 and ADR-018 have been applied, emitting `SHORT_DAY`
+("Günlük süre eşiğin altında") at `included` severity and tagging the day `kısa-gün`.
+
+Strictly less than the threshold: exactly 2:00 is not "under 2 hours", so there is no
+ambiguity at the boundary. `min_minutes` is unchanged and keeps doing its own job.
+
+### Consequences
+
+- 15 person-days in May 2026 (7:06 total) and 20 in June (about 10 h) are now
+  surfaced. They were previously invisible.
+- The hours do not change. These days are counted; the flag is a question, not an
+  exclusion — a genuinely short day exists (someone left ill) and the tool must not
+  decide which.
+- `Sorulacaklar` gains a row per affected person, and `Günlük Detay` a `kısa-gün` tag,
+  so the days are filterable.
+- The threshold is HR's number. If they revise it, it is a YAML edit.
