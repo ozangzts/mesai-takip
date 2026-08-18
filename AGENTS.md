@@ -150,14 +150,18 @@ mesai-takip/
 ├── AGENTS.md                  # you are here
 ├── README.md                  # human-facing, Turkish
 ├── pyproject.toml
+├── rapor.cmd                  # CLI wrapper, no conda activate needed
+├── arayuz.cmd                 # opens the window; double-clickable, no console
 ├── config/
-│   ├── settings.yaml          # shifts, lunch, thresholds, Multinet rules
+│   ├── settings.yaml          # rules and thresholds — a rule change is a YAML edit
 │   ├── takvim-2026.yaml       # public holidays, weekend definition
-│   └── personel.yaml          # alias map, exclusions, per-person overrides
+│   └── personel.yaml          # alias map, exclusions — GIT-IGNORED, holds real names
 ├── data/                      # GIT-IGNORED
 │   ├── personel/              # employee roster — NOT month-specific
 │   ├── raw/2026-05/           # monthly exports, one month per folder
-│   └── out/2026-05/           # generated workbooks
+│   └── out/2026-05/           # generated workbooks — what HR opens
+├── veri/                      # GIT-IGNORED — the report's machine-readable twin
+│   └── gonderim-2026-05.json  # names, e-mails, hours. Phase 4 reads THIS.
 ├── docs/
 │   ├── PRODUCT.md             # what the customer asked for
 │   ├── DATA-SOURCES.md        # anatomy + defects of every input file
@@ -167,6 +171,13 @@ mesai-takip/
 │   ├── DECISIONS.md           # ADR log
 │   └── ROADMAP.md             # phases and status
 ├── src/mesai/
+│   ├── cli.py                 # front end 1 — argument parsing, exit codes
+│   ├── gui.py                 # front end 2 — tkinter window. No business logic.
+│   ├── pipeline.py            # the stages. Both front ends call run().
+│   ├── snapshot.py            # writes veri/*.json. Read it, never the workbook.
+│   ├── readers/               # one per source file; base.py hides the container
+│   ├── rules/                 # the business math
+│   └── report/                # the workbook
 └── tests/
 ```
 
@@ -387,7 +398,8 @@ will be.
 - [ ] Decision made with a real alternative → ADR appended to `docs/DECISIONS.md`
 - [ ] Structure or module change → `docs/ARCHITECTURE.md` and §3 of this file
 - [ ] Tests written and passing
-- [ ] Nothing under `data/` was committed
+- [ ] Nothing under `data/` or `veri/` was committed
+- [ ] No repository reference (`ADR-0NN`, `Q4`, a file path) reached the workbook
 - [ ] No real employee name added to a test fixture
 - [ ] Totals still reconcile: Σ per-person hours == Σ measured person-days, and the
       `Kontrol` sheet still shows presence and in-day gaps as separate lines

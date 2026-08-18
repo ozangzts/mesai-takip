@@ -11,6 +11,7 @@ file as part of that work.
 | 2 | Overtime, shifts, Multinet, holidays | Blocked on Q5–Q8, Q16 |
 | 3 | Leave integration, excused absence, assignments | Not started |
 | 4a | Drive ingestion automation | **Deferred** — manual by decision, 2026-08-03 (Q21) |
+| 4c | Desktop window, no terminal needed | **Done** — 2026-08-18, `arayuz.cmd` |
 | 4b | Automated per-employee e-mail | Blocked on Q18 — must not mail a leaver |
 | 5 | Annual roll-up | Not started |
 
@@ -197,6 +198,32 @@ Two robustness gaps to close before any mounted-drive automation:
   files modified in the last N minutes.
 - A scheduled task must run **in the user's session** — Drive mounts per user, so
   "run whether user is logged on or not" leaves `G:` missing.
+
+### 4c — Running it without a terminal ✅
+
+Done 2026-08-18. `src/mesai/gui.py`, launched by `arayuz.cmd`.
+
+The operator will not be a developer, so "open a console and pass `--ay`" was never a
+deliverable. `tkinter` from the standard library, so nothing new to install and it
+packages into a single executable later.
+
+It is a **thin shell over `pipeline.run()`** — the same call `cli.py` makes, no business
+logic of its own. That cost nothing to add because `pipeline.py` had already been split
+out of `cli.py` for exactly this.
+
+Design notes worth keeping:
+
+- **No default input folder.** A wrong guess is worse than an empty field: the user
+  cannot tell it happened. They browse to the folder, and the window immediately lists
+  which of the three exports it found — all three, not just the first failure.
+- The work runs off the UI thread, or Windows labels the window "not responding".
+- **No e-mail tab yet.** Modularity belongs in module boundaries, not in a visible
+  placeholder the user has to ignore.
+
+Still to do for a machine without Python: package as a single `.exe` (PyInstaller). The
+real work there is testing it where Python is absent, not the packaging itself. `config/`
+must stay outside the executable — rule changes are YAML edits and `personel.yaml` holds
+real spellings.
 
 ### 4b — Automated per-employee e-mail
 

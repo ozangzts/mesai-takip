@@ -1012,3 +1012,79 @@ unattended run is noticed rather than discovered at payroll.
 - HR must re-export July's Teknopark file for the full month. Q10 is reopened as Q23:
   the format is *not* stable, so every month's first run should be assumed to need a
   look at the `Kontrol` sheet.
+
+---
+
+## ADR-021 — Every run writes a machine-readable snapshot; nothing ever parses the workbook
+
+2026-08-18 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+Phase 4 sends each employee their own figures. The obvious way to build it is to read
+the workbook that was just produced — it already holds the numbers, and re-running the
+pipeline to send mail feels wasteful. The project owner asked directly whether the
+existing report could simply be selected and worked from.
+
+It cannot, for three reasons that are specific rather than stylistic:
+
+1. **The workbook is a presentation artifact.** Durations are `HH:MM` strings, cells are
+   merged, headers are Turkish. Reading it back means deriving data from formatting.
+2. **E-mail addresses are not in it, deliberately.** `OUTPUT-SPEC.md` §1 excludes them:
+   putting 162 addresses in a circulated workbook serves no reporting purpose. So the
+   one thing the mail step needs most is the one thing that file does not contain.
+3. **Its layout changes when a rule changes.** On 2026-08-17 the four gross/net columns
+   became a single `Çalışma Süresi` pair (ADR-016). A step parsing column J would have
+   broken silently that day.
+
+### Options considered
+
+1. **Write a JSON companion in the same run**, and have everything downstream read it
+2. Parse the workbook
+3. Recompute from the source files whenever mail is sent
+4. Add a hidden sheet inside the workbook carrying the raw data
+
+(3) is worse than it looks: mail would go out with figures that differ from the ones a
+human reviewed, because a source file may have been re-uploaded in between. Sending
+payroll-adjacent numbers that nobody approved is the failure this project exists to
+avoid. (4) puts 162 e-mail addresses back into the circulated file, undoing a
+deliberate choice, and still requires parsing.
+
+### Decision
+
+Option 1. `src/mesai/snapshot.py` writes `veri/gonderim-<period>.json` in the same run
+that writes the workbook, from the same computed objects, so the two cannot disagree.
+
+Deliberate details:
+
+- **Next to the program, not beside the workbook.** The folder HR opens should hold one
+  file per month; this one holds personal data. `veri/` and `gonderim-*.json` are
+  git-ignored — they were one commit away from being committed.
+- **Minutes as integers**, not floats or formatted text. A float round trip is how 9:39
+  becomes 9:38.
+- **The active rules travel with the data** (`daily_hours`, `break_deducted`,
+  `short_day_hours`, `remote_replaces_attendance`). Without them a snapshot read months
+  later cannot be interpreted: the same numbers mean different things under a different
+  break setting.
+- **Per-person problem labels**, so "mail only the people missing an exit punch" is a
+  filter rather than new logic. `info`-severity anomalies are excluded — expected
+  behaviour must not put somebody on a mailing list (ADR-017).
+- **A format version, refused rather than guessed.** An unknown version, a corrupt file
+  or a missing file all raise with an instruction to regenerate. No best-effort read.
+- Written to a temp file and moved, like the workbook: a crash mid-write must not leave
+  a half-valid file that still parses.
+
+### Consequences
+
+- The owner's "select the existing report and work from it" workflow is available, and
+  it is what makes it possible — loading a snapshot returns exactly the figures a human
+  reviewed. From the user's side nothing differs; the program finds the JSON beside the
+  report. If it is absent (a report from an older version) the answer is a clear
+  "regenerate", never a silent parse.
+- `is_complete` lets a later step refuse a snapshot built from a partial month
+  (ADR-020), so a mid-month export cannot quietly become 162 e-mails.
+- The JSON is personal data and must be handled as such: never committed, never sent
+  anywhere, deleted with the same care as `data/`.
+- Two artifacts per run means two things to keep in step. They are built in one function
+  from one set of objects specifically so that staying in step is not a discipline
+  problem.

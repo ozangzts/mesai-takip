@@ -3,9 +3,12 @@
 DEICO personelinin aylık çalışma sürelerini, ham kart okuyucu (turnike) çıktılarından
 otomatik olarak hesaplayıp tek bir temiz Excel raporuna dönüştüren araç.
 
-> **Durum: Faz 1 çalışıyor.** Mayıs 2026 raporu üretiliyor. Fazla mesai, vardiya ve
-> Multinet henüz yok (Faz 2). Üretilen rapor bir **doğrulama koşusudur**, bordro
-> için nihai değildir — sebepleri raporun `Kontrol` sayfasında.
+> **Durum: Faz 1 çalışıyor.** Mayıs, Haziran ve Temmuz 2026 raporları üretiliyor.
+> Fazla mesai, vardiya ve Multinet henüz yok (Faz 2). Üretilen rapor bir **doğrulama
+> koşusudur**, bordro için nihai değildir — sebepleri raporun `Kontrol` sayfasında.
+>
+> **Temmuz raporu eksiktir:** Teknopark dosyası ayın yalnızca 1–19'unu kapsıyor.
+> Program bunu raporun en üstünde kırmızıyla yazıyor ve `5` koduyla çıkıyor.
 
 ---
 
@@ -26,14 +29,21 @@ Bu araç bunları otomatik ve her seferinde aynı şekilde hallediyor.
 ```
 data/
 ├── personel/                       ← aya bağlı DEĞİL, bir kez konur
-│   └── SYST03_TEMPIASUSERS.xlsx
+│   └── calisan_listesi.xlsx
 ├── raw/2026-05/                    ← her ay için ayrı klasör
 │   ├── Macunköy Mayıs Mesai giriş-çıkış.xlsx
 │   ├── Teknopark - Mayıs Mesai Takip Exceli.xlsx
 │   └── HCMT34_MAYIS_IZIN.xlsx
 └── out/2026-05/
-    └── mesai-raporu-2026-05.xlsx   ← çıktı
+    └── mesai-raporu-2026-05.xlsx   ← İK'nın açtığı dosya
+
+veri/                               ← programın kendi dosyası, İK açmaz
+└── gonderim-2026-05.json           ← raporun makine-okunur eşleniği
 ```
+
+`veri/` klasörü raporla aynı koşuda yazılıyor ve raporun içindeki sayıların makine
+tarafından okunabilir hâlini tutuyor. Faz 4'te e-posta adımı **bunu** okuyacak,
+Excel'i değil. İçinde isim, e-posta ve saat var; git'e dahil değil, paylaşılmaz.
 
 | Dosya | Ne | Kişi |
 | --- | --- | --- |
@@ -152,6 +162,42 @@ ayrıştırmasını değiştirirse çıktı sessizce kayabilir. Yükselttiğinde
 
 # Kullanım
 
+## Pencere ile: `arayuz.cmd`
+
+**Terminal kullanmak istemiyorsan bu yol.** `arayuz.cmd`'ye çift tıkla; konsol
+açılmaz, bir pencere gelir.
+
+```
+┌──────────────────────────────────────────────┐
+│  Kaynak klasör  [ ...                ] [Gözat│
+│    ✓ Macunköy giriş-çıkış: ...xls            │
+│    ✓ Teknopark puantaj: ...xlsx              │
+│    ✓ İzin (HCM): ...xlsx                     │
+│  Dönem  [ 2026-07 ▼ ]                        │
+│           [  Rapor Oluştur  ]                │
+│  ┌────────────────────────────────────────┐  │
+│  │ Temmuz 2026 raporu yazıldı — EKSİK     │  │
+│  │ Toplam çalışma süresi : 16029:17       │  │
+│  │ ⚠ EKSİK VERİ — teknopark dosyası ...   │  │
+│  └────────────────────────────────────────┘  │
+│         [ Raporu Aç ]  [ Klasörü Aç ]        │
+└──────────────────────────────────────────────┘
+```
+
+Akış: **Gözat** ile üç mesai dosyasının bulunduğu klasörü seç → pencere hangi
+dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
+
+- **Varsayılan klasör yok, bilerek.** Yanlış bir tahmin boş alandan kötüdür, çünkü
+  kullanıcı yanlış klasörden okunduğunu fark edemez. Bir kez seçersin, sonraki ay
+  hatırlanır.
+- Klasörde eksik veya fazla dosya varsa **Rapor Oluştur** pasif kalır ve neyin eksik
+  olduğu yazılır. Aynı klasörde iki ay varsa "2 dosya eşleşti" der.
+- Dönem klasör adından okunur (`.../2026-07` → `2026-07`), okunamazsa elle yazılır.
+- Eksik veri varsa sonuç panelinde turuncu uyarı çıkar — Temmuz'da olduğu gibi.
+
+Pencere hesap yapmıyor; komut satırının çağırdığı **aynı** kodu çağırıyor, dolayısıyla
+iki yol her zaman aynı sonucu verir.
+
 ## En kısa yol: `rapor.cmd`
 
 Ortamı aktive etmeye, klasöre girmeye gerek yok. Nereden çağırırsan çalışır:
@@ -215,8 +261,17 @@ Adım 2'de dosya adlarını değiştirmen gerekmez, config'e dokunmak gerekmez.
 İstersen `config/takvim-2026.yaml`'a o ayın resmi tatillerini ekle — sadece Günlük
 Detay'daki gün etiketlerini etkiler, hesabı etkilemez.
 
-Raporu paylaşmadan önce **`Kontrol` sayfasına bak**: mutabakat `TAMAM` mı, dönem
-dışı kayıt var mı, hangi varsayımlar doğrulanmamış.
+Adım 2'yi pencereden yapmak daha kolaysa `arayuz.cmd` de aynı işi yapar.
+
+Raporu paylaşmadan önce **`Kontrol` sayfasına bak**, üç şeye:
+
+1. **Bölüm 3 — Dönem kapsamı.** Her kaynak dosya ayın tamamını kapsıyor mu? Bir dosya
+   ay bitmeden alınmışsa rapor eksiktir ve saatler bordroya uygun değildir.
+2. **Bölüm 4 — Hesaplama mutabakatı.** `TAMAM` yazıyor mu?
+3. **Bölüm 8 — Doğrulanmamış varsayımlar.** Hangi kural İK onayı bekliyor.
+
+Program kapsama sorununu bulursa `5` koduyla çıkar ve raporun en üstüne kırmızı bir
+satır yazar; yani gözden kaçması için özellikle uğraşmak gerekir.
 
 ### İleride: Drive otomasyonu
 
@@ -248,9 +303,16 @@ farkı, ek kelimeler sorun değil:
 | Dosya | Aranan | Kabul edilen örnekler |
 | --- | --- | --- |
 | Personel listesi | içinde `calisan` / `çalışan` / `personel`, ya da `SYST03` ile başlayan | `calisan_listesi.xlsx`, `Çalışan Listesi 2026.xlsx`, `CALISAN_LISTESI.xlsx` |
-| İzin | içinde `IZIN` / `İZİN` | `HCMT34_HAZIRAN_IZIN.xlsx`, `hcmt34_haziran_izin.xlsx` |
-| Macunköy | içinde `Macunköy` / `Macunkoy` | `Macunkoy Haziran giris-cikis (1).xlsx` |
+| İzin | içinde `IZIN` / `İZİN` | `HCMT34_HAZIRAN_IZIN.xlsx`, `hcmt34_haziran_izinxlsx.xlsx` |
+| Macunköy | içinde `Macunköy` / `Macunkoy` | `Macunkoy Haziran giris-cikis (1).xls` |
 | Teknopark | içinde `Teknopark` | `TEKNOPARK haziran puantaj FINAL v2.xlsx` |
+
+**Uzantı da esnek: `.xlsx`, `.xlsm` ve `.xls` kabul edilir.** Temmuz 2026'da Macunköy
+dosyası hiçbir haber verilmeden `.xlsx`'ten eski `.xls` formatına döndü; sadece bir
+uzantı arayan desen bunu "dosya bulunamadı"ya çevirmişti. Aynı ay o dosyadan bir kolon
+da (`Personel`) kalktı ve başlığın üstüne bir satır eklendi — program artık kolonları
+**başlık isminden** buluyor, sırasından değil. `.xlsb` desteklenmiyor; gelirse program
+"Excel'de .xlsx olarak kaydedip tekrar deneyin" diyor.
 
 Personel listesi için ek bir güvenlik ağı var: **`data/personel/` içinde tek bir
 Excel dosyası varsa adı ne olursa olsun o kullanılır.** Yanlış dosya konursa program
@@ -270,7 +332,7 @@ otomatik atlanır.
 1. **Klasör başına tek ay.** Aynı klasörde iki ayın dosyası varsa program durur ve
    bulduklarını listeler — rastgele birini seçip yanlış ayı raporlamaz.
 2. **Anahtar kelime isimde olmalı.** `Haziran Puantaj.xlsx` içinde "Teknopark"
-   geçmediği için bulunamaz; program `Aranan desenler: ['*Teknopark*.xlsx']` diye
+   geçmediği için bulunamaz; program `Aranan desenler: ['*Teknopark*.xls*']` diye
    söyler. Ya dosyayı yeniden adlandır, ya `config/settings.yaml`'a desen ekle.
 
 ## Çıkış kodları
@@ -281,7 +343,13 @@ otomatik atlanır.
 | 2 | Girdi hatası — dosya yok, geçersiz/yanlış ay, klasörde iki ay |
 | 3 | Dosya yapısı hatası — dışa aktarım formatı değişmiş |
 | 4 | Çıktı dosyası kilitli — Excel'de açık |
+| **5** | **Rapor yazıldı ama bir kaynak dosya dönemin tamamını kapsamıyor** — saatler bordro için kullanılamaz |
 | 9 | `rapor.cmd`: conda ortamı bulunamadı |
+
+`5` kodu Temmuz 2026'da devreye girdi: Teknopark dosyası ayın 20'sinde alınmıştı,
+yani 23 iş gününün 13'ünü içeriyordu. Dosya kendi içinde kusursuzdu ve diğer bütün
+kontroller geçti — rapor "mutabakat TAMAM" diyerek eksik bir ay üretti. Kontrol artık
+her kaynak için "dönemin sonunda kesintisiz eksik iş günü var mı" diye bakıyor.
 
 Faz 4'te zamanlanmış göreve bağlanınca sıfır olmayan çıkış kodunda uyarı
 kurulmalı — aylık iş sessizce patlarsa bordro zamanına kadar fark edilmez.
@@ -325,20 +393,28 @@ Ayrıntılı sayfa ve kolon tasarımı: [docs/OUTPUT-SPEC.md](docs/OUTPUT-SPEC.m
 
 ### Mayıs 2026 sonucu
 
-| | |
-| --- | --- |
-| Raporda yer alan kişi | 171 |
-| mesai verisi olan | 145 |
-| mesai verisi olmayan | 26 |
-| personel listesinde olmayan (muhtemelen ayrılmış) | 11 |
-| Kişi-gün kaydı | 1 823 |
-| Toplam brüt süre | 17 009:01 |
-| Şüpheli kayıt | 242 (175'i toplama dahil edilmedi) |
+| | Mayıs | Haziran | Temmuz |
+| --- | --- | --- | --- |
+| Raporda yer alan kişi | 171 | 163 | 175 |
+| mesai verisi olan | 145 | 145 | 144 |
+| mesai verisi olmayan | 26 | 18 | 31 |
+| personel listesinde olmayan (muhtemelen ayrılmış) | 11 | 9 | 9 |
+| Kişi-gün kaydı | 1 823 | 2 820 | 1 726 |
+| **Toplam çalışma süresi** | **17 103:58** | **27 119:24** | **16 029:17** |
+| Şüpheli kayıt | 257 (175'i dahil edilmedi) | 441 (269) | 527 (452) |
+
+**Temmuz sayıları eksik veriye dayanıyor** — Teknopark dosyası ayın 1–19'unu
+kapsıyor. Karşılaştırma için kullanılmamalı.
+
+Mayıs ve Haziran toplamları 2026-08-17'de yükseldi: öğle arası kesintisi kaldırıldı
+(İK talimatı) ve gün "ilk giriş → son çıkış" olarak ölçülmeye başlandı. Mayıs için
+eski değer `15 717:08` net / `17 009:01` brüt idi. Uzaktan çalışma günlerinde puantaja
+otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü.
 
 ## Geliştirme
 
 ```bash
-python -m pytest          # 65 test
+python -m pytest          # 163 test
 ```
 
 Doğrulama mekanizmaları:
@@ -365,6 +441,12 @@ Eksik çıkış kaydı "16:30 olsun" diye doldurulmaz. Önce aynı gün diğer l
 tam kayıt var mı diye bakılır; yoksa o gün 0 saat sayılır ve **Şüpheli Kayıtlar**
 sayfasına kaynak satır numarasıyla yazılır. Rapor eksiği gizlemez, gösterir.
 
+**3. Kural değişikliği YAML düzenlemesidir, kod değişikliği değil.**
+Öğle arası kesintisi, günün nasıl ölçüldüğü, kısa gün eşiği — hepsi
+`config/settings.yaml`'da. Bordroyu etkileyen üç anahtar **zorunlu**: eksik veya
+hatalı yazılırsa program durur, sessizce eski kurala dönmez. Eski bir config dosyası
+yanlışlıkla eski hesabı uygulayamaz.
+
 ## Yol haritası
 
 | Faz | Kapsam | Durum |
@@ -373,10 +455,19 @@ sayfasına kaynak satır numarasıyla yazılır. Rapor eksiği gizlemez, göster
 | 1 | Kişi başı aylık toplam çalışma süresi | Onay bekliyor |
 | 2 | Fazla mesai, vardiya, Multinet, resmi tatil | Bekliyor |
 | 3 | İzin entegrasyonu, mazeret, görevlendirme | Bekliyor |
-| 4 | Otomatik personel maili | Bekliyor |
+| 4 | Kaynak dosya otomasyonu + otomatik personel maili | Bekliyor |
 | 5 | Yıllık özet | Bekliyor |
 
 Ayrıntı ve açık sorular: [docs/ROADMAP.md](docs/ROADMAP.md)
+
+**Faz 4'ün mail kısmı iki cevaba bağlı** ve teknik değil, veri eksikliği:
+
+- Personel listesinde **işe giriş / çıkış tarihi yok**. Ayrılmış birine maaş bilgisi
+  maili gitmemeli; şu an "hâlâ çalışıyor mu" sorusunu veriden kesin cevaplayamıyoruz.
+- Mesai kaydı hiç olmayan kişilere (Mayıs'ta 26) "bu ay 0 saat çalıştınız" maili
+  gitmemeli — önce Macunköy kapsama sorusunun cevaplanması gerekiyor.
+
+Kod tarafı bir günlük iş; bu ikisi çözülmeden başlanmamalı.
 
 ## Dökümanlar
 
@@ -391,20 +482,33 @@ Ayrıntı ve açık sorular: [docs/ROADMAP.md](docs/ROADMAP.md)
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Alınan kararlar ve gerekçeleri (ADR) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Fazlar, durum, açık sorular |
 
+Bu dosyalar geliştiriciler için. **Raporu kullanmak için hiçbirini okumak
+gerekmez** — raporun `Kontrol` sayfası hangi kuralla çalıştığını kendi içinde yazar.
+
 ## Kişisel veri uyarısı
 
 Kaynak dosyalar 162 çalışanın adı, sicil numarası, departmanı, günlük hareketleri ve
 sağlık/doğum izni kayıtlarını içeriyor.
 
 - `data/` klasörü git'e **dahil edilmez**. Gerçek bir dosyayı asla commit'leme.
+- `veri/` klasörü de dahil edilmez — raporun makine-okunur eşleniği isim, e-posta ve
+  saat içeriyor.
+- `config/personel.yaml` gerçek isim yazımlarını tuttuğu için git'te yok;
+  `config/personel.example.yaml` onun yerine commit'lenir.
 - Test verilerinde gerçek isim kullanılmaz.
 - İzin dosyasındaki serbest metin açıklamalar (sağlık ve kişisel gerekçeler)
   rapora yazılmaz.
+- Raporun içinde depoya ait hiçbir referans olmaz (`ADR-015`, `ROADMAP.md Q4` gibi).
+  Raporu okuyan kişi kodu açmayacak; her açıklama kendi başına anlaşılır yazılır.
 
 ## Gereksinimler
 
-- Python 3.14+ (kurulu: 3.14.6)
-- `openpyxl` (kurulu: 3.1.5), `PyYAML`
+- Python 3.11+ (test edilen: 3.12.13 ve 3.14.6)
+- `openpyxl` (`.xlsx` / `.xlsm`), `xlrd` (`.xls`), `PyYAML`
+- Pencere için ek bir şey gerekmez — `tkinter` standart kütüphanede
 
 `pandas` kullanılmıyor — veri küçük, zor kısımlar düzensiz Excel yerleşimi ve
-zaman aralığı birleştirme; ikisinde de faydası yok.
+zaman aralığı birleştirme; ikisinde de faydası yok. `xlrd` sadece `.xls` okuyor,
+Temmuz 2026'da Macunköy dosyası o formata döndüğü için eklendi.
+
+Ağ erişimi gerektiren hiçbir paket yok; program internete bağlanamaz.
