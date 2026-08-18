@@ -168,25 +168,33 @@ ayrıştırmasını değiştirirse çıktı sessizce kayabilir. Yükselttiğinde
 açılmaz, bir pencere gelir.
 
 ```
-┌──────────────────────────────────────────────┐
-│  Kaynak klasör  [ ...                ] [Gözat│
-│    ✓ Macunköy giriş-çıkış: ...xls            │
-│    ✓ Teknopark puantaj: ...xlsx              │
-│    ✓ İzin (HCM): ...xlsx                     │
-│  Dönem  [ 2026-07 ]  Temmuz 2026             │
-│           [  Rapor Oluştur  ]                │
-│  ┌────────────────────────────────────────┐  │
-│  │ Temmuz 2026 raporu yazıldı — EKSİK     │  │
-│  │ Toplam çalışma süresi : 16029:17       │  │
-│  │ ⚠ EKSİK VERİ — teknopark dosyası ...   │  │
-│  │                                        │  │
-│  │ RAPOR DOSYASI                          │  │
-│  │ C:\...\data\out6-07\mesai-...xlsx   │  │
-│  │ VERİ DOSYASI                           │  │
-│  │ C:\...eri\gonderim-2026-07.json      │  │
-│  └────────────────────────────────────────┘  │
-│         [ Raporu Aç ]  [ Klasörü Aç ]        │
-└──────────────────────────────────────────────┘
+┌────────────────────────────────────────────────┐
+│  Mesai Raporu                                  │
+│  Aylık çalışma süresi raporu                   │
+├────────────────────────────────────────────────┤
+│  KAYNAK KLASÖR                                 │
+│  [ Y:\... - 2026                ] [ Gözat… ]│
+│   ✓ Macunköy giriş-çıkış: ...xls               │
+│   ✓ Teknopark puantaj: ...xlsx                 │
+│   ✓ İzin (HCM): ...xlsx                        │
+│                                                │
+│  DÖNEM                                         │
+│  [ 2026-07 ]   Temmuz 2026                     │
+│                                                │
+│  ┌──────────── Rapor Oluştur ───────────────┐  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │ Temmuz 2026 raporu yazıldı — EKSİK       │  │
+│  │ Toplam çalışma süresi : 16029:17         │  │
+│  │ ⚠ EKSİK VERİ — teknopark dosyası ...     │  │
+│  │                                          │  │
+│  │ RAPOR DOSYASI                            │  │
+│  │ C:\...\data\out6-07\mesai-...xlsx     │  │
+│  │ VERİ DOSYASI                             │  │
+│  │ C:\...eri\gonderim-2026-07.json        │  │
+│  └──────────────────────────────────────────┘  │
+│              [ Raporu Aç ]  [ Klasörü Aç ]     │
+└────────────────────────────────────────────────┘
 ```
 
 Akış: **Gözat** ile üç mesai dosyasının bulunduğu klasörü seç → pencere hangi
@@ -436,7 +444,7 @@ otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü
 ## Geliştirme
 
 ```bash
-python -m pytest          # 163 test
+python -m pytest          # 198 test
 ```
 
 Doğrulama mekanizmaları:

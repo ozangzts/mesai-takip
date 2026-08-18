@@ -61,10 +61,22 @@ _SOURCES = (("macunkoy", "Macunköy giriş-çıkış"),
             ("teknopark", "Teknopark puantaj"),
             ("izin", "İzin (HCM)"))
 
-_OK = "#1b7f3a"
-_WARN = "#a86500"
-_BAD = "#b3261e"
-_MUTED = "#5f6368"
+# Palette. Deliberately restrained: a light body, white cards, one accent colour for
+# the single primary action, and status colours chosen to stay readable on white.
+_FACE = "Segoe UI"
+_BG = "#f4f5f7"            # window body
+_CARD = "#ffffff"          # input fields, result card, header band
+_LINE = "#dfe3e8"          # hairline borders
+_INK = "#1f2328"           # body text
+_MUTED = "#656d76"         # captions, secondary text
+_HOVER = "#f0f2f4"         # secondary button hover
+_ACCENT = "#0b5cad"
+_ACCENT_HOVER = "#094e93"
+_DISABLED_BG = "#e8eaed"
+
+_OK = "#1a7f37"
+_WARN = "#9a6700"
+_BAD = "#cf222e"
 
 
 @dataclass
@@ -198,75 +210,169 @@ class App:
         self._running = False
 
         root.title(WINDOW_TITLE)
-        root.minsize(660, 430)
+        root.minsize(720, 600)
         self._build()
         self._restore()
 
     # --- layout ------------------------------------------------------------
     def _build(self) -> None:
-        pad = {"padx": 12, "pady": 6}
-        frame = ttk.Frame(self.root, padding=14)
-        frame.grid(sticky="nsew")
+        self._style()
+        self.root.configure(background=_BG)
+
+        # --- header band -------------------------------------------------
+        header = tk.Frame(self.root, background=_CARD)
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(0, weight=1)
+        tk.Label(header, text=WINDOW_TITLE, background=_CARD, foreground=_INK,
+                 font=(_FACE, 15, "bold"), anchor="w").grid(
+            row=0, column=0, sticky="w", padx=20, pady=(16, 0))
+        tk.Label(header, text="Aylık çalışma süresi raporu", background=_CARD,
+                 foreground=_MUTED, font=(_FACE, 9), anchor="w").grid(
+            row=1, column=0, sticky="w", padx=20, pady=(0, 14))
+        tk.Frame(header, background=_LINE, height=1).grid(
+            row=2, column=0, sticky="ew")
+
+        body = tk.Frame(self.root, background=_BG)
+        body.grid(row=1, column=0, sticky="nsew", padx=20, pady=16)
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-        frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(5, weight=1)
+        self.root.rowconfigure(1, weight=1)
+        body.columnconfigure(0, weight=1)
 
-        ttk.Label(frame, text="Kaynak klasör", font=("Segoe UI", 9, "bold")) \
-            .grid(row=0, column=0, sticky="w", **pad)
+        # --- source folder -----------------------------------------------
+        self._caption(body, "KAYNAK KLASÖR", row=0)
+
+        picker = tk.Frame(body, background=_BG)
+        picker.grid(row=1, column=0, sticky="ew")
+        picker.columnconfigure(0, weight=1)
         self.folder_var = tk.StringVar(value="")
-        entry = ttk.Entry(frame, textvariable=self.folder_var, state="readonly")
-        entry.grid(row=0, column=1, sticky="ew", **pad)
-        ttk.Button(frame, text="Gözat…", command=self._choose) \
-            .grid(row=0, column=2, sticky="e", **pad)
+        tk.Entry(picker, textvariable=self.folder_var, state="readonly",
+                 font=(_FACE, 9), relief="flat", readonlybackground=_CARD,
+                 foreground=_INK, highlightthickness=1, highlightbackground=_LINE,
+                 highlightcolor=_ACCENT).grid(row=0, column=0, sticky="ew", ipady=5)
+        self._button(picker, "Gözat…", self._choose, primary=False).grid(
+            row=0, column=1, sticky="e", padx=(8, 0))
 
-        self.folder_note = tk.Text(frame, height=4, relief="flat", wrap="word",
-                                   background=self.root.cget("background"),
-                                   font=("Segoe UI", 9), borderwidth=0)
-        self.folder_note.grid(row=1, column=0, columnspan=3, sticky="ew",
-                              padx=12, pady=(0, 4))
-        self.folder_note.configure(state="disabled")
+        self.folder_note = tk.Label(body, background=_BG, foreground=_MUTED,
+                                    font=(_FACE, 9), justify="left", anchor="w")
+        self.folder_note.grid(row=2, column=0, sticky="ew", pady=(8, 16))
 
-        ttk.Label(frame, text="Dönem", font=("Segoe UI", 9, "bold")) \
-            .grid(row=2, column=0, sticky="w", **pad)
+        # --- period ------------------------------------------------------
+        self._caption(body, "DÖNEM", row=3)
+
+        period_row = tk.Frame(body, background=_BG)
+        period_row.grid(row=4, column=0, sticky="ew", pady=(0, 18))
         self.period_var = tk.StringVar(value="")
-        period_row = ttk.Frame(frame)
-        period_row.grid(row=2, column=1, columnspan=2, sticky="ew", **pad)
-        self.period_box = ttk.Entry(period_row, textvariable=self.period_var, width=14)
-        self.period_box.grid(row=0, column=0, sticky="w")
-        self.period_note = ttk.Label(period_row, foreground=_MUTED,
-                                     font=("Segoe UI", 8), text="")
-        self.period_note.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        self.period_box = tk.Entry(period_row, textvariable=self.period_var, width=12,
+                                   font=(_FACE, 10), relief="flat", background=_CARD,
+                                   foreground=_INK, highlightthickness=1,
+                                   highlightbackground=_LINE, highlightcolor=_ACCENT)
+        self.period_box.grid(row=0, column=0, sticky="w", ipady=5, ipadx=4)
+        self.period_note = tk.Label(period_row, background=_BG, foreground=_MUTED,
+                                    font=(_FACE, 9), anchor="w")
+        self.period_note.grid(row=0, column=1, sticky="w", padx=(12, 0))
         self.period_var.trace_add("write", lambda *_: self._period_changed())
 
-        self.run_button = ttk.Button(frame, text="Rapor Oluştur",
-                                     command=self._start, state="disabled")
-        self.run_button.grid(row=3, column=0, columnspan=3, sticky="ew", padx=12,
-                             pady=(10, 4))
+        self.run_button = self._button(body, "Rapor Oluştur", self._start,
+                                       primary=True)
+        self.run_button.grid(row=5, column=0, sticky="ew", ipady=4)
+        self._set_enabled(self.run_button, False)
 
-        self.progress = ttk.Progressbar(frame, mode="indeterminate")
-        self.progress.grid(row=4, column=0, columnspan=3, sticky="ew", padx=12)
+        self.progress = ttk.Progressbar(body, mode="indeterminate",
+                                        style="Thin.Horizontal.TProgressbar")
+        self.progress.grid(row=6, column=0, sticky="ew", pady=(10, 0))
 
-        self.result = tk.Text(frame, height=11, relief="solid", borderwidth=1,
-                              wrap="word", font=("Segoe UI", 9), padx=10, pady=8)
-        self.result.grid(row=5, column=0, columnspan=3, sticky="nsew", padx=12,
-                         pady=(10, 6))
+        # --- result card -------------------------------------------------
+        card = tk.Frame(body, background=_LINE)          # hairline border via padding
+        card.grid(row=7, column=0, sticky="nsew", pady=(12, 12))
+        card.columnconfigure(0, weight=1)
+        card.rowconfigure(0, weight=1)
+        body.rowconfigure(7, weight=1)
+        self.result = tk.Text(card, height=12, relief="flat", wrap="word",
+                              font=(_FACE, 9), padx=14, pady=12, background=_CARD,
+                              foreground=_INK, borderwidth=0, highlightthickness=0,
+                              spacing1=1, spacing3=2, cursor="arrow")
+        self.result.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         self.result.configure(state="disabled")
-        self.result.tag_configure("heading", font=("Segoe UI", 10, "bold"))
+        self.result.tag_configure("heading", font=(_FACE, 10, "bold"))
+        self.result.tag_configure("path", font=("Consolas", 9))
         for name, colour in (("ok", _OK), ("warn", _WARN), ("bad", _BAD),
                              ("muted", _MUTED)):
             self.result.tag_configure(name, foreground=colour)
 
-        buttons = ttk.Frame(frame)
-        buttons.grid(row=6, column=0, columnspan=3, sticky="e", padx=12, pady=(0, 4))
-        self.open_report = ttk.Button(buttons, text="Raporu Aç", state="disabled",
-                                      command=self._open_report)
-        self.open_report.grid(row=0, column=0, padx=4)
-        self.open_folder = ttk.Button(buttons, text="Klasörü Aç", state="disabled",
-                                      command=self._open_folder)
-        self.open_folder.grid(row=0, column=1, padx=4)
+        buttons = tk.Frame(body, background=_BG)
+        buttons.grid(row=8, column=0, sticky="e")
+        self.open_report = self._button(buttons, "Raporu Aç", self._open_report,
+                                        primary=False)
+        self.open_report.grid(row=0, column=0, padx=(0, 8))
+        self._set_enabled(self.open_report, False)
+        self.open_folder = self._button(buttons, "Klasörü Aç", self._open_folder,
+                                        primary=False)
+        self.open_folder.grid(row=0, column=1)
+        self._set_enabled(self.open_folder, False)
 
         self._last_output: Path | None = None
+
+    # --- appearance ------------------------------------------------------
+    #
+    # The first version was fairly called "Windows XP". The theme was already `vista`
+    # and the font already Segoe UI; what dated it was everything sharing one flat
+    # grey, sunken `relief="solid"` borders, and a scaling override that rendered text
+    # SMALLER than the system setting. Replaced by a light body with white cards,
+    # hairline borders, one accent-coloured primary action, and no scaling override.
+    #
+    # Coloured controls are `tk` rather than `ttk` on purpose: the vista theme ignores
+    # background/foreground on ttk widgets, which is why a ttk.Button cannot be given
+    # an accent colour at all.
+
+    def _style(self) -> None:
+        style = ttk.Style()
+        if "vista" in style.theme_names():
+            style.theme_use("vista")
+        style.configure("Thin.Horizontal.TProgressbar", thickness=3,
+                        background=_ACCENT, troughcolor=_BG, borderwidth=0)
+
+    def _caption(self, parent: tk.Misc, text: str, row: int) -> None:
+        """Small upper-case section label - the only type hierarchy this needs."""
+        tk.Label(parent, text=text, background=_BG, foreground=_MUTED,
+                 font=(_FACE, 8, "bold"), anchor="w").grid(
+            row=row, column=0, sticky="w", pady=(0, 6))
+
+    def _button(self, parent: tk.Misc, text: str, command, *,
+                primary: bool) -> tk.Button:
+        """Flat button with a hover state, since ttk cannot be recoloured here."""
+        bg, fg = (_ACCENT, "#ffffff") if primary else (_CARD, _INK)
+        hover = _ACCENT_HOVER if primary else _HOVER
+        button = tk.Button(
+            parent, text=text, command=command, relief="flat", cursor="hand2",
+            font=(_FACE, 10 if primary else 9, "bold" if primary else "normal"),
+            background=bg, foreground=fg, activebackground=hover,
+            activeforeground=fg, borderwidth=0, padx=16, pady=6,
+            highlightthickness=0 if primary else 1,
+            highlightbackground=_LINE, disabledforeground=_MUTED)
+        button._idle_bg = bg                     # type: ignore[attr-defined]
+        button._hover_bg = hover                 # type: ignore[attr-defined]
+
+        def enter(_event: object) -> None:
+            if str(button.cget("state")) != "disabled":
+                button.configure(background=hover)
+
+        def leave(_event: object) -> None:
+            if str(button.cget("state")) != "disabled":
+                button.configure(background=bg)
+
+        button.bind("<Enter>", enter)
+        button.bind("<Leave>", leave)
+        return button
+
+    @staticmethod
+    def _set_enabled(button: tk.Button, enabled: bool) -> None:
+        """Enable/disable and repaint. A flat button gives no affordance otherwise."""
+        button.configure(
+            state="normal" if enabled else "disabled",
+            cursor="hand2" if enabled else "arrow",
+            background=button._idle_bg if enabled else _DISABLED_BG,  # type: ignore[attr-defined]
+        )
+
 
     # There used to be a dropdown here listing every month found NEXT TO the chosen
     # folder. It was removed: it appeared with no explanation of where the entries came
@@ -351,20 +457,16 @@ class App:
             settings = config.load(self.config_dir, self.period_var.get() or "2026-01")
         except Exception as exc:                       # noqa: BLE001
             self._write_note((f"Config okunamadı: {exc}",), ok=False)
-            self.run_button.configure(state="disabled")
+            self._set_enabled(self.run_button, False)
             return
 
         ok, lines = describe_folder(self.folder, settings) if self.folder \
             else (False, ("Başlamak için 'Gözat…' ile klasörü seçin.",))
         self._write_note(extra + lines, ok=ok)
-        self.run_button.configure(
-            state="normal" if ok and not self._running else "disabled")
+        self._set_enabled(self.run_button, ok and not self._running)
 
     def _write_note(self, lines: tuple[str, ...], ok: bool) -> None:
-        self.folder_note.configure(state="normal")
-        self.folder_note.delete("1.0", "end")
-        self.folder_note.insert("end", "\n".join(lines))
-        self.folder_note.configure(state="disabled",
+        self.folder_note.configure(text="\n".join(lines),
                                    foreground=_MUTED if ok else _BAD)
 
     def _start(self) -> None:
@@ -395,9 +497,9 @@ class App:
             return
 
         self._running = True
-        self.run_button.configure(state="disabled")
-        self.open_report.configure(state="disabled")
-        self.open_folder.configure(state="disabled")
+        self._set_enabled(self.run_button, False)
+        self._set_enabled(self.open_report, False)
+        self._set_enabled(self.open_folder, False)
         self.progress.start(12)
         self._render(_Result(True, f"{period_label(period)} hesaplanıyor…", (), _MUTED))
         threading.Thread(target=self._work, args=(period, self.folder),
@@ -461,9 +563,9 @@ class App:
         self._running = False
         self._render(result)
         self._last_output = result.output
-        state = "normal" if result.output and result.output.exists() else "disabled"
-        self.open_report.configure(state=state)
-        self.open_folder.configure(state=state)
+        have_file = bool(result.output and result.output.exists())
+        self._set_enabled(self.open_report, have_file)
+        self._set_enabled(self.open_folder, have_file)
         self._describe()
         self._period_changed()
 
@@ -478,13 +580,14 @@ class App:
         # not actionable — the reader has to go hunting for it.
         if result.output:
             self.result.insert("end", "\nRAPOR DOSYASI\n", ("heading", "ok"))
-            self.result.insert("end", f"{result.output.resolve()}\n")
+            self.result.insert("end", f"{result.output.resolve()}\n", "path")
         if result.snapshot:
             self.result.insert("end", "\nVERİ DOSYASI", "heading")
             self.result.insert(
                 "end", "  (e-posta adımı bunu okuyacak; İK'nın açması gerekmez)\n",
                 "muted")
-            self.result.insert("end", f"{result.snapshot.resolve()}\n", "muted")
+            self.result.insert("end", f"{result.snapshot.resolve()}\n",
+                               ("path", "muted"))
         self.result.configure(state="disabled")
 
     def _open_report(self) -> None:
@@ -509,12 +612,27 @@ def _reveal(path: Path) -> None:
         pass
 
 
-def main(argv: list[str] | None = None) -> int:
-    root = tk.Tk()
+def _dpi_aware() -> None:
+    """Tell Windows this process scales itself, so text is crisp on a HiDPI screen.
+
+    Without it Windows bitmap-stretches the whole window and everything looks soft —
+    a large part of what read as "dated". Silently ignored anywhere else.
+    """
+    if sys.platform != "win32":
+        return
     try:
-        root.call("tk", "scaling", 1.25)               # readable on a 1080p laptop
-    except tk.TclError:
+        import ctypes
+
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)   # system DPI aware
+    except (ImportError, AttributeError, OSError):
         pass
+
+
+def main(argv: list[str] | None = None) -> int:
+    _dpi_aware()
+    root = tk.Tk()
+    # No scaling override here. An earlier version forced 1.25 while Windows had
+    # already reported 1.333, which made every label smaller than the user asked for.
     App(root)
     root.mainloop()
     return 0

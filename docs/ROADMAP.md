@@ -211,6 +211,18 @@ It is a **thin shell over `pipeline.run()`** — the same call `cli.py` makes, n
 logic of its own. That cost nothing to add because `pipeline.py` had already been split
 out of `cli.py` for exactly this.
 
+Appearance was reworked on 2026-08-18 after the first version was fairly called
+"Windows XP". The theme was already `vista` and the font already Segoe UI; what dated
+it was everything sharing one flat grey, `relief="solid"` sunken borders, and a
+`tk scaling` override that rendered text *smaller* than the system setting. Now: light
+body, white cards, hairline borders, one accent-coloured primary action, and
+`SetProcessDpiAwareness` so text is crisp rather than bitmap-stretched.
+
+Coloured controls are `tk` rather than `ttk` on purpose — the vista theme ignores
+background/foreground on ttk widgets, so a ttk.Button cannot be given an accent colour
+at all. Flat buttons then need explicit hover and disabled painting, which is what
+`_button` and `_set_enabled` exist for.
+
 Design notes worth keeping:
 
 - **No default input folder.** A wrong guess is worse than an empty field: the user
