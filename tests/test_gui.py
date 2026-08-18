@@ -10,6 +10,8 @@ what they need to know — before pressing anything — is which of the three ex
 found. Reporting only the first failure would hide the other two.
 """
 
+import json
+import queue
 from pathlib import Path
 
 import pytest
@@ -156,3 +158,95 @@ def test_the_period_label_is_turkish(tmp_path):
     assert gui.period_label("2026-07") == "Temmuz 2026"
     assert gui.period_label("2026-01") == "Ocak 2026"
     assert gui.period_label("2026-12") == "Aralık 2026"
+
+
+# --- what is remembered between runs ----------------------------------------
+#
+# The window used to restore the last chosen folder. That was wrong for a specific
+# reason: the input folder is month-specific (`07 - 2026`), so from the second month
+# onwards the restored value pointed at a month already done — and filled the period
+# field with it, ready to run. Only the browse starting point is kept now.
+
+@pytest.fixture
+def app(tmp_path):
+    """A real App on a real Tk, rooted in tmp_path so no user settings are touched."""
+    tk = pytest.importorskip("tkinter")
+    from mesai import gui as gui_module
+
+    try:
+        root = tk.Tk()
+    except tk.TclError:                          # pragma: no cover - headless
+        pytest.skip("no display")
+
+    def build(settings_payload=None):
+        if settings_payload is not None:
+            (tmp_path / "arayuz-ayarlari.json").write_text(
+                json.dumps(settings_payload), encoding="utf-8")
+        instance = gui_module.App.__new__(gui_module.App)
+        instance.root = root
+        instance.base = tmp_path
+        instance.config_dir = Path("config")
+        instance.roster_dir = Path("data/personel")
+        instance.folder = None
+        instance._queue = queue.Queue()
+        instance._running = False
+        root.title("test")
+        instance._build()
+        instance._restore()
+        return instance
+
+    yield build
+    root.destroy()
+
+
+def test_a_fresh_window_selects_nothing(app):
+    window = app()
+
+    assert window.folder is None
+    assert window.folder_var.get() == ""
+    assert window.period_var.get() == ""
+    assert str(window.run_button.cget("state")) == "disabled"
+    assert "Gözat" in window.folder_note.cget("text")
+
+
+def test_the_browse_location_is_remembered_but_nothing_is_selected(app, tmp_path):
+    share = tmp_path / "MESAI TAKIP"
+    (share / "07 - 2026").mkdir(parents=True)
+    window = app({"browse_dir": str(share)})
+
+    assert window.browse_dir == share, "browsing should start where it left off"
+    assert window.folder is None, "but nothing may be pre-selected"
+    assert window.period_var.get() == ""
+
+
+def test_the_old_settings_format_is_migrated_to_its_parent(app, tmp_path):
+    """Upgrading must not resurrect the stale behaviour, nor lose the location."""
+    share = tmp_path / "MESAI TAKIP"
+    month = share / "07 - 2026"
+    month.mkdir(parents=True)
+    window = app({"folder": str(month)})
+
+    assert window.browse_dir == share
+    assert window.folder is None
+    assert window.period_var.get() == "", "the stale month must not be pre-filled"
+
+
+def test_a_vanished_browse_location_is_simply_ignored(app, tmp_path):
+    """An unmounted network drive must not break startup."""
+    window = app({"browse_dir": str(tmp_path / "Z-yok")})
+
+    assert window.browse_dir is None
+    assert window.folder is None
+
+
+def test_remembering_stores_the_parent_not_the_selection(app, tmp_path):
+    share = tmp_path / "MESAI TAKIP"
+    month = share / "07 - 2026"
+    month.mkdir(parents=True)
+    window = app()
+    window.folder = month
+    window._remember()
+
+    saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
+    assert saved == {"browse_dir": str(share)}
+    assert "07 - 2026" not in saved.get("browse_dir", ""), "month must not be stored"

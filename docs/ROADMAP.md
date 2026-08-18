@@ -225,9 +225,15 @@ at all. Flat buttons then need explicit hover and disabled painting, which is wh
 
 Design notes worth keeping:
 
-- **No default input folder.** A wrong guess is worse than an empty field: the user
-  cannot tell it happened. They browse to the folder, and the window immediately lists
-  which of the three exports it found — all three, not just the first failure.
+- **No default input folder, and no restored selection.** A wrong guess is worse than
+  an empty field: the user cannot tell it happened. They browse to the folder, and the
+  window immediately lists which of the three exports it found — all three, not just
+  the first failure.
+- **Only the browse starting point is remembered.** Restoring the last chosen folder
+  was tried and removed: the input folder is month-specific, so from the second month
+  it always offered a finished month with the period pre-filled. The parent is kept
+  instead, so the dialog opens on the right share while the selection stays
+  deliberate.
 - The work runs off the UI thread, or Windows labels the window "not responding".
 - **No e-mail tab yet.** Modularity belongs in module boundaries, not in a visible
   placeholder the user has to ignore.

@@ -200,9 +200,15 @@ açılmaz, bir pencere gelir.
 Akış: **Gözat** ile üç mesai dosyasının bulunduğu klasörü seç → pencere hangi
 dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
 
-- **Varsayılan klasör yok, bilerek.** Yanlış bir tahmin boş alandan kötüdür, çünkü
-  kullanıcı yanlış klasörden okunduğunu fark edemez. Bir kez seçersin, sonraki ay
-  hatırlanır.
+- **Varsayılan klasör yok ve önceki seçim geri yüklenmez.** Yanlış bir tahmin boş
+  alandan kötüdür, çünkü kullanıcı yanlış klasörden okunduğunu fark edemez. Program
+  her açılışta boş gelir.
+- **Sadece "Gözat"ın başlayacağı yer hatırlanır.** Girdi klasörü aya özel
+  (`07 - 2026`), dolayısıyla önceki seçimi geri yüklemek ikinci aydan itibaren **her
+  zaman bitmiş bir ayı** gösterir — üstelik dönem alanını da o ayla doldururdu.
+  Ağustos'ta pencereyi açıp Temmuz'u çalışmaya hazır görmek tam olarak kaçındığımız
+  hata türü. Hatırlanan şey klasörün **üst dizini**, yani Gözat doğru paylaşımda
+  açılır ama seçimi sen yaparsın.
 - Klasörde eksik veya fazla dosya varsa **Rapor Oluştur** pasif kalır ve neyin eksik
   olduğu yazılır. Aynı klasörde iki ay varsa "2 dosya eşleşti" der.
 - **Dönem listesi kaldırıldı.** Eskiden seçtiğin klasörün *komşusu* olan aylar bir
@@ -444,7 +450,7 @@ otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü
 ## Geliştirme
 
 ```bash
-python -m pytest          # 198 test
+python -m pytest          # 203 test
 ```
 
 Doğrulama mekanizmaları:

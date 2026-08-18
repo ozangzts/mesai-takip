@@ -11,10 +11,12 @@ Three deliberate choices:
 
 * **tkinter**, from the standard library. No new dependency, packages cleanly into a
   single executable, and keeps ADR-005 intact — no network, nothing to configure.
-* **No default input folder.** The tool used to guess `data/raw/<month>`; a guess that
-  is wrong is worse than an empty field, because the user cannot tell it happened. They
-  pick the folder holding the three exports, and the window immediately reports what it
-  found there. The choice is remembered for next month.
+* **No default input folder, and none is restored.** A guess that is wrong is worse
+  than an empty field, because the user cannot tell it happened. They pick the folder
+  holding the three exports and the window immediately reports what it found there.
+  Only the *browse starting location* is remembered — the input folder is
+  month-specific, so restoring last month's selection would offer a stale month
+  pre-filled and ready to run.
 * **The work runs on a worker thread.** The pipeline takes a few seconds; on the UI
   thread the window would grey out and Windows would label it "not responding".
 
@@ -383,38 +385,56 @@ class App:
     # mismatch.
 
     # --- persistence -------------------------------------------------------
+    #
+    # Only the folder to START BROWSING FROM is remembered — never a pre-selected
+    # folder. An earlier version restored the last chosen folder, which was wrong for
+    # a specific reason: the input folder is month-specific (`07 - 2026`), so from the
+    # second month onwards the restored value always points at a month already done,
+    # and it filled the period field with that month too. Opening the window in August
+    # and being shown July, ready to run, is precisely the plausible-looking wrong
+    # default this project avoids everywhere else.
+    #
+    # Remembering the PARENT keeps the convenience — the browse dialog opens on the
+    # right share instead of Documents — while the selection itself stays deliberate.
+
     def _settings_path(self) -> Path:
         return self.base / _SETTINGS_FILE
 
     def _restore(self) -> None:
+        """Load the browse starting point. Never selects anything."""
+        self.browse_dir: Path | None = None
         try:
             saved = json.loads(self._settings_path().read_text(encoding="utf-8"))
-            folder = Path(saved["folder"])
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError):
             self._describe()
             return
-        if folder.is_dir():
-            self._set_folder(folder)
-        else:
-            # The remembered folder is gone — a Drive letter that did not mount, a
-            # renamed share. Say so rather than silently starting empty.
-            self._describe(extra=(f"Son kullanılan klasör bulunamadı: {folder}",))
+
+        candidate = saved.get("browse_dir")
+        if candidate is None and saved.get("folder"):
+            # Written by the version that remembered the selection itself. Its parent
+            # is exactly the browse location we want, so upgrade rather than discard.
+            candidate = str(Path(saved["folder"]).parent)
+        if candidate and Path(candidate).is_dir():
+            self.browse_dir = Path(candidate)
+        self._describe()
 
     def _remember(self) -> None:
         if self.folder is None:
             return
+        self.browse_dir = self.folder.parent
         try:
             self._settings_path().write_text(
-                json.dumps({"folder": str(self.folder)}, ensure_ascii=False),
+                json.dumps({"browse_dir": str(self.browse_dir)}, ensure_ascii=False),
                 encoding="utf-8")
         except OSError:
             pass        # a read-only install is not worth failing a run over
 
     # --- actions -----------------------------------------------------------
     def _choose(self) -> None:
+        start = self.folder or self.browse_dir or self.base
         chosen = filedialog.askdirectory(
             title="Üç mesai dosyasının bulunduğu klasörü seçin",
-            initialdir=str(self.folder) if self.folder else str(self.base))
+            initialdir=str(start))
         if chosen:
             self._set_folder(Path(chosen))
             self._remember()
