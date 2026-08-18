@@ -1,6 +1,6 @@
 # HANDOVER.md — Nerede kaldık
 
-**Son güncelleme: 2026-08-18, commit `8e0ec7f`.**
+**Son güncelleme: 2026-08-18, commit `b065325`.**
 
 > Bu dosya kalıcı bilgi tutmaz, sadece **akıştaki işi** ve **beklenen cevapları**
 > tutar. Kalıcı olan her şey aşağıdaki dosyalarda ve onlar güncel:
@@ -47,7 +47,7 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    `gui/app.py` (pencere kabuğu, başlık bandı, `main()`), `gui/rapor.py` (rapor
    ekranı — `ReportScreen`), `gui/period.py` (dönem okuma/yazma, saf ve testli),
    `gui/widgets.py` (palet ve ortak düğme/etiket yardımcıları). **Davranış birebir
-   aynı**, 217 test geçmeye devam ediyor.
+   aynıydı**; o günkü 217 testin hepsi değişmeden geçti (bugünkü sayı yukarıda).
    Asıl kazanç kabuk/ekran ayrımı: `App` toplevel'i ve ekranın oturduğu çerçeveyi
    tutuyor, `ReportScreen` içindeki her şeyi. **Sol panel artık yeniden yapılandırma
    değil** — `App.content` yanına öğe koymak ve hangi ekranın grid'lendiğini

@@ -475,7 +475,7 @@ otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü
 ## Geliştirme
 
 ```bash
-python -m pytest          # 217 test
+python -m pytest          # 255 test
 ```
 
 Doğrulama mekanizmaları:

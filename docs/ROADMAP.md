@@ -223,6 +223,24 @@ background/foreground on ttk widgets, so a ttk.Button cannot be given an accent 
 at all. Flat buttons then need explicit hover and disabled painting, which is what
 `_button` and `_set_enabled` exist for.
 
+Reworked further the same day, in this order:
+
+- **Split into a `gui/` package** before the e-mail step rather than during it: shell
+  (`app.py`), report screen (`rapor.py`), month parsing (`period.py`), shared widgets
+  (`widgets.py`). One 662-line module with one class was about to acquire a second job.
+- **A left navigation rail** (`nav.py`). Adding a work face is one entry in
+  `app.SCREENS`; the rail is generated from it and a screen is built the first time it
+  is opened. Only screens that exist are listed — no placeholder item.
+- **Five presentation defects**, all found by opening the window and looking rather
+  than by reading the code: an activity bar that showed part-filled at rest, a starting
+  instruction painted in the colour of an error, found and missing sources sharing one
+  colour, a summary aligned with spaces in a proportional font, and a result card that
+  clipped the snapshot path it had just printed.
+- **Naming one export outright** when it is not where the others are (ADR-022), and
+- **failing the run when a source is the wrong month** (ADR-023) — which the previous
+  item made easier to reach, and which was found by measuring rather than assuming: the
+  run had been succeeding with a report 72 % short and no warning at all.
+
 Design notes worth keeping:
 
 - **No default input folder, and no restored selection.** A wrong guess is worse than
