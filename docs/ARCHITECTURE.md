@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 223 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 231 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -71,7 +71,7 @@ src/mesai/
 │   ├── nav.py         ✅  the left rail — one item per registered screen
 │   ├── rapor.py       ✅  the report screen: folder, period, run, result card
 │   ├── period.py      ✅  `07-2026` -> `2026-07` -> `Temmuz 2026`; pure, tested
-│   └── widgets.py     ✅  palette and widget primitives shared by every screen
+│   └── widgets.py     ✅  palette, buttons, and the hand-drawn activity bar
 ├── snapshot.py        ✅  machine-readable companion to the workbook
 ├── pipeline.py        ✅  the six stages; file discovery, period filter
 ├── config.py          ✅  YAML -> typed Settings; validates on load
@@ -151,6 +151,19 @@ Two behaviours the tests pin down, both of which are bugs if they regress:
 
 `nav.py` is handed labels and hands back the key that was clicked. It knows nothing
 about what a screen does, which is what keeps the registry the only thing to edit.
+
+Three presentation rules the window holds itself to, each of them a defect once:
+
+- **Red means a problem.** "You have not picked a folder yet" is where every run
+  starts, so it is not red; and when two of three exports are found, the two that were
+  found are not painted in the colour of the one that was not.
+- **Nothing may look further along than it is.** `ttk.Progressbar` draws a stub of
+  filled bar at rest, which on an untouched window read as a job already part-done.
+  `widgets.Progress` draws the sweep itself: nothing when idle, accent while running.
+  (It also cannot be recoloured through ttk — the vista theme ignores `background`.)
+- **Anything written must be reachable.** The result card scrolls, because a run
+  against a partial source writes four extra lines per source and the snapshot path is
+  last. It used to be printed in full and then clipped off the bottom.
 
 `rapor.py` keeps its Turkish name deliberately: `gui/report.py` would read as a
 sibling of `mesai/report/`, the package that writes the workbook, which it is not.

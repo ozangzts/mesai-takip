@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 223 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 231 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -65,7 +65,14 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    üretiliyor. Ayrıca boş dönem alanının yanındaki ipucu (`Örn. 2026-07 · ...`) ilk
    açılışta hiç görünmüyordu — yalnızca alana yazıldığında tetikleniyordu, yani tam
    olarak yazıldığı durum için erişilemezdi. Düzeltildi, testi var.
-5. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+5. **Pencere görsel olarak elden geçirildi.** İlerleme çubuğu ttk'nın yerine elle
+   çiziliyor (`widgets.Progress`): boştayken hiçbir şey görünmüyor, koşarken accent
+   renginde bir tarama. Eskisi duruşta bile bir parça dolu görünüyordu ve vista teması
+   rengini yok sayıp yeşile boyuyordu. Ayrıca: klasör seçilmemiş hâli artık kırmızı
+   değil (hata değil, başlangıç); bulunan/bulunamayan kaynaklar ayrı ayrı renkleniyor;
+   özet rakamları sabit genişlikli yazı tipinde, yani iki noktalar hizalı; sonuç kartı
+   **kaydırılabilir** — veri dosyasının yolu yazılıyor ama kartın altında kesiliyordu.
+6. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

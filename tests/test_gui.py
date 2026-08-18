@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from mesai import gui
-from mesai.gui import app as app_module
+from mesai.gui import app as app_module, rapor, widgets
 
 
 def _touch(folder: Path, *names: str) -> None:
@@ -204,7 +204,7 @@ def test_a_fresh_window_selects_nothing(screen):
     assert window.folder_var.get() == ""
     assert window.period_var.get() == ""
     assert str(window.run_button.cget("state")) == "disabled"
-    assert "Gözat" in window.folder_note.cget("text")
+    assert "Gözat" in " ".join(window.note_lines)
 
 
 def test_the_empty_period_field_says_what_may_be_typed(screen):
@@ -340,3 +340,104 @@ def test_an_unregistered_screen_key_fails_loudly(shell):
     window = shell()
     with pytest.raises(KeyError):
         window.show("yok-boyle-bir-ekran")
+
+
+# --- what the untouched window looks like -----------------------------------
+#
+# A window nobody has touched yet must not look like something already went wrong,
+# and must not look like a job already part-done. Both were true at one point.
+
+def test_nothing_chosen_yet_is_not_painted_as_a_problem(screen):
+    """Red is for problems. 'You have not picked a folder' is where every run starts."""
+    window = screen()
+    labels = window.folder_note.winfo_children()
+
+    assert labels, "the starting instruction must be shown"
+    assert all(str(label.cget("foreground")) != widgets.BAD for label in labels)
+
+
+def test_found_and_missing_sources_are_coloured_separately(screen, tmp_path, settings):
+    """Two of three found: the two that were found must not be painted as failures."""
+    folder = tmp_path / "07 - 2026"
+    _touch(folder, "Teknopark - Temmuz Mesai Takip Exceli.xlsx",
+           "HCMT34_TEMMUZ_IZIN.xlsx")
+    window = screen()
+    window._write_note(describe_folder_lines(folder, settings), problem=True)
+
+    colours = [str(label.cget("foreground"))
+               for label in window.folder_note.winfo_children()]
+    assert colours.count(widgets.OK) == 2, "both found files keep the found colour"
+    assert colours.count(widgets.BAD) == 1, "only the missing one is a problem"
+
+
+def describe_folder_lines(folder, settings):
+    _ok, lines = gui.describe_folder(folder, settings)
+    return lines
+
+
+def test_the_activity_bar_shows_nothing_before_a_run(screen):
+    """It used to draw a stub of filled bar, reading as 'a little bit done already'."""
+    window = screen()
+    bar = window.progress
+
+    assert bar.canvas.coords(bar._bar) == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_the_result_card_says_what_to_do_instead_of_sitting_empty(screen):
+    window = screen()
+    shown = window.result.get("1.0", "end")
+
+    assert "Gözat" in shown and "Rapor Oluştur" in shown
+    assert "RAPOR DOSYASI" not in shown, "no output path before a run has produced one"
+
+
+def test_starting_a_run_shows_the_activity_bar(screen, tmp_path):
+    """Covers the call site, not just the widget.
+
+    The bar was swapped for one with a different `start()` signature and nothing
+    noticed, because no test had ever pressed the button. The run itself fails here —
+    no folder is chosen — but it fails on the worker thread, after the bar is up.
+    """
+    window = screen()
+    window.period_var.set("2026-07")
+    window._start()
+
+    left, _top, right, _bottom = window.progress.canvas.coords(window.progress._bar)
+    assert right > left, "the bar must be drawn once a run has started"
+
+    window.progress.stop()
+    assert window.progress.canvas.coords(window.progress._bar) == [0.0, 0.0, 0.0, 0.0]
+
+
+def test_the_summary_figures_are_drawn_in_a_fixed_width_font(screen):
+    """They are aligned with spaces, so a proportional font leaves the colons ragged."""
+    window = screen()
+    window._render(rapor.Result(
+        True, "Mayıs 2026 raporu yazıldı", (), widgets.OK,
+        figures=("Raporda yer alan kişi : 171", "Kişi-gün kaydı        : 1823")))
+
+    assert window.result.tag_ranges("figure"), "the figures must carry the mono tag"
+    assert str(window.result.tag_cget("figure", "font")).startswith(widgets.MONO)
+
+
+def test_a_long_result_can_be_scrolled_to_the_end(screen, tmp_path):
+    """The snapshot path is the last thing written and used to be clipped away."""
+    window = screen()
+    window._render(rapor.Result(
+        True, "Temmuz 2026 raporu yazıldı — EKSİK",
+        tuple(f"satır {n}" for n in range(40)), widgets.WARN,
+        output=tmp_path / "rapor.xlsx", snapshot=tmp_path / "veri.json"))
+    window.root.update()
+
+    assert window.result.yview()[1] < 1.0, "this much text must not fit"
+    assert window._scroll.winfo_manager() == "grid", "so the scrollbar must appear"
+
+    window.result.yview_moveto(1.0)
+    assert window.result.yview()[1] == 1.0, "the end must be reachable"
+
+
+def test_a_short_result_hides_the_scrollbar(screen):
+    window = screen()
+    window.root.update()
+
+    assert window._scroll.winfo_manager() == "", "nothing out of view, nothing to show"

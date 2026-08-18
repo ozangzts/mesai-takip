@@ -50,13 +50,33 @@ SOURCES = (("macunkoy", "Macunköy giriş-çıkış"),
 
 @dataclass
 class Result:
-    """What a finished run produced, in the form the screen needs to render it."""
+    """What a finished run produced, in the form the screen needs to render it.
+
+    `figures` is kept apart from `lines` because the two want different type. The
+    summary is a column of labels and numbers aligned with spaces, which only lines up
+    in a fixed-width font; `lines` is prose, which reads worse in one. They used to
+    share a field and the summary's colons drifted out of line.
+    """
     ok: bool
     heading: str
     lines: tuple[str, ...]
     colour: str
     output: Path | None = None
     snapshot: Path | None = None
+    figures: tuple[str, ...] = ()
+
+
+# The result card is the largest thing on the screen and it is empty until a run
+# finishes. An empty box says nothing about what to do next, so it starts by saying it:
+# the same three steps, in the order the controls above it appear.
+WELCOME = Result(
+    True, "Hazır",
+    ("1.  'Gözat…' ile üç mesai dosyasının bulunduğu klasörü seçin.",
+     "2.  Dönemi doğrulayın — klasör adından okunabiliyorsa kendiliğinden dolar.",
+     "3.  'Rapor Oluştur'a basın.",
+     "",
+     "Hesaplama birkaç saniye sürer. Bittiğinde özet ve dosya yolları burada yazar."),
+    "")                              # no status colour: this is not an outcome
 
 
 def describe_folder(folder: Path, settings) -> tuple[bool, tuple[str, ...]]:
@@ -105,6 +125,7 @@ class ReportScreen:
         self._last_output: Path | None = None
 
         self._build(parent)
+        self._render(WELCOME)
         self._restore()
         # The period note is otherwise only written by the trace, which never fires on
         # a fresh window — nothing has typed into the field yet. That left the empty
@@ -131,9 +152,14 @@ class ReportScreen:
         w.button(picker, "Gözat…", self._choose, primary=False).grid(
             row=0, column=1, sticky="e", padx=(8, 0))
 
-        self.folder_note = tk.Label(body, background=w.BG, foreground=w.MUTED,
-                                    font=(w.FACE, 9), justify="left", anchor="w")
+        # One label per line rather than one multi-line label, so a folder with two of
+        # the three exports can show the two that were found in the colour of a found
+        # file and the missing one in the colour of a problem. A single label has one
+        # colour, which meant a partial match painted the good news red too.
+        self.folder_note = tk.Frame(body, background=w.BG)
         self.folder_note.grid(row=2, column=0, sticky="ew", pady=(8, 16))
+        self.folder_note.columnconfigure(0, weight=1)
+        self.note_lines: tuple[str, ...] = ()
 
         # --- period ------------------------------------------------------
         w.caption(body, "DÖNEM", row=3)
@@ -156,8 +182,7 @@ class ReportScreen:
         self.run_button.grid(row=5, column=0, sticky="ew", ipady=4)
         w.set_enabled(self.run_button, False)
 
-        self.progress = ttk.Progressbar(body, mode="indeterminate",
-                                        style="Thin.Horizontal.TProgressbar")
+        self.progress = w.Progress(body)
         self.progress.grid(row=6, column=0, sticky="ew", pady=(10, 0))
 
         # --- result card -------------------------------------------------
@@ -172,8 +197,19 @@ class ReportScreen:
                               spacing1=1, spacing3=2, cursor="arrow")
         self.result.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         self.result.configure(state="disabled")
+
+        # A run that hits a partial source writes four extra lines per source, so the
+        # card overflows on some months and not others. It used to simply clip, which
+        # cost the reader the snapshot path — printed in full, and then unreachable.
+        self._scroll = ttk.Scrollbar(card, orient="vertical",
+                                     command=self.result.yview)
+        self.result.configure(yscrollcommand=self._scrolled)
+        self.result.bind("<MouseWheel>", self._wheel)
+
         self.result.tag_configure("heading", font=(w.FACE, 10, "bold"))
         self.result.tag_configure("path", font=(w.MONO, 9))
+        # Aligned with spaces, so it only aligns in a fixed-width font.
+        self.result.tag_configure("figure", font=(w.MONO, 9))
         for name, colour in (("ok", w.OK), ("warn", w.WARN), ("bad", w.BAD),
                              ("muted", w.MUTED)):
             self.result.tag_configure(name, foreground=colour)
@@ -289,18 +325,45 @@ class ReportScreen:
         try:
             settings = config.load(self.config_dir, self.period_var.get() or "2026-01")
         except Exception as exc:                       # noqa: BLE001
-            self._write_note((f"Config okunamadı: {exc}",), ok=False)
+            self._write_note((f"Config okunamadı: {exc}",), problem=True)
             w.set_enabled(self.run_button, False)
             return
 
-        ok, lines = describe_folder(self.folder, settings) if self.folder \
-            else (False, ("Başlamak için 'Gözat…' ile klasörü seçin.",))
-        self._write_note(extra + lines, ok=ok)
+        if not self.folder:
+            # Not a problem, and it must not be painted as one. Nothing chosen yet is
+            # simply where every run starts; a red line here made an untouched window
+            # look like something had already gone wrong.
+            self._write_note(extra + ("Başlamak için 'Gözat…' ile klasörü seçin.",),
+                             problem=False)
+            w.set_enabled(self.run_button, False)
+            return
+
+        ok, lines = describe_folder(self.folder, settings)
+        self._write_note(extra + lines, problem=not ok)
         w.set_enabled(self.run_button, ok and not self._running)
 
-    def _write_note(self, lines: tuple[str, ...], ok: bool) -> None:
-        self.folder_note.configure(text="\n".join(lines),
-                                   foreground=w.MUTED if ok else w.BAD)
+    def _write_note(self, lines: tuple[str, ...], problem: bool) -> None:
+        """Repaint the folder report, one label per line.
+
+        The colour comes from the line's own marker: `describe_folder` writes ✓ for a
+        source it found and ✗ for one it did not, and each deserves its own colour even
+        when they appear together. Anything unmarked is prose, and takes the tone of
+        the block as a whole.
+        """
+        for child in self.folder_note.winfo_children():
+            child.destroy()
+        self.note_lines = tuple(lines)
+
+        for row, line in enumerate(lines):
+            if line.startswith("✓"):
+                colour = w.OK
+            elif line.startswith("✗"):
+                colour = w.BAD
+            else:
+                colour = w.BAD if problem else w.MUTED
+            tk.Label(self.folder_note, text=line, background=w.BG, foreground=colour,
+                     font=(w.FACE, 9), justify="left", anchor="w").grid(
+                row=row, column=0, sticky="ew")
 
     def _start(self) -> None:
         # Whatever the user typed goes through the same parser as a folder name, so
@@ -333,7 +396,7 @@ class ReportScreen:
         w.set_enabled(self.run_button, False)
         w.set_enabled(self.open_report, False)
         w.set_enabled(self.open_folder, False)
-        self.progress.start(12)
+        self.progress.start()
         self._render(Result(True, f"{period_label(period)} hesaplanıyor…", (),
                             w.MUTED))
         threading.Thread(target=self._work, args=(period, self.folder),
@@ -363,7 +426,7 @@ class ReportScreen:
 
     def _summarise(self, period: str, result: dict) -> Result:
         partial = result.get("partial_sources") or []
-        lines = [
+        figures = (
             f"Raporda yer alan kişi : {result['people']}",
             f"  mesai verisi olan   : {result['with_attendance']}",
             f"  mesai verisi olmayan: {result['without_attendance']}",
@@ -371,21 +434,22 @@ class ReportScreen:
             f"Toplam çalışma süresi : {hhmm(result['gross'])}",
             f"Şüpheli kayıt         : {result['anomalies']}"
             f" ({result['excluded_anomalies']} tanesi toplama dahil edilmedi)",
-        ]
+        )
+        lines: list[str] = []
+        for cov in partial:
+            first = cov.trailing_missing[0].strftime("%d.%m.%Y")
+            lines += [
+                "",
+                f"⚠ EKSİK VERİ — {cov.source} dosyası dönemin tamamını içermiyor.",
+                f"   {first} ve sonrası yok ({cov.present}/{cov.expected} iş günü).",
+                "   Bu rapordaki saatler bordro için kullanılamaz.",
+            ]
+        heading = f"{period_label(period)} raporu yazıldı"
         if partial:
-            for cov in partial:
-                first = cov.trailing_missing[0].strftime("%d.%m.%Y")
-                lines += [
-                    "",
-                    f"⚠ EKSİK VERİ — {cov.source} dosyası dönemin tamamını içermiyor.",
-                    f"   {first} ve sonrası yok ({cov.present}/{cov.expected} iş günü).",
-                    "   Bu rapordaki saatler bordro için kullanılamaz.",
-                ]
-            return Result(True, f"{period_label(period)} raporu yazıldı — EKSİK",
-                          tuple(lines), w.WARN, result["output"],
-                          result.get("snapshot"))
-        return Result(True, f"{period_label(period)} raporu yazıldı",
-                      tuple(lines), w.OK, result["output"], result.get("snapshot"))
+            return Result(True, f"{heading} — EKSİK", tuple(lines), w.WARN,
+                          result["output"], result.get("snapshot"), figures)
+        return Result(True, heading, (), w.OK, result["output"],
+                      result.get("snapshot"), figures)
 
     def _poll(self) -> None:
         try:
@@ -403,11 +467,25 @@ class ReportScreen:
         self._describe()
         self._period_changed()
 
+    def _scrolled(self, first: str, last: str) -> None:
+        """Show the scrollbar only when there is something out of view."""
+        if float(first) <= 0.0 and float(last) >= 1.0:
+            self._scroll.grid_remove()
+        else:
+            self._scroll.grid(row=0, column=1, sticky="ns", padx=(0, 1), pady=1)
+        self._scroll.set(first, last)
+
+    def _wheel(self, event: tk.Event) -> str:
+        self.result.yview_scroll(-event.delta // 120, "units")
+        return "break"
+
     def _render(self, result: Result) -> None:
         tag = {w.OK: "ok", w.WARN: "warn", w.BAD: "bad"}.get(result.colour, "muted")
         self.result.configure(state="normal")
         self.result.delete("1.0", "end")
         self.result.insert("end", result.heading + "\n", ("heading", tag))
+        if result.figures:
+            self.result.insert("end", "\n".join(result.figures) + "\n", "figure")
         if result.lines:
             self.result.insert("end", "\n".join(result.lines) + "\n")
         # Full paths, not just file names. "Veri dosyası oluşturuldu" with no path is

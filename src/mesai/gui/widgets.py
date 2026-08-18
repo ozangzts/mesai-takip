@@ -46,12 +46,74 @@ BAD = "#cf222e"
 
 
 def use_native_theme() -> None:
-    """Adopt the platform ttk theme and thin down the one ttk widget in use."""
+    """Adopt the platform ttk theme for the few ttk widgets in use."""
     style = ttk.Style()
     if "vista" in style.theme_names():
         style.theme_use("vista")
-    style.configure("Thin.Horizontal.TProgressbar", thickness=3,
-                    background=ACCENT, troughcolor=BG, borderwidth=0)
+
+
+class Progress:
+    """A thin activity bar, drawn by hand rather than by ttk.
+
+    Two things were wrong with `ttk.Progressbar` here, and neither is fixable from a
+    style. At rest it draws a stub of filled bar, so a window that had done nothing
+    yet looked like a job already slightly finished — the one impression this program
+    must never give. And the vista theme ignores `background`, so it painted in the
+    theme's green no matter what the palette said.
+
+    Drawn on a canvas instead: **nothing at all when idle**, an accent sweep while a
+    run is in progress. It keeps its row either way, so starting and finishing a run
+    does not shift everything below it.
+    """
+
+    _FRAME_MS = 16                    # ~60 fps; the sweep is the only thing moving
+
+    def __init__(self, parent: tk.Misc, *, height: int = 3,
+                 background: str = BG) -> None:
+        self._height = height
+        self.canvas = tk.Canvas(parent, height=height, background=background,
+                                highlightthickness=0, borderwidth=0)
+        self._bar = self.canvas.create_rectangle(0, 0, 0, 0, fill=ACCENT, width=0)
+        self._running = False
+        self._left = 0.0
+        self._step = 1                # +1 sweeping right, -1 sweeping left
+
+    def grid(self, **options: object) -> None:
+        self.canvas.grid(**options)
+
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        self._left, self._step = 0.0, 1
+        self._tick()
+
+    def stop(self) -> None:
+        self._running = False
+        self._hide()
+
+    def _hide(self) -> None:
+        try:
+            self.canvas.coords(self._bar, 0, 0, 0, 0)
+        except tk.TclError:           # pragma: no cover - window already destroyed
+            pass
+
+    def _tick(self) -> None:
+        if not self._running:
+            return
+        try:
+            width = max(self.canvas.winfo_width(), 1)
+            span = max(60, width // 4)
+            self._left += self._step * max(2.0, width / 90)
+            if self._left + span >= width:
+                self._left, self._step = width - span, -1
+            elif self._left <= 0:
+                self._left, self._step = 0.0, 1
+            self.canvas.coords(self._bar, self._left, 0,
+                               self._left + span, self._height)
+            self.canvas.after(self._FRAME_MS, self._tick)
+        except tk.TclError:           # pragma: no cover - window closed mid-run
+            self._running = False
 
 
 def caption(parent: tk.Misc, text: str, row: int, *, background: str = BG) -> None:
