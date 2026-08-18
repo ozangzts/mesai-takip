@@ -297,6 +297,30 @@ def _filter_to_period(
             f"  Dosyadaki tarih : {seen[0]} .. {seen[-1]}\n\n"
             "Yanlış klasör ya da yanlış --ay değeri verilmiş olabilir."
         )
+
+    # And the same test per source. The check above only fires when *every* source is
+    # the wrong month; one wrong file among three passed it, because the other two
+    # kept records. Measured on the real May data with June's Teknopark export
+    # substituted: the run succeeded, reported 4869:54 instead of 17103:58, and said
+    # nothing — every one of the 2 557 Teknopark rows dropped out of period and the
+    # coverage check never saw the source at all, because it only looks at what
+    # survived the filter. A report 72 % short that looks entirely normal is the exact
+    # failure this project exists to prevent. ADR-023.
+    #
+    # A source that read NOTHING is untouched by this: Teknopark legitimately has no
+    # rows while the office is shut. Read rows, kept none, is a different thing.
+    kept_sources = {record.source for record in kept}
+    for source in sorted({record.source for record in records} - kept_sources):
+        seen = sorted({r.date for r in records if r.source == source})
+        raise InputError(
+            f"'{source}' dosyasındaki hiçbir kayıt {period} dönemine ait değil — "
+            f"büyük ihtimalle başka bir ayın dosyası.\n"
+            f"  Beklenen aralık : {start} .. {end}\n"
+            f"  Dosyadaki tarih : {seen[0]} .. {seen[-1]}\n"
+            f"  Atılan kayıt    : {dropped[source]}\n\n"
+            "Diğer kaynaklar bu döneme ait kayıt içeriyor, yani sorun tek dosyada.\n"
+            "Bu dosya olduğu gibi kullanılsaydı rapor sessizce eksik çıkardı."
+        )
     return kept, kept_leave
 
 

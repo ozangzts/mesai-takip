@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 242 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 255 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -58,6 +58,13 @@ and stays the default. `run(chosen={"izin": path})` names one source's file outr
 instead, for the month whose exports did not all arrive in the same place (ADR-022). It
 bypasses the glob for that one source and nothing else — stage 2b still drops anything
 outside the month, so a file pulled in from elsewhere cannot smuggle in another period.
+
+Stage 2b also fails the run when a **single** source read records and kept none of
+them (ADR-023). Its older, global form — "no record anywhere is in the month" — passes
+when one file of three is the wrong month, and stage 2c cannot catch it either: 2c
+builds its source list from the records 2b let through, so a source reduced to nothing
+is not there to be flagged. That combination produced a report 72 % short with no
+warning of any kind.
 
 Stage 5 is where all business rules live. Stages 2 and 6 are the only ones that
 touch Excel. Stages 3–5 never import `openpyxl` — that boundary is what makes the

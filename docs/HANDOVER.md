@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (22 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (23 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 242 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 255 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -79,7 +79,19 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    unutuluyor (eski aya aitler). ADR-014 kırılmadı: dönem filtresi hâlâ ay dışını
    düşürüyor, yani başka klasörden gelen bir dosya başka bir ayı içeri sokamıyor.
    Kaynak etiketleri de kısaldı: `Macunköy`, `Teknopark`, `İzin`.
-7. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+7. **Yanlış aylı dosya artık koşuyu durduruyor (ADR-023).** ADR-022'yi eklerken
+   sorulan soru buydu ve cevabı ölçüldü: Mayıs verisine Haziran Teknopark dosyası
+   konup Mayıs olarak koşulduğunda program **başarıyla bitiyordu** — 17 103:58 yerine
+   4 869:54, hiçbir uyarı yok. 2 557 satır sessizce dönem dışı diye düşüyordu; ADR-014
+   kontrolü global olduğu için (Macunköy'de Mayıs kaydı vardı) tetiklenmiyor, ADR-020
+   kapsama kontrolü de kaynak listesini *filtreden geçenlerden* kurduğu için o kaynağı
+   hiç görmüyordu.
+   Artık **kayıt okuyup dönem içinde hiç kayıt tutmayan** kaynak koşuyu düşürüyor.
+   Ayrım şu: *hiç okumadı* sorun değil (ofis kapalıyken Teknopark'ta satır olmaz),
+   *okudu ama hiçbiri aya ait değil* yanlış dosya demek.
+   Pencere ayrıca dosya **adında** başka bir ay geçiyorsa düğmeye basılmadan önce
+   turuncu uyarı veriyor — karar vermiyor, sadece keşfi öne alıyor.
+8. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

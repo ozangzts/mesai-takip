@@ -223,7 +223,16 @@ adımı geldiğinde oradan geçilecek.
   Klasörü değiştirdiğinde elle seçimler unutulur; önceki aya aitlerdi.
   Seçtiğin dosyanın adı o kaynağa benzemiyorsa **uyarılır ama yine de kullanılır** —
   yeniden adlandırılmış bir dosya da o dosyadır, ve içeriği okunurken zaten denetlenir.
-  Ay karışması riski yok: dönem filtresi ay dışındaki kayıtları düşürmeye devam eder.
+  Dosyanın adında dönemden başka bir ay geçiyorsa (`... Haziran ...` seçilip dönem
+  `2026-05` ise) satırda turuncu bir uyarı çıkar. Uyarı engellemez — karar, dosyanın
+  **içindeki tarihlere** aittir, adına değil.
+- **Aylar karışırsa program durur.** Seçilen dosyalardan birinin bütün kayıtları
+  dönemin dışındaysa rapor **üretilmez**; hangi dosya, beklenen aralık, dosyadaki
+  aralık ve kaç kayıt atıldığı yazılır. Bu kontrol olmadan Mayıs'a Haziran Teknopark
+  dosyası konduğunda program sorunsuz bitiyor ve 17 103:58 yerine 4 869:54 yazıyordu —
+  hiçbir uyarı vermeden.
+  Hiç kaydı olmayan bir kaynak hata değildir: ofis kapalıyken Teknopark'ta satır
+  olmaması normaldir. Hata olan, **satır okuyup hiçbirinin o aya ait olmaması**.
 - **Dönem listesi kaldırıldı.** Eskiden seçtiğin klasörün *komşusu* olan aylar bir
   açılır listede görünüyordu; nereden geldikleri belirsizdi ve `07 - 2026` klasörünü
   seçip listeden `2026-05`'i seçmek gibi bir hataya davetiye çıkarıyordu. Dönem artık

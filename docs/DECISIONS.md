@@ -1151,3 +1151,83 @@ unreviewed file into a payroll figure. Whatever is chosen has to be chosen by a 
   was added for a need nobody has stated.
 - The `Kontrol` sheet already records the file name used per source, so a report built
   from files in three different places still says which three files it read.
+
+---
+
+## ADR-023 — A source whose every record falls outside the month fails the run
+
+2026-08-18 · Status: **Accepted** · Decided by: project owner (asked), implementation
+
+### Context
+
+ADR-014 made `--ay` a filter: records outside the month are dropped and counted, and
+**if no record at all falls inside the month the run fails.** That last check is
+global. It fires when every source is the wrong month — pointing at May's folder with
+`--ay 2026-06` — and that was the only case it was written for, because until ADR-022
+all three exports came from the same folder and were therefore the same month.
+
+Once one source can be named separately, they can disagree. So the question was asked
+directly: what happens if the three chosen files are different months?
+
+**Measured, not reasoned about.** The real May inputs with June's Teknopark export
+substituted, run as `2026-05`:
+
+| | Mixed | Correct |
+| --- | --- | --- |
+| Total working time | **4 869:54** | 17 103:58 |
+| People with attendance | 88 | 145 |
+| Person-days | 526 | 1 823 |
+| Warning, banner, exit code | **none** | — |
+
+The run **succeeded**. All 2 557 Teknopark rows were dropped as out-of-period, the
+report came out 72 % short, and nothing said so. The global check passed because
+Macunköy still had May records. The coverage check (ADR-020) never saw the source at
+all — it builds its source list from the records that *survived* the filter, so a
+source reduced to nothing simply is not there to be flagged. The only trace was the
+`out_of_period` count on the `Kontrol` sheet.
+
+A confident, normal-looking report that is 72 % short is precisely the failure this
+project exists to prevent, and it is worse than the ADR-014 bug it descends from: that
+one at least had a wrong title on it.
+
+### Decision
+
+A source that **read records but kept none inside the period** fails the run, naming
+the source, the range expected, the range the file actually holds, and how many
+records were dropped.
+
+The distinction that makes this safe is between *nothing read* and *nothing kept*:
+
+- **Read nothing** → no error. Teknopark legitimately has no rows while the office is
+  shut, which is exactly why AGENTS.md forbids a "fewer days than the other source"
+  check.
+- **Read rows, kept none** → the wrong file. There is no legitimate way for a month's
+  export to contain records exclusively outside that month.
+- **Kept even one** → no error. A stray row from the previous month is a data quirk,
+  not a wrong file, and ADR-020's coverage check is what speaks to partial months.
+
+Two supporting changes, neither of which decides anything:
+
+1. The window warns from the **file name** when it mentions a different month than the
+   period (`Teknopark - Haziran …` under `2026-05`). It moves the discovery to before
+   the button rather than after it. The name is a weak signal — a file naming two
+   months says nothing, and a file naming none is not suspicious — so it is a caution
+   colour on a still-usable row, never a refusal. The dates inside the file remain the
+   authority.
+2. The window no longer files this under "Dosyalar okunamadı". A wrong-month export
+   reads perfectly; what is wrong is which file was handed over.
+
+### Consequences
+
+- Exit code **2** (`GİRDİ HATASI`), same as any other input problem. Not code 5 —
+  that means "the data is real but the period is incomplete" (ADR-020), which is a
+  report you may still want. This is a report you must not have.
+- The check is on `PunchRecord.source`, so it covers Macunköy, Teknopark, and the
+  remote-work rows the leave export contributes. Leave rows without a start date are
+  kept unconditionally by the filter, so a wrong-month leave file is caught by its
+  remote-work rows rather than by its absences — worth knowing if that ever changes.
+- ADR-014's global check is kept rather than folded into this one. It has a better
+  message for the case it covers: when *everything* is the wrong month, naming one
+  source would point at the wrong problem.
+- It cannot be turned off, and there is deliberately no override. "Run it anyway" here
+  means publishing payroll hours known to be missing a site.

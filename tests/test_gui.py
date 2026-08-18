@@ -23,6 +23,7 @@ import pytest
 
 from mesai import gui
 from mesai.gui import app as app_module, rapor, widgets
+from mesai import gui as _gui_pkg  # noqa: F401  (gui.rapor attribute access)
 
 
 def _touch(folder: Path, *names: str) -> None:
@@ -530,3 +531,65 @@ def test_a_short_result_hides_the_scrollbar(screen):
     window.root.update()
 
     assert window._scroll.winfo_manager() == "", "nothing out of view, nothing to show"
+
+
+# --- naming a file from another month (ADR-023) -----------------------------
+#
+# The hard guard is in the pipeline: a source whose every record falls outside the
+# month fails the run, because a report 72 % short that looks normal is worse than no
+# report. What the window adds is noticing earlier, from the file NAME, so the warning
+# arrives before the button rather than after it. It decides nothing.
+
+@pytest.mark.parametrize("name, expected", [
+    ("Macunköy Mayıs Mesai giriş-çıkış.xlsx", "Mayıs"),
+    ("Teknopark - Haziran Mesai Takip Exceli.xlsx", "Haziran"),
+    ("HCMT34_TEMMUZ_IZIN.xlsx", "Temmuz"),
+    ("hcmt34_mayis_izin.xlsx", "Mayıs"),
+    ("rapor.xlsx", ""),
+    ("Mayıs ve Haziran birlesik.xlsx", ""),
+])
+def test_the_month_named_in_a_file_name_is_read_or_left_alone(name, expected):
+    """Two months named means neither can be trusted, so it says nothing."""
+    assert gui.rapor.month_in_name(name) == expected
+
+
+def test_a_file_naming_another_month_is_flagged_but_still_usable(tmp_path, settings):
+    _touch(tmp_path, "Macunköy Mayıs Mesai giriş-çıkış.xlsx",
+           "Teknopark - Haziran Mesai Takip Exceli.xlsx",
+           "HCMT34_MAYIS_IZIN.xlsx")
+    states = {s.key: s for s in gui.inspect_sources(tmp_path, settings,
+                                                    period="2026-05")}
+
+    assert states["teknopark"].other_month == "Haziran"
+    assert states["teknopark"].suspect, "worth a second look"
+    assert states["teknopark"].ready, "but the dates inside decide, not the name"
+    assert not states["macunkoy"].other_month
+    assert not states["macunkoy"].suspect
+
+
+def test_without_a_period_no_month_warning_is_possible(tmp_path, settings):
+    """Nothing to compare against — it must not invent one."""
+    _touch(tmp_path, "Teknopark - Haziran Mesai Takip Exceli.xlsx")
+    states = {s.key: s for s in gui.inspect_sources(tmp_path, settings)}
+
+    assert states["teknopark"].other_month == ""
+
+
+def test_the_month_warning_is_painted_as_a_caution_not_a_failure(screen, tmp_path,
+                                                                 settings):
+    """It is still usable, so it must not wear the colour of a missing file."""
+    _touch(tmp_path, "Macunköy Mayıs Mesai giriş-çıkış.xlsx",
+           "Teknopark - Haziran Mesai Takip Exceli.xlsx",
+           "HCMT34_MAYIS_IZIN.xlsx")
+    window = screen()
+    window._write_sources(gui.inspect_sources(tmp_path, settings, period="2026-05"))
+
+    colours = [str(child.cget("foreground"))
+               for child in window.folder_note.winfo_children()
+               if str(child.cget("text")) in ("✓", "✗")]
+    assert colours.count(widgets.WARN) == 1
+    assert colours.count(widgets.OK) == 2
+    assert widgets.BAD not in colours, "nothing here is missing"
+
+    notes = [str(child.cget("text")) for child in window.folder_note.winfo_children()]
+    assert any("adında Haziran geçiyor" in text for text in notes), "and it says why"

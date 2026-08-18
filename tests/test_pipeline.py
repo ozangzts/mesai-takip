@@ -66,6 +66,58 @@ def test_leave_outside_the_period_is_dropped():
     assert stats.out_of_period_leave == 1
 
 
+# --- one source is the wrong month (ADR-023) --------------------------------
+#
+# Measured before this guard existed, on the real May data with June's Teknopark
+# export substituted: the run SUCCEEDED, reported 4869:58 against a true 17103:58,
+# and said nothing. All 2 557 Teknopark rows dropped out of period; the coverage
+# check never saw the source, because it only looks at what survived the filter.
+
+def test_one_source_entirely_outside_the_period_fails_the_run():
+    """The global check passes here — the other source kept records — and used to."""
+    stats = RunStats()
+    records = [punch("2026-05-04", "macunkoy"), punch("2026-05-20", "macunkoy"),
+               punch("2026-06-03", "teknopark"), punch("2026-06-11", "teknopark")]
+
+    with pytest.raises(InputError, match="teknopark"):
+        _filter_to_period(records, [], "2026-05", stats)
+
+
+def test_the_wrong_month_message_names_the_dates_it_actually_found():
+    stats = RunStats()
+    records = [punch("2026-05-04", "macunkoy"), punch("2026-06-03", "teknopark")]
+
+    with pytest.raises(InputError) as caught:
+        _filter_to_period(records, [], "2026-05", stats)
+
+    message = str(caught.value)
+    assert "2026-06-03" in message, "say what the file holds"
+    assert "2026-05-01 .. 2026-05-31" in message, "and what was expected"
+
+
+def test_a_source_with_no_records_at_all_is_not_an_error():
+    """Teknopark legitimately has none while the office is shut.
+
+    Read nothing and kept nothing is a quiet month. Read 2 557 rows and kept none is
+    the wrong file. Only the second is an error.
+    """
+    stats = RunStats()
+    kept, _ = _filter_to_period([punch("2026-05-04", "macunkoy")], [], "2026-05", stats)
+
+    assert len(kept) == 1
+
+
+def test_a_source_keeping_even_one_record_is_not_flagged():
+    """A stray row from the previous month is a data quirk, not a wrong file."""
+    stats = RunStats()
+    records = [punch("2026-05-04", "macunkoy"),
+               punch("2026-04-30", "teknopark"), punch("2026-05-02", "teknopark")]
+    kept, _ = _filter_to_period(records, [], "2026-05", stats)
+
+    assert len(kept) == 2
+    assert stats.out_of_period == {"teknopark": 1}
+
+
 def test_wrong_month_raises_instead_of_reporting_the_wrong_data():
     """The real bug: --ay 2026-06 over May's folder produced a report titled
     "HAZİRAN 2026" full of May figures, and said nothing."""

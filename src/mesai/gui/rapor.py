@@ -35,9 +35,10 @@ from .. import config, snapshot
 from ..pipeline import InputError, period_bounds, run
 from ..readers import LayoutError, find_sources
 from ..report.workbook import ReportLocked
+from ..normalize import fold
 from ..rules.worktime import hhmm
 from . import widgets as w
-from .period import guess_period, parse_period, period_label
+from .period import MONTHS, guess_period, parse_period, period_label
 
 # Remembered between runs so the folder is chosen once, not every month. Plain JSON
 # next to the program; it holds a path, never employee data.
@@ -92,10 +93,16 @@ class SourceState:
     note: str               # the file name, or why there isn't one
     chosen: bool = False    # named by hand rather than found in the folder
     mismatch: bool = False  # named by hand, but the name does not look like this source
+    other_month: str = ""   # a month named in the file name that is not the period's
 
     @property
     def ready(self) -> bool:
         return self.path is not None
+
+    @property
+    def suspect(self) -> bool:
+        """Usable, but worth a second look before pressing anything."""
+        return self.ready and (self.mismatch or bool(self.other_month))
 
 
 def _looks_like(name: str, patterns: tuple[str, ...]) -> bool:
@@ -110,25 +117,51 @@ def _looks_like(name: str, patterns: tuple[str, ...]) -> bool:
     return any(PurePath(name).match(pattern) for pattern in patterns)
 
 
+def month_in_name(name: str) -> str:
+    """The Turkish month named in a file name, if exactly one is, else "".
+
+    A weak signal used for a warning and never for a decision: `Macunköy Mayıs Mesai
+    giriş-çıkış.xlsx` says which month it is meant to be, and most exports are named
+    this way. The authority on which month a file actually holds is the period filter,
+    which reads the dates inside it and fails the run when they are all wrong
+    (ADR-023). This only moves that discovery earlier, to before the button is pressed.
+
+    Two month names in one file name means neither can be trusted, so it says nothing.
+    """
+    folded = fold(name)
+    found = [month for month in MONTHS if fold(month) in folded]
+    return found[0] if len(found) == 1 else ""
+
+
 def inspect_sources(folder: Path | None, settings,
-                    chosen: Mapping[str, Path] | None = None
-                    ) -> tuple[SourceState, ...]:
+                    chosen: Mapping[str, Path] | None = None,
+                    period: str | None = None) -> tuple[SourceState, ...]:
     """Where each of the three exports stands, given a folder and any hand-picked files.
 
     Runs before any reading, so a wrong folder is caught while the user is still
     looking at the field rather than after a failed run. Reports every source, present
     or not — "two of three found" is more useful than the first error, and it is what
     lets the window offer to find the missing one on its own.
+
+    `period` is used only to notice that a file's *name* mentions a different month.
+    It decides nothing — see `month_in_name`.
     """
     chosen = chosen or {}
+    wanted = MONTHS[int(period.split("-")[1]) - 1] if period else ""
     states: list[SourceState] = []
+
+    def other_month(path: Path) -> str:
+        named = month_in_name(path.name)
+        return named if wanted and named and named != wanted else ""
+
     for key, label in SOURCES:
         picked = chosen.get(key)
         if picked is not None:
             if picked.is_file():
                 states.append(SourceState(
                     key, label, picked, picked.name, chosen=True,
-                    mismatch=not _looks_like(picked.name, settings.sources[key])))
+                    mismatch=not _looks_like(picked.name, settings.sources[key]),
+                    other_month=other_month(picked)))
             else:
                 states.append(SourceState(key, label, None,
                                           "seçilen dosya artık yok", chosen=True))
@@ -137,7 +170,8 @@ def inspect_sources(folder: Path | None, settings,
         matches = find_sources(folder, settings.sources[key]) \
             if folder and folder.is_dir() else []
         if len(matches) == 1:
-            states.append(SourceState(key, label, matches[0], matches[0].name))
+            states.append(SourceState(key, label, matches[0], matches[0].name,
+                                      other_month=other_month(matches[0])))
         elif not matches:
             states.append(SourceState(key, label, None, "bulunamadı"))
         else:
@@ -394,6 +428,10 @@ class ReportScreen:
         else:
             text, colour = period_label(parsed), w.MUTED
         self.period_note.configure(text=text, foreground=colour)
+        # The per-source rows carry a warning that depends on the period ("this file's
+        # name says Haziran"), so changing the period has to repaint them.
+        if self.folder and not self._running:
+            self._describe()
 
     def _describe(self) -> None:
         try:
@@ -416,7 +454,8 @@ class ReportScreen:
             w.set_enabled(self.run_button, False)
             return
 
-        self.states = inspect_sources(self.folder, settings, self.chosen)
+        self.states = inspect_sources(self.folder, settings, self.chosen,
+                                      parse_period(self.period_var.get().strip()))
         self._write_sources(self.states)
         w.set_enabled(self.run_button,
                       all(s.ready for s in self.states) and not self._running)
@@ -447,7 +486,7 @@ class ReportScreen:
         for row, state in enumerate(states):
             if not state.ready:
                 mark, colour = "✗", w.BAD
-            elif state.mismatch:
+            elif state.suspect:
                 mark, colour = "✓", w.WARN
             else:
                 mark, colour = "✓", w.OK
@@ -462,6 +501,8 @@ class ReportScreen:
                 note += "   (elle seçildi)"
             if state.mismatch:
                 note += "   — adı bu kaynağa benzemiyor, yine de kullanılacak"
+            if state.other_month:
+                note += f"   ⚠ adında {state.other_month} geçiyor"
             tk.Label(self.folder_note, text=note, background=w.BG, foreground=colour,
                      font=(w.FACE, 9), anchor="w").grid(row=row, column=2, sticky="w")
 
@@ -537,8 +578,13 @@ class ReportScreen:
             self._queue.put(self._summarise(period, result))
         except ReportLocked as exc:
             self._queue.put(Result(False, "Rapor yazılamadı", (str(exc),), w.BAD))
-        except (LayoutError, InputError) as exc:
+        except LayoutError as exc:
             self._queue.put(Result(False, "Dosyalar okunamadı", (str(exc),), w.BAD))
+        except InputError as exc:
+            # Not the same failure as an unreadable file, and it used to share its
+            # heading. A wrong-month export (ADR-023) reads perfectly; what is wrong is
+            # which file was handed over, and the heading has to leave room for that.
+            self._queue.put(Result(False, "Rapor oluşturulmadı", (str(exc),), w.BAD))
         except Exception as exc:                       # noqa: BLE001
             # Last resort: an unexpected failure must reach the window, not vanish
             # into a thread nobody is watching.

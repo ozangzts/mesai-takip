@@ -191,7 +191,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 242 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 255 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -240,8 +240,19 @@ weaken any of them without an ADR:
 
    A month whose files are **not all in one folder** is a different thing, and is
    allowed: `run(chosen={...})` names one source's file outright and bypasses the glob
-   for that source only (ADR-022). Every guard above still applies to it — a named file
-   from the wrong month is dropped by the period filter exactly like any other.
+   for that source only (ADR-022).
+
+6. **Wrong-month source** — a source that **read records but kept none** inside the
+   period fails the run (ADR-023). The check in 5 is global and only fires when
+   *every* source is the wrong month; one wrong file among three passed it, because
+   the others kept records. Measured on the real May data with June's Teknopark export
+   substituted: the run succeeded, reported 4 869:54 against a true 17 103:58, and said
+   nothing — the coverage check in 4 never saw the source, because it builds its list
+   from records that survived the filter.
+
+   The distinction is **read nothing** (fine — Teknopark has no rows while the office
+   is shut) versus **read rows, kept none** (the wrong file). Do not weaken it into a
+   count comparison; that is the check §4 explicitly forbids.
 
 ---
 
