@@ -265,3 +265,35 @@ def test_no_developer_references_reach_the_workbook(tmp_path, settings):
                         offenders.append(f"{sheet.title}: {token!r} in {cell[:70]!r}")
 
     assert not offenders, "developer jargon in the workbook:\n" + "\n".join(offenders)
+
+
+# --- the window must say where it put things --------------------------------
+
+def test_the_result_panel_names_both_output_paths(tmp_path, settings, monkeypatch):
+    """"Veri dosyası oluşturuldu" with no path is not actionable.
+
+    The user could not find the snapshot, and the report path was not shown at all.
+    Both are now printed in full, resolved.
+    """
+    import tkinter as tk
+    from mesai import gui
+
+    try:
+        root = tk.Tk()
+    except tk.TclError:                       # pragma: no cover - headless CI
+        pytest.skip("no display")
+
+    try:
+        app = gui.App(root, config_dir=tmp_path, roster_dir=tmp_path)
+        report = tmp_path / "out" / "mesai-raporu-2026-07.xlsx"
+        data = tmp_path / "veri" / "gonderim-2026-07.json"
+        app._render(gui._Result(
+            True, "Temmuz 2026 raporu yazıldı", ("Toplam: 1:00",), gui._OK,
+            output=report, snapshot=data))
+        shown = app.result.get("1.0", "end")
+    finally:
+        root.destroy()
+
+    assert str(report.resolve()) in shown, "report path missing"
+    assert str(data.resolve()) in shown, "snapshot path missing"
+    assert "RAPOR DOSYASI" in shown and "VERİ DOSYASI" in shown

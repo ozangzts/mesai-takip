@@ -173,12 +173,17 @@ açılmaz, bir pencere gelir.
 │    ✓ Macunköy giriş-çıkış: ...xls            │
 │    ✓ Teknopark puantaj: ...xlsx              │
 │    ✓ İzin (HCM): ...xlsx                     │
-│  Dönem  [ 2026-07 ▼ ]                        │
+│  Dönem  [ 2026-07 ]  Temmuz 2026             │
 │           [  Rapor Oluştur  ]                │
 │  ┌────────────────────────────────────────┐  │
 │  │ Temmuz 2026 raporu yazıldı — EKSİK     │  │
 │  │ Toplam çalışma süresi : 16029:17       │  │
 │  │ ⚠ EKSİK VERİ — teknopark dosyası ...   │  │
+│  │                                        │  │
+│  │ RAPOR DOSYASI                          │  │
+│  │ C:\...\data\out6-07\mesai-...xlsx   │  │
+│  │ VERİ DOSYASI                           │  │
+│  │ C:\...eri\gonderim-2026-07.json      │  │
 │  └────────────────────────────────────────┘  │
 │         [ Raporu Aç ]  [ Klasörü Aç ]        │
 └──────────────────────────────────────────────┘
@@ -192,6 +197,10 @@ dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
   hatırlanır.
 - Klasörde eksik veya fazla dosya varsa **Rapor Oluştur** pasif kalır ve neyin eksik
   olduğu yazılır. Aynı klasörde iki ay varsa "2 dosya eşleşti" der.
+- **Dönem listesi kaldırıldı.** Eskiden seçtiğin klasörün *komşusu* olan aylar bir
+  açılır listede görünüyordu; nereden geldikleri belirsizdi ve `07 - 2026` klasörünü
+  seçip listeden `2026-05`'i seçmek gibi bir hataya davetiye çıkarıyordu. Dönem artık
+  seçtiğin klasörden geliyor.
 - **Dönem klasör adından okunur ve yazım esnek.** Şunların hepsi anlaşılır:
   `2026-07`, `07-2026`, `2026_07`, `202607`, `Temmuz 2026`, `Mesai 2026-07 Girdi`.
   Ay adı Türkçe yazılabilir, büyük/küçük harf ve Türkçe karakter fark etmez.
@@ -200,6 +209,12 @@ dosyaları bulduğunu hemen yazar → **Rapor Oluştur**.
 - **Belirsiz yazım kabul edilmez.** `03-04` reddedilir — hangisinin ay hangisinin yıl
   olduğu belli değil. Yıl dört haneli olmalı. Program tahmin yürütüp yanlış ayı
   raporlamaz, alanı boş bırakıp yazımını bekler.
+- **Dönem alanının yanındaki not ne yazacağını söyler:** anlaşıldıysa ayın adını,
+  anlaşılmadıysa sebebini, klasörle uyuşmuyorsa `⚠ klasör 2026-07 dönemine ait
+  görünüyor` uyarısını. Bu son durum yanlış ayın dosyalarını yanlış dönemle okumayı
+  engelliyor.
+- **Rapor ve veri dosyasının tam yolu sonuç panelinde yazıyor**, sadece adı değil.
+  `Raporu Aç` ve `Klasörü Aç` düğmeleri de aynı dosyayı açar.
 - Eksik veri varsa sonuç panelinde turuncu uyarı çıkar — Temmuz'da olduğu gibi.
 
 Pencere hesap yapmıyor; komut satırının çağırdığı **aynı** kodu çağırıyor, dolayısıyla

@@ -232,12 +232,12 @@ class App:
         self.period_var = tk.StringVar(value="")
         period_row = ttk.Frame(frame)
         period_row.grid(row=2, column=1, columnspan=2, sticky="ew", **pad)
-        self.period_box = ttk.Combobox(period_row, textvariable=self.period_var,
-                                       width=14, values=self._period_choices())
+        self.period_box = ttk.Entry(period_row, textvariable=self.period_var, width=14)
         self.period_box.grid(row=0, column=0, sticky="w")
-        ttk.Label(period_row, foreground=_MUTED, font=("Segoe UI", 8),
-                  text="klasör adından okunur · elle de yazılabilir: "
-                       "2026-07 · 07-2026 · Temmuz 2026")             .grid(row=0, column=1, sticky="w", padx=(10, 0))
+        self.period_note = ttk.Label(period_row, foreground=_MUTED,
+                                     font=("Segoe UI", 8), text="")
+        self.period_note.grid(row=0, column=1, sticky="w", padx=(10, 0))
+        self.period_var.trace_add("write", lambda *_: self._period_changed())
 
         self.run_button = ttk.Button(frame, text="Rapor Oluştur",
                                      command=self._start, state="disabled")
@@ -268,23 +268,13 @@ class App:
 
         self._last_output: Path | None = None
 
-    def _period_choices(self) -> list[str]:
-        """Months already present under the chosen folder's parent, newest first.
-
-        Only a convenience — the field stays editable, because a folder holding one
-        month's files need not be named after it.
-        """
-        if self.folder is None:
-            return []
-        found = {guess_period(self.folder)} if guess_period(self.folder) else set()
-        parent = self.folder.parent
-        if parent.is_dir():
-            for child in parent.iterdir():
-                if child.is_dir():
-                    period = guess_period(child)
-                    if period:
-                        found.add(period)
-        return sorted((p for p in found if p), reverse=True)
+    # There used to be a dropdown here listing every month found NEXT TO the chosen
+    # folder. It was removed: it appeared with no explanation of where the entries came
+    # from, and it invited the one mistake worth preventing — picking `07 - 2026` as the
+    # folder and then `2026-05` from the list, i.e. running one month's period against
+    # another month's files. The period now comes from the folder, and typing something
+    # that disagrees with the folder produces a visible warning rather than a silent
+    # mismatch.
 
     # --- persistence -------------------------------------------------------
     def _settings_path(self) -> Path:
@@ -326,11 +316,35 @@ class App:
     def _set_folder(self, folder: Path) -> None:
         self.folder = folder
         self.folder_var.set(str(folder))
-        self.period_box.configure(values=self._period_choices())
         guessed = guess_period(folder)
         if guessed:
             self.period_var.set(guessed)
         self._describe()
+        self._period_changed()
+
+    def _period_changed(self) -> None:
+        """Say what the period field will actually be used as, and flag a mismatch.
+
+        Typing a month that disagrees with the chosen folder is the one mistake worth
+        catching here. The run would read one month's files under another month's
+        period, the period filter would drop everything, and the failure would surface
+        seconds later looking like a file problem instead of a typo.
+        """
+        typed = self.period_var.get().strip()
+        parsed = parse_period(typed)
+        folder_period = guess_period(self.folder) if self.folder else None
+
+        if not typed:
+            text, colour = "Örn. 2026-07 · 07-2026 · Temmuz 2026", _MUTED
+        elif parsed is None:
+            text, colour = "anlaşılamadı — yıl dört haneli olmalı", _BAD
+        elif folder_period and parsed != folder_period:
+            text, colour = f"⚠ klasör {folder_period} dönemine ait görünüyor", _WARN
+        elif parsed != typed:
+            text, colour = f"= {parsed} · {period_label(parsed)}", _MUTED
+        else:
+            text, colour = period_label(parsed), _MUTED
+        self.period_note.configure(text=text, foreground=colour)
 
     def _describe(self, extra: tuple[str, ...] = ()) -> None:
         try:
@@ -451,6 +465,7 @@ class App:
         self.open_report.configure(state=state)
         self.open_folder.configure(state=state)
         self._describe()
+        self._period_changed()
 
     def _render(self, result: _Result) -> None:
         tag = {_OK: "ok", _WARN: "warn", _BAD: "bad"}.get(result.colour, "muted")
@@ -459,9 +474,17 @@ class App:
         self.result.insert("end", result.heading + "\n", ("heading", tag))
         if result.lines:
             self.result.insert("end", "\n".join(result.lines) + "\n")
+        # Full paths, not just file names. "Veri dosyası oluşturuldu" with no path is
+        # not actionable — the reader has to go hunting for it.
+        if result.output:
+            self.result.insert("end", "\nRAPOR DOSYASI\n", ("heading", "ok"))
+            self.result.insert("end", f"{result.output.resolve()}\n")
         if result.snapshot:
+            self.result.insert("end", "\nVERİ DOSYASI", "heading")
             self.result.insert(
-                "end", f"\nVeri dosyası: {result.snapshot.name}\n", "muted")
+                "end", "  (e-posta adımı bunu okuyacak; İK'nın açması gerekmez)\n",
+                "muted")
+            self.result.insert("end", f"{result.snapshot.resolve()}\n", "muted")
         self.result.configure(state="disabled")
 
     def _open_report(self) -> None:
