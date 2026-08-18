@@ -1,6 +1,6 @@
 # HANDOVER.md — Nerede kaldık
 
-**Son güncelleme: 2026-08-18, commit `01632bd`.**
+**Son güncelleme: 2026-08-18, commit `9d46761`.**
 
 > Bu dosya kalıcı bilgi tutmaz, sadece **akıştaki işi** ve **beklenen cevapları**
 > tutar. Kalıcı olan her şey aşağıdaki dosyalarda ve onlar güncel:
@@ -43,11 +43,24 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    **Kaynak dosyaların yeri belli oldu:** `Y:` ağ paylaşımı, ay başına ayrı klasör,
    `AA - YYYY` biçiminde adlandırılmış. Drive API'ye gerek yok — ROADMAP Q21'in bir
    kısmı cevaplandı, erişim yetkisi hâlâ açık.
-2. **Sonraki teknik adım: tek `.exe` paketi** (PyInstaller). Asıl uğraş paketleme
+2. **`gui.py` → `gui/` paketine bölündü.** Tek 662 satırlık modül dörde ayrıldı:
+   `gui/app.py` (pencere kabuğu, başlık bandı, `main()`), `gui/rapor.py` (rapor
+   ekranı — `ReportScreen`), `gui/period.py` (dönem okuma/yazma, saf ve testli),
+   `gui/widgets.py` (palet ve ortak düğme/etiket yardımcıları). **Davranış birebir
+   aynı**, 217 test geçmeye devam ediyor.
+   Asıl kazanç kabuk/ekran ayrımı: `App` toplevel'i ve ekranın oturduğu çerçeveyi
+   tutuyor, `ReportScreen` içindeki her şeyi. **Sol panel artık yeniden yapılandırma
+   değil** — `App.content` yanına öğe koymak ve hangi ekranın grid'lendiğini
+   değiştirmek. `gui/mail.py` bilerek açılmadı: içi boş bir modül, olmayan bir
+   modülden daha az bilgi verir.
+3. **Sonraki teknik adım: tek `.exe` paketi** (PyInstaller). Asıl uğraş paketleme
    değil, **Python'un kurulu olmadığı bir makinede test etmek.** `config/` exe'nin
    içine gömülmemeli — kural değişikliği YAML düzenlemesi ve `personel.yaml` gerçek
    isim yazımlarını tutuyor.
-3. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+   Not: `arayuz.cmd` `python -m mesai.gui` çağırıyor, `pyproject.toml` ise
+   `mesai.gui:main`. İkisi de bölmeden sonra çalışıyor (`gui/__main__.py` ve
+   `gui/__init__.py`'daki dışa aktarım). Paketlemede ikisini de kontrol et.
+4. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 
@@ -57,15 +70,18 @@ E-posta ve kişi seçme eklenecek. Yapı bunu kaldırır ama iki yer zorlanır.
 sahibiyle konuşuldu ve yön olarak kabul edildi. Geri kalanı uygulama tavsiyesi —
 karar verilmiş gibi davranılmamalı, sorulmalı.
 
-### 1. `gui.py` 662 satır ve büyüyecek olan o
+### 1. `gui/` bölmesi ✅ yapıldı — sıradaki sol panel
 
-Tek `App` sınıfına e-posta + kişi listesi + seçim durumu eklenirse taşar. Sınıra
-gelindiğinde `gui/` paketine bölünecek: `gui/rapor.py`, `gui/mail.py`,
-`gui/widgets.py` (ortak düğme/etiket yardımcıları), `gui/app.py` (kabuk ve gezinme).
+Bölme tamamlandı (yukarıda akıştaki iş 2). Kalan sıradaki adım **sol panel gezinme**
+(proje sahibinin önerisi): her gezinme öğesi bir ekran. Doğru sıra **önce bölme,
+sonra panel** idi ve bölme bitti, yani panelin önü açık.
 
-**Sol panel gezinme** (proje sahibinin önerisi) bu bölmeyi doğal olarak takip eder —
-her gezinme öğesi bir modül. Doğru sıra: **önce bölme, sonra panel.** Panel önce
-gelirse iki iş yüzü tek sınıfta birikir.
+Somut olarak: `App._build` içinde `self.content`'in soluna bir çerçeve, öğe
+tıklandığında `self.report.frame.grid_remove()` + öteki ekranın `grid()`'i. Ekranlar
+birbirini tanımıyor, kabuk ikisini de tanıyor.
+
+`gui/mail.py` bilerek açılmadı — içi boş bir modül, olmayan bir modülden daha az bilgi
+verir. Mail ekranı yazılırken açılacak.
 
 Panel öğesi durum da ifade edebilir: e-posta bir snapshot gerektirdiği için, snapshot
 yüklenmeden öğe pasif kalıp sebebini yazabilir. Bu, içi boş bir sekmeden farklı ve
@@ -103,8 +119,9 @@ test edilemez; test edilemeyince güvenilmez.
    `.gitignore`'da. Sadece hatırlatma — `arayuz-ayarlari.json`'un bir kez commit'e
    girdiği görüldü.
 
-Ayrıca `_Result` dataclass'ı rapora göre şekillenmiş. Mail koşusunun sonucu farklı
-(kişi başına gönderildi / hata / atlandı), onu germek yerine kendi tipini almalı.
+Ayrıca `gui/rapor.py`'daki `Result` dataclass'ı rapora göre şekillenmiş. Mail koşusunun
+sonucu farklı (kişi başına gönderildi / hata / atlandı), onu germek yerine kendi tipini
+almalı — zaten artık ayrı modülde duruyor, paylaşmaya davet eden bir yerde değil.
 
 ## İK'dan / IT'den beklenen cevaplar
 

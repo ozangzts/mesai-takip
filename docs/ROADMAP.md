@@ -201,7 +201,7 @@ Two robustness gaps to close before any mounted-drive automation:
 
 ### 4c — Running it without a terminal ✅
 
-Done 2026-08-18. `src/mesai/gui.py`, launched by `arayuz.cmd`.
+Done 2026-08-18. `src/mesai/gui/`, launched by `arayuz.cmd`.
 
 The operator will not be a developer, so "open a console and pass `--ay`" was never a
 deliverable. `tkinter` from the standard library, so nothing new to install and it

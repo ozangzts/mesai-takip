@@ -1,17 +1,19 @@
-"""The window's pure helpers.
+"""What the window decides, not how it draws.
 
-Only the logic is tested here, not the widgets: the window is a thin shell over
-`pipeline.run()` by design, so the parts worth testing are the ones that decide what
-it tells the user. Building a real `Tk` needs a display and would test tkinter rather
-than this project.
+The window is a thin shell over `pipeline.run()` by design, so the parts worth testing
+are the ones that decide what it tells the user: which files it found, which month it
+understood, and what it remembers between runs. No test asserts a colour or a
+geometry — that would be testing tkinter.
 
 `describe_folder` is the one that earns its keep. The user picks a folder by hand, and
 what they need to know — before pressing anything — is which of the three exports were
 found. Reporting only the first failure would hide the other two.
+
+The last group does build a real `Tk`, because "a fresh window pre-selects nothing" is
+only true if the constructor really runs. It skips itself when there is no display.
 """
 
 import json
-import queue
 from pathlib import Path
 
 import pytest
@@ -168,10 +170,15 @@ def test_the_period_label_is_turkish(tmp_path):
 # field with it, ready to run. Only the browse starting point is kept now.
 
 @pytest.fixture
-def app(tmp_path):
-    """A real App on a real Tk, rooted in tmp_path so no user settings are touched."""
+def screen(tmp_path):
+    """A real report screen inside a real window, rooted in tmp_path.
+
+    `base` is what decides where `arayuz-ayarlari.json` is read from and written to,
+    so pointing it at tmp_path is what keeps the developer's own settings file out of
+    the test. The whole `App` is built rather than the screen alone: the constructor
+    is the thing under test as much as the screen is.
+    """
     tk = pytest.importorskip("tkinter")
-    from mesai import gui as gui_module
 
     try:
         root = tk.Tk()
@@ -182,25 +189,15 @@ def app(tmp_path):
         if settings_payload is not None:
             (tmp_path / "arayuz-ayarlari.json").write_text(
                 json.dumps(settings_payload), encoding="utf-8")
-        instance = gui_module.App.__new__(gui_module.App)
-        instance.root = root
-        instance.base = tmp_path
-        instance.config_dir = Path("config")
-        instance.roster_dir = Path("data/personel")
-        instance.folder = None
-        instance._queue = queue.Queue()
-        instance._running = False
-        root.title("test")
-        instance._build()
-        instance._restore()
-        return instance
+        return gui.App(root, config_dir=Path("config"),
+                       roster_dir=Path("data/personel"), base=tmp_path).report
 
     yield build
     root.destroy()
 
 
-def test_a_fresh_window_selects_nothing(app):
-    window = app()
+def test_a_fresh_window_selects_nothing(screen):
+    window = screen()
 
     assert window.folder is None
     assert window.folder_var.get() == ""
@@ -209,41 +206,41 @@ def test_a_fresh_window_selects_nothing(app):
     assert "Gözat" in window.folder_note.cget("text")
 
 
-def test_the_browse_location_is_remembered_but_nothing_is_selected(app, tmp_path):
+def test_the_browse_location_is_remembered_but_nothing_is_selected(screen, tmp_path):
     share = tmp_path / "MESAI TAKIP"
     (share / "07 - 2026").mkdir(parents=True)
-    window = app({"browse_dir": str(share)})
+    window = screen({"browse_dir": str(share)})
 
     assert window.browse_dir == share, "browsing should start where it left off"
     assert window.folder is None, "but nothing may be pre-selected"
     assert window.period_var.get() == ""
 
 
-def test_the_old_settings_format_is_migrated_to_its_parent(app, tmp_path):
+def test_the_old_settings_format_is_migrated_to_its_parent(screen, tmp_path):
     """Upgrading must not resurrect the stale behaviour, nor lose the location."""
     share = tmp_path / "MESAI TAKIP"
     month = share / "07 - 2026"
     month.mkdir(parents=True)
-    window = app({"folder": str(month)})
+    window = screen({"folder": str(month)})
 
     assert window.browse_dir == share
     assert window.folder is None
     assert window.period_var.get() == "", "the stale month must not be pre-filled"
 
 
-def test_a_vanished_browse_location_is_simply_ignored(app, tmp_path):
+def test_a_vanished_browse_location_is_simply_ignored(screen, tmp_path):
     """An unmounted network drive must not break startup."""
-    window = app({"browse_dir": str(tmp_path / "Z-yok")})
+    window = screen({"browse_dir": str(tmp_path / "Z-yok")})
 
     assert window.browse_dir is None
     assert window.folder is None
 
 
-def test_remembering_stores_the_parent_not_the_selection(app, tmp_path):
+def test_remembering_stores_the_parent_not_the_selection(screen, tmp_path):
     share = tmp_path / "MESAI TAKIP"
     month = share / "07 - 2026"
     month.mkdir(parents=True)
-    window = app()
+    window = screen()
     window.folder = month
     window._remember()
 

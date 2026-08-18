@@ -177,7 +177,11 @@ mesai-takip/
 │   └── ROADMAP.md             # phases and status
 ├── src/mesai/
 │   ├── cli.py                 # front end 1 — argument parsing, exit codes
-│   ├── gui.py                 # front end 2 — tkinter window. No business logic.
+│   ├── gui/                   # front end 2 — tkinter window. No business logic.
+│   │   ├── app.py             # the toplevel, the header band, main()
+│   │   ├── rapor.py           # the report screen
+│   │   ├── period.py          # month parsing and labels — pure, tested
+│   │   └── widgets.py         # palette and shared widget primitives
 │   ├── pipeline.py            # the stages. Both front ends call run().
 │   ├── snapshot.py            # writes veri/*.json. Read it, never the workbook.
 │   ├── readers/               # one per source file; base.py hides the container
@@ -196,7 +200,7 @@ mesai rapor --ay 2026-05          # --girdi defaults to data/raw/2026-05/
 python -m pytest
 ```
 
-Two front ends, both thin shells over `pipeline.run()` — `cli.py` and `gui.py`
+Two front ends, both thin shells over `pipeline.run()` — `cli.py` and `gui/`
 (tkinter, `arayuz.cmd` to launch). **Neither may contain a business rule.** Every run
 also writes `veri/gonderim-<ay>.json`, the machine-readable companion to the workbook.
 Anything downstream reads that, **never the workbook** — see `src/mesai/snapshot.py`

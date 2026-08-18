@@ -66,7 +66,11 @@ src/mesai/
 ├── __init__.py        ✅
 ├── __main__.py        ✅  python -m mesai
 ├── cli.py             ✅  argument parsing, wiring, exit codes
-├── gui.py             ✅  tkinter window over the same run(); no business logic
+├── gui/               ✅  tkinter window over the same run(); no business logic
+│   ├── app.py         ✅  the toplevel, the header band, main()
+│   ├── rapor.py       ✅  the report screen: folder, period, run, result card
+│   ├── period.py      ✅  `07-2026` -> `2026-07` -> `Temmuz 2026`; pure, tested
+│   └── widgets.py     ✅  palette and widget primitives shared by every screen
 ├── snapshot.py        ✅  machine-readable companion to the workbook
 ├── pipeline.py        ✅  the six stages; file discovery, period filter
 ├── config.py          ✅  YAML -> typed Settings; validates on load
@@ -108,7 +112,7 @@ no business logic ever goes there.
 
 ## 3b. Two front ends, one pipeline
 
-`cli.py` and `gui.py` are both thin shells over `pipeline.run()`. Neither contains a
+`cli.py` and `gui/` are both thin shells over `pipeline.run()`. Neither contains a
 business rule; both display figures the pipeline computed. Splitting `pipeline.py` out
 of `cli.py` was done for exactly this, and the window cost no restructuring when it
 arrived.
@@ -116,8 +120,27 @@ arrived.
 ```
 cli.py  ──┐
           ├──> pipeline.run() ──> workbook.xlsx  (people)
-gui.py  ──┘                   └──> snapshot.json (programs)
+gui/    ──┘                   └──> snapshot.json (programs)
 ```
+
+### The window is a package, not a module
+
+It was one 662-line `gui.py` until 2026-08-18. The split was made **before** the
+e-mail step rather than during it, because all the growth points the same way — a
+second work face, a list of people, a selection state — and adding that to the class
+that already owns the report run produces one object with two jobs.
+
+The shell/screen seam is the load-bearing one. `app.py` owns the toplevel, the header
+and the frame a screen is gridded into; `ReportScreen` owns every widget inside it,
+its own state, and its own worker thread. A left-hand navigation panel is then items
+beside `App.content` and a swap of which screen is gridded in — not a restructuring.
+
+`rapor.py` keeps its Turkish name deliberately: `gui/report.py` would read as a
+sibling of `mesai/report/`, the package that writes the workbook, which it is not.
+
+`period.py` sits outside any one screen because a month is not a report-screen
+concept — anything that reports on a period needs the same parsing and label. It is
+the one part of the window with real logic in it, and it is tested without a display.
 
 **The workbook is never read back.** Anything downstream — the mail step, a future
 "use last month's report" screen — loads the snapshot. The workbook is a presentation
@@ -141,7 +164,7 @@ and Windows will label a blocked window "not responding".
 | `test_merge.py` | cross-site union, repair, remote precedence, short days |
 | `test_snapshot.py` | the round trip the mail step depends on |
 | `test_report.py` | that a workbook can actually be written, for every severity |
-| `test_gui.py` | the window's pure helpers; no widgets asserted |
+| `test_gui.py` | the window's period parsing and folder check, plus what it remembers |
 | `test_config.py` | that the fixture has not drifted from the shipped config |
 | `test_pipeline.py` | period filtering, file discovery, coverage |
 | `builders.py` | synthetic workbook builders — **not** a test file |

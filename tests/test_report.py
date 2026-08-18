@@ -277,6 +277,7 @@ def test_the_result_panel_names_both_output_paths(tmp_path, settings, monkeypatc
     """
     import tkinter as tk
     from mesai import gui
+    from mesai.gui import rapor, widgets
 
     try:
         root = tk.Tk()
@@ -284,13 +285,13 @@ def test_the_result_panel_names_both_output_paths(tmp_path, settings, monkeypatc
         pytest.skip("no display")
 
     try:
-        app = gui.App(root, config_dir=tmp_path, roster_dir=tmp_path)
+        app = gui.App(root, config_dir=tmp_path, roster_dir=tmp_path, base=tmp_path)
         report = tmp_path / "out" / "mesai-raporu-2026-07.xlsx"
         data = tmp_path / "veri" / "gonderim-2026-07.json"
-        app._render(gui._Result(
-            True, "Temmuz 2026 raporu yazıldı", ("Toplam: 1:00",), gui._OK,
+        app.report._render(rapor.Result(
+            True, "Temmuz 2026 raporu yazıldı", ("Toplam: 1:00",), widgets.OK,
             output=report, snapshot=data))
-        shown = app.result.get("1.0", "end")
+        shown = app.report.result.get("1.0", "end")
     finally:
         root.destroy()
 
