@@ -40,8 +40,9 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    İki eksik daha düzeltildi: komşu klasörleri listeleyen dönem açılır listesi
    kaldırıldı (nereden geldiği belirsizdi ve yanlış ay seçmeye davetiye çıkarıyordu),
    ve rapor + veri dosyasının **tam yolu** artık sonuç panelinde yazıyor.
-   **Kaynak dosyaların gerçek yeri belli oldu:** `Y:\Stajyer\VERI YONETIMI\MESAI
-   TAKIP\<AA - YYYY>` ağ paylaşımı — ROADMAP Q21'in bir kısmı cevaplandı.
+   **Kaynak dosyaların yeri belli oldu:** `Y:` ağ paylaşımı, ay başına ayrı klasör,
+   `AA - YYYY` biçiminde adlandırılmış. Drive API'ye gerek yok — ROADMAP Q21'in bir
+   kısmı cevaplandı, erişim yetkisi hâlâ açık.
 2. **Sonraki teknik adım: tek `.exe` paketi** (PyInstaller). Asıl uğraş paketleme
    değil, **Python'un kurulu olmadığı bir makinede test etmek.** `config/` exe'nin
    içine gömülmemeli — kural değişikliği YAML düzenlemesi ve `personel.yaml` gerçek

@@ -21,6 +21,10 @@ data/
 # Excel lock files
 ~$*
 
+# The window's remembered input folder. Machine-local, and the path itself can be
+# revealing (a network share name). Never committed.
+arayuz-ayarlari.json
+
 # The report's machine-readable companion (src/mesai/snapshot.py). Holds names,
 # e-mail addresses and hours for every employee — the mail step reads it instead of
 # parsing the workbook. Written next to the program, never committed.
