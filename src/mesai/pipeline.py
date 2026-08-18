@@ -19,6 +19,7 @@ from .models import (
 )
 from .readers import LayoutError, find_sources, izin, macunkoy, roster, teknopark
 from .report import workbook as report_workbook
+from . import snapshot as snapshot_module
 
 
 class InputError(Exception):
@@ -33,7 +34,13 @@ def period_bounds(period: str) -> tuple[date, date]:
 
 def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
         generated_at: datetime | None = None,
-        roster_dir: Path | None = None) -> dict[str, object]:
+        roster_dir: Path | None = None,
+        snapshot_path: Path | None = None) -> dict[str, object]:
+    """Read, compute, and write the report — plus its machine-readable snapshot.
+
+    `snapshot_path` is where the data companion goes (see snapshot.py). Passing None
+    skips it, which is what the tests do when they only care about figures.
+    """
     generated_at = generated_at or datetime.now()
     stats = RunStats()
 
@@ -110,8 +117,16 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
         settings=settings, generated_at=generated_at,
     )
 
+    written_snapshot: Path | None = None
+    if snapshot_path is not None:
+        written_snapshot = snapshot_module.save(
+            snapshot_module.build(period, summaries, anomalies, stats, settings,
+                                  generated_at),
+            snapshot_path)
+
     return {
         "output": output_path,
+        "snapshot": written_snapshot,
         "people": len(summaries),
         "with_attendance": sum(1 for s in summaries if s.has_attendance),
         "without_attendance": sum(1 for s in summaries if not s.has_attendance),

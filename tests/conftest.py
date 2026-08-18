@@ -27,9 +27,14 @@ def settings() -> Settings:
             max_duration=timedelta(hours=16),
             short_day=timedelta(hours=2),
         ),
+        # Mirrors config/settings.yaml, including the `*.xls*` widening of ADR-020.
+        # test_config.py fails if this drifts from the real file again.
         sources={
-            "roster": ("SYST03*.xlsx",), "izin": ("*IZIN*.xlsx",),
-            "macunkoy": ("*Macunköy*.xlsx",), "teknopark": ("*Teknopark*.xlsx",),
+            "roster": ("*calisan*.xls*", "*çalışan*.xls*", "*personel*.xls*",
+                       "SYST03*.xls*"),
+            "izin": ("*IZIN*.xls*", "*İZİN*.xls*"),
+            "macunkoy": ("*Macunköy*.xls*", "*Macunkoy*.xls*"),
+            "teknopark": ("*Teknopark*.xls*",),
         },
         worked_leave_types=frozenset({"Uzaktan Çalışma"}),
         calendar=Calendar(holidays={}, half_days=frozenset(),

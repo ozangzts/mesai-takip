@@ -170,7 +170,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 135 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 163 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -179,6 +179,12 @@ conda activate mesai
 mesai rapor --ay 2026-05          # --girdi defaults to data/raw/2026-05/
 python -m pytest
 ```
+
+Two front ends, both thin shells over `pipeline.run()` — `cli.py` and `gui.py`
+(tkinter, `arayuz.cmd` to launch). **Neither may contain a business rule.** Every run
+also writes `veri/gonderim-<ay>.json`, the machine-readable companion to the workbook.
+Anything downstream reads that, **never the workbook** — see `src/mesai/snapshot.py`
+for why. It holds names, e-mail addresses and hours, so `veri/` is git-ignored.
 
 Input files are found by glob pattern (`config/settings.yaml:sources`), not by exact
 name, so a Drive-synced folder can be pointed at with `--girdi` without renaming

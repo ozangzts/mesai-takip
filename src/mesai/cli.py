@@ -20,12 +20,27 @@ from datetime import datetime
 from pathlib import Path
 
 from . import config
+from . import snapshot
 from .pipeline import InputError, run
 from .readers import LayoutError
 from .report.workbook import ReportLocked
 from .rules.worktime import hhmm
 
 PERIOD_RE = re.compile(r"^\d{4}-\d{2}$")
+
+
+
+def program_dir() -> Path:
+    """Where the program keeps its own files — the snapshot, and later the mail log.
+
+    Not the output folder: that one is what HR opens and should hold one workbook per
+    month, nothing else. Not the current directory either, because the tool is invoked
+    from anywhere. When frozen into an .exe, `sys.frozen` is set and the executable's
+    own folder is the right home.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent.parent
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -83,7 +98,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = run(input_dir, output, period, settings, datetime.now(),
-                     roster_dir=args.personel)
+                     roster_dir=args.personel,
+                     snapshot_path=snapshot.default_path(period, program_dir()))
     except LayoutError as exc:
         print(f"DOSYA YAPISI HATASI: {exc}", file=sys.stderr)
         return 3

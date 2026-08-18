@@ -1,0 +1,96 @@
+"""The test fixture must not drift from the shipped configuration.
+
+Written after a real drift: `config/settings.yaml` was widened to `*.xls*` (ADR-020)
+while `tests/conftest.py` kept `*.xlsx`. Three GUI tests then failed for a reason that
+had nothing to do with the GUI, and — worse — every other test kept passing against
+patterns the program no longer uses.
+
+The fixture's docstring claims it mirrors the real config. This makes that a check
+rather than a claim.
+"""
+
+from pathlib import Path
+
+import pytest
+
+from mesai import config
+
+CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+REAL = pytest.mark.skipif(
+    not (CONFIG_DIR / "settings.yaml").exists(),
+    reason="config/settings.yaml yok (personel.yaml git'e dahil değil)")
+
+
+@pytest.fixture
+def real_settings():
+    return config.load(CONFIG_DIR, "2026-07")
+
+
+@REAL
+def test_the_fixture_mirrors_the_shipped_source_patterns(settings, real_settings):
+    assert settings.sources == real_settings.sources
+
+
+@REAL
+def test_the_fixture_mirrors_the_shipped_rules(settings, real_settings):
+    """The rules that change payroll figures. A silent divergence here is worse than
+    a failing test: the suite would be proving something about a config nobody runs."""
+    assert settings.daily_hours == real_settings.daily_hours
+    assert settings.brk.deduct == real_settings.brk.deduct
+    assert settings.brk.minutes == real_settings.brk.minutes
+    assert settings.remote_replaces == real_settings.remote_replaces
+    assert settings.plausibility.short_day == real_settings.plausibility.short_day
+    assert settings.plausibility.min_duration == real_settings.plausibility.min_duration
+    assert settings.plausibility.max_duration == real_settings.plausibility.max_duration
+    assert settings.nominal_day == real_settings.nominal_day
+    assert settings.shift_start == real_settings.shift_start
+    assert settings.shift_end == real_settings.shift_end
+
+
+@REAL
+def test_every_source_glob_accepts_all_supported_containers(real_settings):
+    """A glob tied to one container turns a format change into "file not found"."""
+    from mesai.readers.base import SUPPORTED_SUFFIXES
+
+    for name, patterns in real_settings.sources.items():
+        for pattern in patterns:
+            assert pattern.endswith(".xls*"), \
+                f"sources.{name}: {pattern!r} tek bir kaba bağlı"
+    assert SUPPORTED_SUFFIXES == {".xlsx", ".xlsm", ".xls"}
+
+
+@REAL
+def test_payroll_switches_are_required_not_defaulted(tmp_path):
+    """A config predating a rule change must fail, not quietly apply the old rule."""
+    import shutil
+    for name in ("settings.yaml", "takvim-2026.yaml", "personel.yaml"):
+        source = CONFIG_DIR / name
+        if source.exists():
+            shutil.copy(source, tmp_path / name)
+
+    text = (tmp_path / "settings.yaml").read_text(encoding="utf-8")
+    for line, expected in (
+        ("daily_hours: envelope", "daily_hours"),
+        ("  deduct: false", "deduct"),
+        ("remote_day_replaces_attendance: nominal_only", "remote_day"),
+    ):
+        assert line in text, line
+        (tmp_path / "settings.yaml").write_text(
+            text.replace(line, ""), encoding="utf-8")
+        with pytest.raises(config.ConfigError, match=expected):
+            config.load(tmp_path, "2026-07")
+
+
+@REAL
+def test_an_unknown_daily_hours_value_fails_loudly(tmp_path):
+    import shutil
+    for name in ("settings.yaml", "takvim-2026.yaml", "personel.yaml"):
+        source = CONFIG_DIR / name
+        if source.exists():
+            shutil.copy(source, tmp_path / name)
+    text = (tmp_path / "settings.yaml").read_text(encoding="utf-8")
+    (tmp_path / "settings.yaml").write_text(
+        text.replace("daily_hours: envelope", "daily_hours: zarf"), encoding="utf-8")
+
+    with pytest.raises(config.ConfigError, match="geçersiz"):
+        config.load(tmp_path, "2026-07")

@@ -1,0 +1,228 @@
+"""The machine-readable companion to the report workbook.
+
+Why this exists: the mail step, and any later step, must **never parse the generated
+workbook**. That file is a presentation artifact — durations are `HH:MM` strings, cells
+are merged, headers are Turkish, and e-mail addresses are deliberately absent from it
+(`OUTPUT-SPEC.md` §1). Deriving data back out of formatting also breaks the moment the
+layout changes, which happened on 2026-08-17 when the four gross/net columns became a
+single `Çalışma Süresi` pair.
+
+So every run writes both: the workbook for people, and this for programs. Both come
+from the same computed objects in the same run, so they cannot disagree.
+
+It is also what makes "do not recompute, just use the existing report" possible.
+Loading a snapshot returns exactly the figures a human reviewed, rather than a fresh
+calculation that might differ because a source file changed in the meantime.
+
+**This file contains personal data** — names, e-mail addresses, hours. It belongs next
+to the program, not in the folder HR opens, and never in the repository.
+
+Keys are English, like the rest of the code. Only what a human reads is Turkish.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+from .anomalies import Collector
+from .config import Settings
+from .models import MonthSummary, RunStats
+
+# Bump when a field changes meaning or disappears. A reader that meets a version it
+# does not know refuses rather than guessing — see load().
+FORMAT_VERSION = 1
+
+
+class SnapshotError(Exception):
+    """The snapshot is missing, unreadable, or of an unknown version."""
+
+
+@dataclass(frozen=True)
+class Person:
+    """One employee's month, as a program needs it.
+
+    `problems` carries the anomaly *labels* affecting this person, which is what a
+    later step filters on ("only people with a missing exit"). Labels rather than enum
+    names because they are already the wording HR recognises, while the enum is an
+    implementation detail that has been renamed once already.
+    """
+    name: str
+    email: str | None
+    personnel_no: str | None
+    department: str | None
+    facility: str | None
+    in_roster: bool
+    has_attendance: bool
+    worked_days: int
+    minutes: int                  # integer minutes, so nothing drifts in transit
+    remote_days: float
+    leave_days: float
+    problems: tuple[str, ...]
+    notes: tuple[str, ...]
+
+    @property
+    def hours_text(self) -> str:
+        return f"{self.minutes // 60}:{self.minutes % 60:02d}"
+
+
+@dataclass(frozen=True)
+class Snapshot:
+    period: str
+    generated_at: datetime
+    rules: dict[str, object]
+    coverage: dict[str, dict[str, object]]
+    people: tuple[Person, ...]
+
+    @property
+    def is_complete(self) -> bool:
+        """False when a source failed to cover the period — do not mail from this."""
+        return not any(c.get("partial") for c in self.coverage.values())
+
+    def with_problem(self, label: str) -> tuple[Person, ...]:
+        return tuple(p for p in self.people if label in p.problems)
+
+    @property
+    def problem_labels(self) -> tuple[str, ...]:
+        """Distinct problem labels, most common first — the filter list for a UI."""
+        seen: dict[str, int] = {}
+        for person in self.people:
+            for label in person.problems:
+                seen[label] = seen.get(label, 0) + 1
+        return tuple(sorted(seen, key=lambda k: (-seen[k], k)))
+
+
+def default_path(period: str, base: Path) -> Path:
+    """Where the snapshot for `period` lives.
+
+    Deliberately NOT beside the workbook: the folder HR opens should hold one file per
+    month, and this one holds e-mail addresses.
+    """
+    return base / "veri" / f"gonderim-{period}.json"
+
+
+def build(
+    period: str, summaries: list[MonthSummary], anomalies: Collector,
+    stats: RunStats, settings: Settings, generated_at: datetime,
+) -> Snapshot:
+    by_key: dict[tuple[str, str], set[str]] = {}
+    for anomaly in anomalies.items:
+        if anomaly.key is None or not anomaly.is_problem:
+            continue
+        by_key.setdefault(anomaly.key, set()).add(anomaly.label)
+
+    people = tuple(
+        Person(
+            name=s.employee.display_name,
+            email=s.employee.email,
+            personnel_no=s.employee.personnel_no,
+            department=s.employee.department,
+            facility=s.employee.facility,
+            in_roster=s.employee.in_roster,
+            has_attendance=s.has_attendance,
+            worked_days=s.worked_days,
+            minutes=int(s.gross.total_seconds() // 60),
+            remote_days=s.remote_days,
+            leave_days=s.leave_days,
+            problems=tuple(sorted(by_key.get(s.employee.key, ()))),
+            notes=tuple(s.notes),
+        )
+        for s in summaries
+    )
+
+    return Snapshot(
+        period=period,
+        generated_at=generated_at,
+        # The active rules travel with the data. Without them a snapshot read months
+        # later cannot be interpreted: the same numbers mean different things under a
+        # different break or daily-measure setting.
+        rules={
+            "daily_hours": settings.daily_hours,
+            "break_deducted": settings.brk.deduct,
+            "break_minutes": settings.brk.minutes,
+            "short_day_hours": settings.plausibility.short_day.total_seconds() / 3600,
+            "remote_replaces_attendance": settings.remote_replaces,
+        },
+        coverage={
+            source: {
+                "present": cov.present,
+                "expected": cov.expected,
+                "partial": cov.is_partial,
+                "missing_from": (cov.trailing_missing[0].isoformat()
+                                 if cov.trailing_missing else None),
+            }
+            for source, cov in stats.coverage.items()
+        },
+        people=people,
+    )
+
+
+def save(snapshot: Snapshot, path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "format_version": FORMAT_VERSION,
+        "period": snapshot.period,
+        "generated_at": snapshot.generated_at.isoformat(timespec="seconds"),
+        "rules": snapshot.rules,
+        "coverage": snapshot.coverage,
+        "people": [
+            {
+                "name": p.name, "email": p.email, "personnel_no": p.personnel_no,
+                "department": p.department, "facility": p.facility,
+                "in_roster": p.in_roster, "has_attendance": p.has_attendance,
+                "worked_days": p.worked_days, "minutes": p.minutes,
+                "remote_days": p.remote_days, "leave_days": p.leave_days,
+                "problems": list(p.problems), "notes": list(p.notes),
+            }
+            for p in snapshot.people
+        ],
+    }
+    # Written to a temp file then moved, for the same reason the workbook is: a crash
+    # mid-write must not leave a half-valid file that still parses.
+    target = path.with_suffix(".tmp.json")
+    target.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    target.replace(path)
+    return path
+
+
+def load(path: Path) -> Snapshot:
+    if not path.exists():
+        raise SnapshotError(
+            f"Bu raporun veri dosyası bulunamadı:\n  {path}\n\n"
+            "Rapor eski bir sürümle üretilmiş olabilir. Raporu yeniden üretin."
+        )
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SnapshotError(f"{path.name}: dosya okunamadı ({exc}).") from exc
+
+    version = payload.get("format_version")
+    if version != FORMAT_VERSION:
+        raise SnapshotError(
+            f"{path.name}: veri dosyası sürümü {version}, beklenen {FORMAT_VERSION}. "
+            "Raporu yeniden üretin."
+        )
+
+    return Snapshot(
+        period=payload["period"],
+        generated_at=datetime.fromisoformat(payload["generated_at"]),
+        rules=payload.get("rules", {}),
+        coverage=payload.get("coverage", {}),
+        people=tuple(
+            Person(
+                name=p["name"], email=p.get("email"),
+                personnel_no=p.get("personnel_no"), department=p.get("department"),
+                facility=p.get("facility"), in_roster=p.get("in_roster", False),
+                has_attendance=p.get("has_attendance", False),
+                worked_days=p.get("worked_days", 0), minutes=p.get("minutes", 0),
+                remote_days=p.get("remote_days", 0.0),
+                leave_days=p.get("leave_days", 0.0),
+                problems=tuple(p.get("problems", ())),
+                notes=tuple(p.get("notes", ())),
+            )
+            for p in payload.get("people", ())
+        ),
+    )

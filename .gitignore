@@ -21,6 +21,12 @@ data/
 # Excel lock files
 ~$*
 
+# The report's machine-readable companion (src/mesai/snapshot.py). Holds names,
+# e-mail addresses and hours for every employee — the mail step reads it instead of
+# parsing the workbook. Written next to the program, never committed.
+veri/
+gonderim-*.json
+
 # --- Files that must hold REAL employee names -------------------------------
 # The alias table has to match the spellings in the source files exactly, so it
 # cannot be pseudonymised. Committed as personel.example.yaml instead.

@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 135 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 163 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -45,7 +45,9 @@ back. No stage mutates global state.
            [5] compute            -> gross/net, anomalies  [Phase 2: FM, Multinet]
                   v
            [6] report             -> data/out/2026-05/mesai-raporu-2026-05.xlsx
-                                                        [Phase 4: e-mail]
+                  |                   veri/gonderim-2026-05.json
+                  v
+                            [Phase 4: mail reads the JSON, never the workbook]
 ```
 
 Stage 2b is not cosmetic. Before it existed, `--ay 2026-06` over May's folder
@@ -64,6 +66,8 @@ src/mesai/
 ├── __init__.py        ✅
 ├── __main__.py        ✅  python -m mesai
 ├── cli.py             ✅  argument parsing, wiring, exit codes
+├── gui.py             ✅  tkinter window over the same run(); no business logic
+├── snapshot.py        ✅  machine-readable companion to the workbook
 ├── pipeline.py        ✅  the six stages; file discovery, period filter
 ├── config.py          ✅  YAML -> typed Settings; validates on load
 ├── models.py          ✅  the vocabulary of the whole system
@@ -101,6 +105,31 @@ Phase 2 pushes the sheet count past a dozen.
 
 Every module is importable and testable on its own. `cli.py` contains wiring only —
 no business logic ever goes there.
+
+## 3b. Two front ends, one pipeline
+
+`cli.py` and `gui.py` are both thin shells over `pipeline.run()`. Neither contains a
+business rule; both display figures the pipeline computed. Splitting `pipeline.py` out
+of `cli.py` was done for exactly this, and the window cost no restructuring when it
+arrived.
+
+```
+cli.py  ──┐
+          ├──> pipeline.run() ──> workbook.xlsx  (people)
+gui.py  ──┘                   └──> snapshot.json (programs)
+```
+
+**The workbook is never read back.** Anything downstream — the mail step, a future
+"use last month's report" screen — loads the snapshot. The workbook is a presentation
+artifact: `HH:MM` strings, merged cells, and no e-mail column by deliberate choice. It
+also changes shape when a rule changes, as it did on 2026-08-17. See `snapshot.py`.
+
+The window deliberately has **no e-mail tab yet**. Modularity lives in the module
+boundaries, not in a visible placeholder a user would have to ignore; `snapshot.py`
+already answers "who has which problem", which is what such a screen would need.
+
+Anything that runs the pipeline must do so **off the UI thread** — it takes seconds,
+and Windows will label a blocked window "not responding".
 
 ## 4. Core types (`models.py`)
 
