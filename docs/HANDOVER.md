@@ -49,9 +49,13 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    isim yazımlarını tutuyor.
 3. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
-## Genişletirken: kararlaştırılmış yapı
+## Genişletirken
 
 E-posta ve kişi seçme eklenecek. Yapı bunu kaldırır ama iki yer zorlanır.
+
+**Bu bölümdeki maddelerin ağırlığı farklı.** Sol panel ve `gui/` bölmesi proje
+sahibiyle konuşuldu ve yön olarak kabul edildi. Geri kalanı uygulama tavsiyesi —
+karar verilmiş gibi davranılmamalı, sorulmalı.
 
 ### 1. `gui.py` 662 satır ve büyüyecek olan o
 
@@ -70,24 +74,34 @@ kabul edilebilir — biri durumu anlatır, diğeri hiçbir şey anlatmaz.
 ### 2. Seçim mantığı pencereye girmemeli
 
 "Şu kategoriye düşenler, eksi elle çıkarılanlar" bir **iş kuralı**, arayüz detayı
-değil. `mail/recipients.py` gibi bir modülde olmalı: snapshot + filtre + istisna
-listesi alır, alıcı listesi döndürür, pencere olmadan test edilir. Pencerenin içine
-girerse test edilemez; test edilemeyince güvenilmez — ve bu bordroya komşu bir
-iletişim.
+değil. Bu bir tavsiye ama dayanağı mevcut bir konvansiyon: `ARCHITECTURE.md` §3 zaten
+"`cli.py` yalnızca bağlama içerir — iş mantığı asla oraya girmez" diyor, ve pencere
+için de aynısı geçerli.
+
+Önerilen yer `mail/recipients.py` gibi bir modül: snapshot + filtre + istisna listesi
+alır, alıcı listesi döndürür, pencere olmadan test edilir. Pencerenin içine girerse
+test edilemez; test edilemeyince güvenilmez.
 
 `snapshot.py` bunun için hazır: `with_problem(etiket)`, `problem_labels`,
 `is_complete`.
 
-### 3. Mail adımı için pazarlık edilemez dört şey
+### 3. Mail adımı için ÖNERİLER — henüz karar değil
 
-1. **Varsayılan davranış göndermek değil, önizleme.** 162 kişiye mail geri alınamaz.
-   Taslaklar bir klasöre yazılsın, İK baksın, ayrı bir onayla gönderilsin.
-2. **Elle çıkarılan kişi kayda geçsin.** Sessizce atlanmasın; "kime gitmedi, neden"
-   sorusunun cevabı olmalı.
-3. **Eksik snapshot'tan mail atılmasın.** `is_complete` bunun için var — Temmuz gibi
-   bir ayda gönderim reddedilmeli.
-4. **Gmail şifresi repoya girmesin.** `.env` `.gitignore`'da; `arayuz-ayarlari.json`'a
-   da yazılmamalı — o dosyanın bir kez commit'e girdiği görüldü.
+> **Bunlar kararlaştırılmadı.** Dördü de bu oturumda uygulama tarafından önerildi,
+> proje sahibi hiçbirini onaylamadı ya da reddetmedi. Mail işine başlarken **önce
+> sorulmaları** gerekiyor; kararlaştırılmış kısıt gibi davranılmamalı. Karar verilirse
+> ADR olarak yazılıp buradan çıkarılsınlar.
+
+1. **Varsayılan davranış göndermek değil, önizleme olsun.** Gerekçe: 162 kişiye mail
+   geri alınamaz. Taslaklar bir klasöre yazılır, İK bakar, ayrı bir onayla gönderilir.
+2. **Elle çıkarılan kişi kayda geçsin.** Gerekçe: "kime gitmedi, neden" sorusunun bir
+   cevabı olmalı — bordroya komşu bir iletişim.
+3. **Eksik snapshot'tan mail atılmasın.** `is_complete` alanı bunu ayırt edebiliyor
+   (ADR-020'den geliyor), ama *gönderimi reddetmek* bir politika kararı ve verilmedi.
+4. **Gmail şifresi repoya girmesin.** Bu dördüncüsü aslında öneri değil, mevcut kural:
+   `AGENTS.md` §2.3 zaten sırların commit edilmemesini gerektiriyor ve `.env`
+   `.gitignore`'da. Sadece hatırlatma — `arayuz-ayarlari.json`'un bir kez commit'e
+   girdiği görüldü.
 
 Ayrıca `_Result` dataclass'ı rapora göre şekillenmiş. Mail koşusunun sonucu farklı
 (kişi başına gönderildi / hata / atlandı), onu germek yerine kendi tipini almalı.
