@@ -88,6 +88,23 @@ nominal_day:
   exit: "18:00"
 
 # ---------------------------------------------------------------------------
+# What the roster's "Tesis" column is called in the report.
+#
+# The roster says MACUNKÖY TESİSİ and DEICO TESİS. The second one names the company,
+# not the place, and nobody outside the HCM calls it that — the site is Teknopark, and
+# the report already labels attendance records from it "Teknopark". Two words for one
+# building in one workbook is a question the reader should not have to answer.
+#
+# Matched on a folded (ASCII, upper-case) SUBSTRING, so "MACUNKÖY TESİSİ" and
+# "MACUNKOY TESIS" both hit the same entry and a suffix change does not break it.
+# A value matching nothing is shown exactly as the roster wrote it — never guessed —
+# and listed on the Kontrol sheet so a new facility is noticed rather than absorbed.
+# ADR-026.
+facility_labels:
+  MACUNKOY: "Macunköy"
+  DEICO: "Teknopark"
+
+# ---------------------------------------------------------------------------
 # Phase 2 parameters. Defined but NOT yet used by any code — the rules they
 # drive are blocked on Q5-Q8 in docs/ROADMAP.md. Do not wire these up until
 # HR has confirmed them.

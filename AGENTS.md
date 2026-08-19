@@ -192,7 +192,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 267 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 273 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -391,6 +391,12 @@ reimplement `HH:MM` formatting inline.
 **Config over constants.** Shift boundaries, lunch length, the 3 h / 7.5 h overtime
 thresholds, Multinet counts, holiday dates: all in `config/`. A rule change must
 be a YAML edit, never a code edit.
+
+The same applies to **any table keyed on strings a source file writes** — the roster's
+`Tesis` values are mapped to display names through `facility_labels` (ADR-026), not a
+dict in `workbook.py`, because those keys belong to the HCM and have changed before.
+Label tables keyed on *our own* identifiers (`macunkoy`, `teknopark`, `izin`) stay in
+code; we control those.
 
 Three of those keys change payroll figures directly — `daily_hours` (ADR-015),
 `break.deduct` (ADR-016) and `remote_day_replaces_attendance` (ADR-018). All are

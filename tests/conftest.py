@@ -40,6 +40,9 @@ def settings() -> Settings:
         calendar=Calendar(holidays={}, half_days=frozenset(),
                           rest_weekdays=frozenset({5, 6})),
         personnel=Personnel(exclude_prefixes=("ZIYARETCI", "GECICI", "STJ")),
+        # Mirrors config/settings.yaml:facility_labels. Already folded, exactly as
+        # `_facility_labels` would produce it. test_config.py fails if this drifts.
+        facility_labels=(("MACUNKOY", "Macunköy"), ("DEICO", "Teknopark")),
         nominal_day=NominalDay(source="teknopark", entry=time(9, 0),
                                exit=time(18, 0)),
     )

@@ -1337,3 +1337,58 @@ it had never been stated anywhere.
 - The overwrite notice is a statement, not a confirmation dialog. Nothing is lost that
   cannot be rebuilt by running again, and a prompt on every rerun of a routine monthly
   job trains people to dismiss prompts.
+
+---
+
+## ADR-026 — The report calls the sites Macunköy and Teknopark, not what the HCM calls them
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+The roster's `Tesis` column holds two values: `MACUNKÖY TESİSİ` (53 people in May 2026)
+and `DEICO TESİS` (107). They were passed through to the report untouched.
+
+`DEICO TESİS` names the company, not the place. The site is Teknopark — `AGENTS.md` §4
+already says so, and the attendance records from it are labelled `Teknopark` everywhere
+else in the same workbook. A reader on `Aylık Özet` sees `Tesis: DEICO TESİS` next to
+`Kayıt Kaynağı: Teknopark` and has to work out that these are the same building. The
+suffix on the other one is noise for the same reason `Teknopark puantaj` was.
+
+### Decision
+
+`config/settings.yaml:facility_labels` maps a **folded substring** to a display label:
+
+```yaml
+facility_labels:
+  MACUNKOY: "Macunköy"
+  DEICO: "Teknopark"
+```
+
+- **In config, not in code.** The other label tables in `workbook.py` name keys this
+  project owns (`macunkoy`, `teknopark`, `izin`) and those are stable. These keys come
+  from a file the HCM writes and we do not control — the roster's filename and sheet
+  name have already changed once — so changing them must be a YAML edit.
+- **Substring on the folded form**, so `MACUNKÖY TESİSİ`, `MACUNKOY TESIS` and a future
+  `MACUNKÖY TESİS 2` all resolve, and Turkish casing cannot break it. Longest needle
+  wins, so a more specific entry can be added later without the shorter one shadowing
+  it.
+- **An unmatched value is shown exactly as the roster wrote it.** Never guessed. A
+  label table that has fallen behind the source must not rename the wrong site, and an
+  unfamiliar name appearing in the report is how somebody notices.
+- **Section 8 of the `Kontrol` sheet lists every facility seen and what it was shown
+  as**, with anything unmapped highlighted. Same shape as the alias table in section 7,
+  and for the same reason: a mapping that silently stopped applying looks exactly like
+  a mapping that had nothing to do.
+- Not required, and no default in code: an absent key means no renaming, which is the
+  safe direction. It is not a payroll figure, so it does not join the three keys that
+  fail the run when missing.
+
+### Consequences
+
+- `tests/conftest.py` mirrors the table and `test_config.py` fails if the two drift.
+  That guard exists because the fixture has drifted from the shipped config once
+  before, and every test kept passing against patterns the program no longer used.
+- The snapshot carries `facility` too, and it is **not** relabelled there — it holds
+  what the roster said. The workbook is presentation; the snapshot is data, and a
+  downstream consumer should see the source value.

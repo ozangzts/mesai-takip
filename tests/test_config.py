@@ -32,6 +32,13 @@ def test_the_fixture_mirrors_the_shipped_source_patterns(settings, real_settings
 
 
 @REAL
+def test_the_fixture_mirrors_the_shipped_facility_labels(settings, real_settings):
+    """Not a payroll figure, but the same failure mode: a fixture that renames sites
+    the shipped config does not would prove nothing about the report HR opens."""
+    assert settings.facility_labels == real_settings.facility_labels
+
+
+@REAL
 def test_the_fixture_mirrors_the_shipped_rules(settings, real_settings):
     """The rules that change payroll figures. A silent divergence here is worse than
     a failing test: the suite would be proving something about a config nobody runs."""
@@ -94,3 +101,53 @@ def test_an_unknown_daily_hours_value_fails_loudly(tmp_path):
 
     with pytest.raises(config.ConfigError, match="geçersiz"):
         config.load(tmp_path, "2026-07")
+
+
+# --- facility labels (ADR-026) ----------------------------------------------
+#
+# The roster writes MACUNKÖY TESİSİ and DEICO TESİS. The second names the company, not
+# the place; the site is Teknopark, which is what the report calls its records from it.
+
+def test_the_shipped_config_renames_both_facilities(settings):
+    assert settings.facility("MACUNKÖY TESİSİ") == "Macunköy"
+    assert settings.facility("DEICO TESİS") == "Teknopark"
+
+
+def test_matching_survives_turkish_casing_and_a_changed_suffix():
+    """Folded substring, not equality: `TESİSİ` losing its last letter must not break it."""
+    from mesai.config import Settings, _facility_labels
+
+    labels = _facility_labels({"MACUNKOY": "Macunköy", "DEICO": "Teknopark"})
+    probe = Settings.__new__(Settings)
+    object.__setattr__(probe, "facility_labels", labels)
+
+    for written in ("MACUNKÖY TESİSİ", "MACUNKOY TESIS", "Macunköy Tesisi",
+                    "MACUNKÖY TESİS 2"):
+        assert Settings.facility(probe, written) == "Macunköy", written
+
+
+def test_an_unknown_facility_is_shown_exactly_as_written(settings):
+    """Never guessed. A stale label table must not rename the wrong site."""
+    assert settings.facility("ANKARA OFİS") == "ANKARA OFİS"
+    assert settings.facility(None) == ""
+    assert settings.facility("") == ""
+
+
+def test_no_labels_configured_means_no_renaming():
+    from mesai.config import Settings
+
+    probe = Settings.__new__(Settings)
+    object.__setattr__(probe, "facility_labels", ())
+    assert Settings.facility(probe, "DEICO TESİS") == "DEICO TESİS"
+
+
+def test_a_longer_needle_wins_over_a_shorter_one():
+    """So a more specific entry can be added later without the short one shadowing it."""
+    from mesai.config import Settings, _facility_labels
+
+    probe = Settings.__new__(Settings)
+    object.__setattr__(probe, "facility_labels",
+                       _facility_labels({"DEICO": "Teknopark",
+                                         "DEICO ANKARA": "Ankara"}))
+    assert Settings.facility(probe, "DEICO ANKARA TESİS") == "Ankara"
+    assert Settings.facility(probe, "DEICO TESİS") == "Teknopark"

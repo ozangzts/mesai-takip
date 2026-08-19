@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (25 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (26 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 267 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 273 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -103,7 +103,14 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    yanında bulur" diyordu. ADR-021 lehine çözüldü.
    CLI varsayılanı değişmedi (`data/out/<ay>/`), sadece veri dosyası artık orada da
    raporun yanında.
-9. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+9. **Raporda tesis adları sadeleşti (ADR-026).** `MACUNKÖY TESİSİ` → `Macunköy`,
+   `DEICO TESİS` → `Teknopark`. Eşleme `config/settings.yaml:facility_labels`'da,
+   kodda değil: bu anahtarlar HCM'in yazdığı değerler, bizim değil. Eşleşmeyen bir
+   değer personel listesindeki hâliyle yazılıyor (tahmin edilmiyor) ve `Kontrol`
+   sayfası §8 görülen bütün tesis değerlerini listeliyor.
+   **Sorulan soru şuydu: uzaktan çalışma için not düşülüyor mu?** Düşülüyor, üç ayrı
+   yerde — cevap için ADR-017/018 ve `Aylık Özet`'in `Kayıt Kaynağı` kolonu.
+10. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

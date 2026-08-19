@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from .normalize import display_name, name_key
+from .normalize import display_name, fold, name_key
 
 
 class ConfigError(Exception):
@@ -131,6 +131,24 @@ class Settings:
     nominal_day: NominalDay | None = None
     # "nominal_only" | "always" | "never" — see ADR-018.
     remote_replaces: str = "nominal_only"
+    # Folded substring -> what the report calls that facility. Empty means the
+    # roster's own wording is shown unchanged, which is the safe direction. ADR-026.
+    facility_labels: tuple[tuple[str, str], ...] = ()
+
+    def facility(self, raw: str | None) -> str:
+        """What to call the facility the roster wrote as `raw`.
+
+        Unmatched values pass through exactly as written. A label table that has
+        fallen behind the source file must not silently rename the wrong site, and an
+        unfamiliar name in the report is how somebody notices.
+        """
+        if not raw:
+            return ""
+        folded = fold(raw)
+        for needle, label in self.facility_labels:
+            if needle in folded:
+                return label
+        return raw
 
 
 _WEEKDAYS = {
@@ -164,6 +182,23 @@ def _as_date(value: object, where: str) -> date:
         return date.fromisoformat(str(value))
     except Exception as exc:  # noqa: BLE001
         raise ConfigError(f"{where}: geçersiz tarih {value!r}") from exc
+
+
+def _facility_labels(raw: object) -> tuple[tuple[str, str], ...]:
+    """`{needle: label}` -> folded pairs, longest needle first.
+
+    Longest first so a more specific entry can be added later without the shorter one
+    shadowing it. Folding here rather than at every lookup keeps the comparison
+    Turkish-safe and does it once.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, dict):
+        raise ConfigError(
+            "settings.yaml:facility_labels bir eşleme olmalı, örn. "
+            "{MACUNKOY: \"Macunköy\"}")
+    pairs = [(fold(str(needle)), str(label)) for needle, label in raw.items()]
+    return tuple(sorted(pairs, key=lambda pair: len(pair[0]), reverse=True))
 
 
 def load(config_dir: Path, period: str) -> Settings:
@@ -266,4 +301,5 @@ def load(config_dir: Path, period: str) -> Settings:
         daily_hours=daily_hours,
         nominal_day=nominal,
         remote_replaces=remote_replaces,
+        facility_labels=_facility_labels(raw.get("facility_labels")),
     )

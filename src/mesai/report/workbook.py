@@ -89,7 +89,7 @@ def build(
     _sheet_daily(workbook.create_sheet("Günlük Detay"), workdays, employees,
                  settings, footer)
     _sheet_worklist(workbook.create_sheet("Sorulacaklar"), period, anomalies,
-                    employees, footer)
+                    employees, settings, footer)
     _sheet_anomalies(workbook.create_sheet("Şüpheli Kayıtlar"), anomalies,
                      employees, footer)
     _sheet_leave(workbook.create_sheet("İzin Özeti"), leave, employees,
@@ -197,7 +197,7 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
             employee.personnel_no or "",
             employee.department or "",
             employee.job_title or "",
-            employee.facility or "",
+            settings.facility(employee.facility),
             _sources_label(employee.sources),
         ]
         if summary.has_attendance:
@@ -336,7 +336,8 @@ _WORKLIST_WIDTHS = [28, 10, 17, 30, 34, 11, 46, 24]
 
 
 def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
-                    employees: dict[NameKey, Employee], footer: list[str]) -> None:
+                    employees: dict[NameKey, Employee], settings: Settings,
+                    footer: list[str]) -> None:
     """One row per (person, problem), with the exact dates listed.
 
     The Şüpheli Kayıtlar sheet is the audit trail — one row per defective record,
@@ -384,7 +385,7 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
         values = [
             names.get(key, ""),
             employee.personnel_no if employee and employee.personnel_no else "",
-            employee.facility if employee else "",
+            settings.facility(employee.facility if employee else ""),
             employee.department if employee else "",
             label,
             len(unique_days) or "",
@@ -698,7 +699,25 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
         line("Yok")
     row += 1
 
-    section("8. Doğrulanmamış varsayımlar")
+    # Same shape as the alias table above, and for the same reason: a mapping that
+    # silently stopped applying looks exactly like a mapping that had nothing to do.
+    # Listing what was seen and what it was shown as makes the difference visible.
+    section("8. Tesis adları")
+    seen = sorted({s.employee.facility for s in summaries if s.employee.facility},
+                  key=sort_key)
+    if seen:
+        for raw in seen:
+            shown = settings.facility(raw)
+            if shown == raw:
+                line(f"  {raw}", "->", "personel listesindeki hâliyle yazıldı",
+                     styles.AMBER_FILL)
+            else:
+                line(f"  {raw}", "->", shown)
+    else:
+        line("Personel listesinde tesis bilgisi yok")
+    row += 1
+
+    section("9. Doğrulanmamış varsayımlar")
     line("Resmi tatil takvimi", f"{len(settings.calendar.holidays)} gün",
          "Veriden çıkarıldı, İK onaylamadı", styles.AMBER_FILL)
     for day, label in sorted(settings.calendar.holidays.items()):

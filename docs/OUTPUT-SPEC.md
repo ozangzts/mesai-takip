@@ -24,6 +24,11 @@ is git-ignored by name, wherever the user pointed the output.
 
 Sheet names, column headers and all visible text are **Turkish** — HR reads this.
 
+The `Tesis` column shows `Macunköy` / `Teknopark`, not the roster's `MACUNKÖY TESİSİ` /
+`DEICO TESİS` — same words the `Kayıt Kaynağı` column uses, so one building has one
+name in the workbook. The mapping is `config/settings.yaml:facility_labels` and every
+value seen is listed on `Kontrol` §8 (ADR-026).
+
 ---
 
 ## 1. Why not copy the MEYER layout
