@@ -34,8 +34,11 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
 
 Çalıştırma: `arayuz.cmd` (pencere) veya `rapor.cmd --ay 2026-07` (komut satırı).
 
-**Üretilmiş raporları yeniden üretmek gerekiyor** — bu turda hesap kuralları değişti
-(ADR-030, ADR-032, ADR-033) ve Haziran'ın toplamı 27 119:24'ten 27 166:19'a çıktı.
+**Mayıs ve Haziran yeni kurallarla yeniden üretildi** (ADR-030, ADR-032, ADR-033
+Haziran'ın toplamını 27 119:24'ten 27 166:19'a çıkarmıştı). Pencereden üretilen
+kopyalar Masaüstünde, `snapshot format_version 3`; doğrulandı — aynı ay yeniden
+üretildiğinde `gonderim-*.json` üretim saati dışında birebir aynı çıkıyor. Temmuz
+bilerek yeniden üretilmedi, Teknopark dosyasının tam ay hâli bekleniyor.
 
 ---
 
