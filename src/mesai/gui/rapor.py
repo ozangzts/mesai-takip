@@ -450,14 +450,25 @@ class ReportScreen:
         """
         self.output_var.set(str(self.output_dir))
         period = parse_period(self.period_var.get().strip())
-        if period:
+        if not period:
             self.output_note.configure(
-                text=f"Bu koşu şu klasörü oluşturacak:  "
-                     f"{places.report_folder_name(period)}   "
-                     f"(rapor ve veri dosyası birlikte)")
+                text="Dönem girildiğinde kullanılacak klasörün adı burada yazacak.",
+                foreground=w.MUTED)
+            return
+
+        folder = places.report_folder_name(period)
+        if places.existing_report(self.output_dir, period) is not None:
+            # Overwriting last run's report is usually the intent, and it happens
+            # either way — so it is said before the button rather than discovered
+            # after it.
+            self.output_note.configure(
+                text=f"⚠ {folder} klasöründe zaten bir rapor var — üzerine yazılacak.",
+                foreground=w.WARN)
         else:
             self.output_note.configure(
-                text="Dönem girildiğinde oluşturulacak klasörün adı burada yazacak.")
+                text=f"Bu koşu şu klasörü oluşturacak:  {folder}   "
+                     f"(rapor ve veri dosyası birlikte)",
+                foreground=w.MUTED)
 
     def _set_folder(self, folder: Path) -> None:
         self.folder = folder

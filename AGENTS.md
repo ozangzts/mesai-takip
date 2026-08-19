@@ -192,7 +192,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 265 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 267 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -213,7 +213,8 @@ companion to it. Anything downstream reads that, **never the workbook** — see
 
 The two front ends put that pair in different places, deliberately (ADR-024). The CLI
 keeps `data/out/<ay>/`. The **window asks**, defaults to the Desktop, remembers the
-answer, and makes one folder per month named `06-2026 Rapor` holding both files. The
+answer, and makes one folder per month named `2026-06 Rapor` holding both files. A
+second run for the same month overwrites in place and says so beforehand (ADR-025). The
 output folder is remembered precisely because it is *not* month-specific — the opposite
 of the input folder, which is never restored.
 

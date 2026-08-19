@@ -57,18 +57,14 @@ def desktop_dir() -> Path:
 
 
 def report_folder_name(period: str) -> str:
-    """The folder one month's output goes in, as `06-2026 Rapor`.
+    """The folder one month's output goes in, as `2026-06 Rapor`.
 
-    Named for the person who opens Explorer, not for the program: `2026-06` is how the
-    period is written everywhere inside the tool, but a folder on someone's Desktop
-    reads better with the month first and the word that says what it is.
-
-    The cost is sort order — twelve of these sort by month, so December 2025 lands
-    between November and... whichever month sorts next. Accepted deliberately: the
-    folders are opened one at a time, right after being made.
+    Year first so a directory of them sorts into date order on its own. This was
+    briefly `06-2026 Rapor` — month first reads more naturally in Turkish — but twelve
+    of those sort by month, putting January 2027 above May 2026. The trailing word
+    still says what the folder is, which was the other half of the point. ADR-025.
     """
-    year, month = period.split("-")
-    return f"{month}-{year} Rapor"
+    return f"{period} Rapor"
 
 
 def report_paths(output_dir: Path, period: str) -> tuple[Path, Path]:
@@ -78,7 +74,13 @@ def report_paths(output_dir: Path, period: str) -> tuple[Path, Path]:
             folder / f"gonderim-{period}.json")
 
 
-def month_folder_label(period: str) -> str:
-    """`Haziran 2026 · 06-2026 Rapor` — what the window shows under the folder box."""
-    year, month = period.split("-")
-    return f"{MONTHS[int(month) - 1]} {year} · {report_folder_name(period)}"
+def existing_report(output_dir: Path, period: str) -> Path | None:
+    """The workbook a previous run left in this month's folder, if there is one.
+
+    A second run for the same month overwrites in place — the folder is written into,
+    not replaced — which is almost always what is wanted and is exactly what should be
+    said out loud beforehand. Measured, not assumed: run twice and both files come back
+    with fresh timestamps while anything else in the folder is left untouched.
+    """
+    workbook = report_paths(output_dir, period)[0]
+    return workbook if workbook.is_file() else None

@@ -1292,3 +1292,48 @@ nobody noticed because both files were found by path, never by looking.
   the packaged executable, which may end up somewhere read-only.
 - `Klasörü Aç` now opens the month's folder with both files in it, rather than a
   directory of every month ever produced.
+
+---
+
+## ADR-025 — The month folder is `2026-06 Rapor`; a rerun overwrites in place
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner · Supersedes ADR-024 §3
+
+### Context
+
+ADR-024 named the folder `06-2026 Rapor`, month first, because that reads more
+naturally in Turkish and the folder is opened by a person in Explorer. It also
+recorded the cost and accepted it: twelve of those sort by month, not by date.
+
+That cost is larger than it looked. The folders accumulate — one per month, in whatever
+directory the user chose, for as long as the tool is in use. After a year the list
+reads `01-2027, 02-2027, 05-2026, 06-2026, …`, with next January above last May. The
+argument for accepting it was that folders are opened one at a time right after being
+made, which is true of the newest one and false of every other.
+
+Separately, the question came up of what a **second run for the same month** does, and
+it had never been stated anywhere.
+
+### Decision
+
+1. **`2026-06 Rapor`.** Year first, so a directory of them sorts into date order with
+   no effort. The trailing word still says what the folder is, which was the other half
+   of ADR-024's reasoning and is kept.
+2. **A rerun overwrites in place.** Measured rather than assumed: running the same
+   month twice into the same folder rewrites both the workbook and the snapshot with
+   fresh timestamps, does not recreate the folder, and leaves anything else in it
+   untouched. That is the right behaviour — the report is derived, so regenerating it
+   is how a corrected input gets applied — and it is now **said before the button**:
+   when a report for that month is already there, the window says so in the caution
+   colour instead of letting it be discovered afterwards.
+3. If the workbook is open in Excel the run fails with `ReportLocked` and a plain
+   "close it" message, as it already did (ADR-014 §4). Nothing is half-written.
+
+### Consequences
+
+- Folders made under ADR-024's naming (`06-2026 Rapor`) are not migrated. There are at
+  most a handful, none of them referenced by anything, and a rename that touches a
+  user's Desktop is not something this tool should do on its own.
+- The overwrite notice is a statement, not a confirmation dialog. Nothing is lost that
+  cannot be rebuilt by running again, and a prompt on every rerun of a routine monthly
+  job trains people to dismiss prompts.

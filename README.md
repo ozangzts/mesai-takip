@@ -39,7 +39,7 @@ data/
     └── gonderim-2026-05.json       ← raporun makine-okunur eşleniği
 
 Masaüstü/                           ← pencereden çalıştırılırsa buraya (varsayılan)
-└── 05-2026 Rapor/
+└── 2026-05 Rapor/
     ├── mesai-raporu-2026-05.xlsx
     └── gonderim-2026-05.json
 ```
@@ -94,7 +94,7 @@ pip install -e . --no-deps
 python -m pytest
 ```
 
-Son satır **96 passed** demeli. Demiyorsa kurulum bozuk, aşağıdaki tabloya bak.
+Son satır **267 passed** demeli. Demiyorsa kurulum bozuk, aşağıdaki tabloya bak.
 
 ### Yeni bilgisayarda: git'ten gelmeyen iki dosya
 
@@ -189,6 +189,11 @@ açılmaz, bir pencere gelir.
 │          │  DÖNEM                                    │
 │          │  [ 2026-07 ]   Temmuz 2026                │
 │          │                                           │
+│          │  RAPOR KLASÖRÜ                            │
+│          │  [ C:\Users\...\Desktop  ] [ Değiştir… ]   │
+│          │  Bu koşu şu klasörü oluşturacak:          │
+│          │  2026-07 Rapor  (rapor ve veri birlikte)  │
+│          │                                           │
 │          │  ┌────────── Rapor Oluştur ────────────┐  │
 │          │  └─────────────────────────────────────┘  │
 │          │  ┌─────────────────────────────────────┐  │
@@ -261,9 +266,15 @@ adımı geldiğinde oradan geçilecek.
   ile başka bir klasör seçebilirsin ve seçtiğin yer sonraki açılışlarda hatırlanır.
   Girdi klasörü bilerek hatırlanmıyor ama çıktı klasörü hatırlanıyor; fark şu: girdi
   klasörü aya özel, çıktı klasörü değil — ay, içinde açılan alt klasörün adında.
-- **Her ay için bir klasör açılır: `06-2026 Rapor`.** Rapor ve veri dosyası bu klasöre
+- **Her ay için bir klasör açılır: `2026-05 Rapor`.** Rapor ve veri dosyası bu klasöre
   birlikte yazılır, yani `Klasörü Aç` ikisinin birden durduğu yeri açar. Seçtiğin
   klasörün altında hangi klasörün açılacağı, düğmeye basmadan önce yazıyor.
+  Yıl önce yazılıyor ki klasörler kendiliğinden tarih sırasına dizilsin.
+- **Aynı ay ikinci kez çalıştırılırsa üzerine yazılır.** Klasör yeniden oluşturulmaz,
+  içindeki rapor ve veri dosyası yenilenir; klasördeki başka dosyalara dokunulmaz.
+  O ay için zaten bir rapor varsa pencere **düğmeye basmadan önce** turuncu yazıyla
+  söyler. Rapor türetilmiş bir dosya — düzeltilmiş bir girdinin uygulanma yolu zaten
+  yeniden çalıştırmak. Dosya Excel'de açıksa yazılmaz, "kapatın" der.
 - **Rapor ve veri dosyasının tam yolu sonuç panelinde yazıyor**, sadece adı değil.
   `Raporu Aç` ve `Klasörü Aç` düğmeleri de aynı dosyayı açar. Panel sığmadığında
   kaydırılır — eksik veri uyarısı uzun olduğunda veri dosyasının yolu en altta kalır.
@@ -490,7 +501,7 @@ otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü
 ## Geliştirme
 
 ```bash
-python -m pytest          # 265 test
+python -m pytest          # 267 test
 ```
 
 Doğrulama mekanizmaları:

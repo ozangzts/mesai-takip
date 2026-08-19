@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (24 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (25 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 265 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 267 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -95,7 +95,9 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    Masaüstü (`SHGetKnownFolderPath`, `~/Desktop` varsayımı değil — OneDrive
    yönlendirmesi olan makinede Masaüstü başka yerde). Seçim hatırlanıyor; girdi
    klasörünün aksine, çünkü çıktı klasörü aya özel değil. Ay başına tek klasör:
-   `06-2026 Rapor`, içinde rapor ve veri dosyası birlikte.
+   `2026-06 Rapor` (yıl önce, klasörler tarih sırasına dizilsin diye — ADR-025),
+   içinde rapor ve veri dosyası birlikte. Aynı ay ikinci kez çalıştırılırsa üzerine
+   yazılıyor ve pencere bunu **önceden** söylüyor.
    Bu arada mevcut bir çelişki çözüldü: `snapshot.default_path`'in docstring'i
    "bilerek raporun yanında DEĞİL" diyordu, ADR-021 ise "program JSON'u raporun
    yanında bulur" diyordu. ADR-021 lehine çözüldü.

@@ -646,15 +646,15 @@ def test_changing_the_output_folder_is_saved_without_losing_the_browse_location(
 
 
 def test_the_folder_name_puts_the_month_first_and_says_what_it_is():
-    assert places.report_folder_name("2026-06") == "06-2026 Rapor"
-    assert places.report_folder_name("2026-12") == "12-2026 Rapor"
+    assert places.report_folder_name("2026-06") == "2026-06 Rapor"
+    assert places.report_folder_name("2026-12") == "2026-12 Rapor"
 
 
 def test_the_workbook_and_its_snapshot_land_in_the_same_folder(tmp_path):
     """One run, one folder. They used to be written to two unrelated places."""
     workbook, data = places.report_paths(tmp_path, "2026-06")
 
-    assert workbook.parent == data.parent == tmp_path / "06-2026 Rapor"
+    assert workbook.parent == data.parent == tmp_path / "2026-06 Rapor"
     assert workbook.name == "mesai-raporu-2026-06.xlsx"
     assert data.name == "gonderim-2026-06.json"
 
@@ -671,7 +671,7 @@ def test_the_window_names_the_folder_it_will_create(screen):
     window = screen()
     window.period_var.set("2026-06")
 
-    assert "06-2026 Rapor" in window.output_note.cget("text")
+    assert "2026-06 Rapor" in window.output_note.cget("text")
 
 
 def test_before_a_period_is_known_no_folder_name_is_invented(screen):
@@ -691,3 +691,28 @@ def test_the_snapshot_caption_no_longer_speaks_for_hr(screen, tmp_path):
 
     assert "e-posta adımı bunu okuyacak" in shown
     assert "İK" not in shown
+
+
+def test_an_existing_report_for_the_month_is_announced_before_the_button(screen,
+                                                                        tmp_path):
+    """A rerun overwrites in place, so it is said beforehand rather than discovered."""
+    window = screen()
+    window.output_dir = tmp_path
+    window.period_var.set("2026-06")
+    assert "oluşturacak" in window.output_note.cget("text")
+    assert str(window.output_note.cget("foreground")) != widgets.WARN
+
+    workbook, _data = places.report_paths(tmp_path, "2026-06")
+    workbook.parent.mkdir(parents=True)
+    workbook.write_bytes(b"gecen kosu")
+    window._show_output()
+
+    assert "üzerine yazılacak" in window.output_note.cget("text")
+    assert str(window.output_note.cget("foreground")) == widgets.WARN
+
+
+def test_the_month_folders_sort_into_date_order(tmp_path):
+    """Year first. Month first put January 2027 above May 2026."""
+    names = sorted(places.report_folder_name(p)
+                   for p in ("2026-05", "2026-12", "2027-01"))
+    assert names == ["2026-05 Rapor", "2026-12 Rapor", "2027-01 Rapor"]
