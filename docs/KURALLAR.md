@@ -79,12 +79,40 @@ gerçekten binaya girmişse o kayıt esastır.
 
 ---
 
-## 4. Hangi günler iş günü sayılıyor
+## 4. Hafta sonu ve resmi tatil çalışması
 
-Hafta içi günler, resmi tatiller çıkarılarak. Cumartesi ve pazar iş günü değil.
+**Hafta sonu ve resmi tatilde yapılan çalışma tam olarak sayılır.** Kaydı varsa
+toplamdadır; hiçbir gün türü göz ardı edilmez.
 
-Mayıs 2026'da 7 resmi tatil var. **Bu tatil listesi verilerden çıkarıldı, İK
-onaylamadı** — raporun `Kontrol` sayfasında tek tek listeleniyor.
+Mayıs 2026'da ölçülen:
+
+| | Kişi-gün | Saat | Kişi |
+| --- | --- | --- | --- |
+| İş günü | 1 752 | 16 614:24 | 145 |
+| Hafta sonu | 30 | **164:31** | 20 |
+| Resmi tatil | 41 | **325:01** | 21 |
+| **Toplam** | **1 823** | **17 103:58** | |
+
+`Günlük Detay` sayfasında her satır hangi güne ait olduğunu yazar: `Cmt`, `Paz` ya da
+`Resmi Tatil`. Yani hafta sonu çalışması hem sayılır hem de ayırt edilebilir.
+
+### "İş günü" kavramı nerede kullanılıyor
+
+Program bir de "beklenen iş günü" sayısı tutar — hafta içi günler, resmi tatiller
+çıkarılmış hâli. Bu sayı **çalışma süresini etkilemez.** Yalnızca iki yerde kullanılır:
+
+1. **Kaynak dosya ayın tamamını kapsıyor mu** kontrolünde (bkz. bölüm 9).
+2. **`Ay büyük ölçüde boş`** notunun paydası olarak.
+
+Hafta sonu çalışması bu paydayı büyütmez, yani hafta sonu çalışan biri bu yüzden
+haksız yere işaretlenmez.
+
+### Henüz yapılmayan
+
+Hafta sonu ve resmi tatil çalışması **saat olarak sayılıyor ama farklı ücretlendirilmiyor** —
+tatil çalışmasının ücret ya da izin karşılığı henüz karara bağlanmadı. Bkz. bölüm 10.
+
+Kullanılan resmi tatil listesi raporun `Kontrol` sayfasında tarih tarih yazılıdır.
 
 ---
 
@@ -167,8 +195,8 @@ Dokuz kişinin adı sistemler arasında farklı yazılmış (Türkçe karakter f
 soyadı, kısaltılmış ad). Bunlar elle hazırlanmış bir eşleştirme tablosunda tutuluyor.
 **Benzerlik tahmini yapılmaz** — eşleşmeyen isim tahmin edilmez, rapora yazılır.
 
-Kullanılan eşleştirmeler raporun `Kontrol` sayfasında tek tek listeleniyor, İK
-onaylayabilsin diye.
+Kullanılan eşleştirmeler raporun `Kontrol` sayfasında tek tek listeleniyor, tek tek
+kontrol edilebilsin diye.
 
 ---
 
@@ -199,12 +227,13 @@ Ayrıca seçilen dosyalardan birinin **bütün kayıtları başka bir aya aitse*
 
 ## 10. Henüz yapılmayanlar
 
-Bunlar bilinçli olarak ertelendi, İK'nın cevaplaması gereken sorular var:
+Bunlar bilinçli olarak ertelendi; kuralları henüz karara bağlanmadı:
 
-- **Fazla mesai hesabı** — günlük normal çalışma süresinin kaç saat olduğu onaylanmadı
+- **Fazla mesai hesabı** — günlük normal çalışma süresinin kaç saat sayılacağı belli değil
 - **Vardiya tespiti**
 - **Multinet hak edişi**
-- **Tatil çalışması ücreti**
+- **Hafta sonu ve resmi tatil çalışmasının karşılığı** — saatler sayılıyor, ücret
+  ya da izin karşılığı hesaplanmıyor
 - **Kişilere otomatik e-posta gönderimi** — kişi seçme ekranı hazır, gönderim yok
 
 ---

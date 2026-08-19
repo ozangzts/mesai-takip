@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 311 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 314 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -152,7 +152,13 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     **AÇIK KONU:** 16 saat üst sınırı (`Aralık çok uzun`) el değmeden duruyor ve
     **tek başına bir günü 0 saat sayan tek kural**. Proje sahibi bunu ayrıca konuşmak
     istiyor: biri gerçekten 16 saatten fazla çalışmış olabilir mi, ve o günü tamamen
-    sıfırlamak doğru mu?
+    sıfırlamak doğru mu? Mayıs'ta 1, Haziran'da 3 kişi etkileniyor.
+
+    Ayrıca soruldu: **hafta sonu çalışması sıfırlanıyor mu?** Ölçüldü — **hayır**.
+    Mayıs'ta 30 hafta sonu kişi-günü (164:31) ve 41 resmi tatil kişi-günü (325:01)
+    toplamın içinde. Hafta içi takvimi yalnızca (a) kaynak dosya ayı kapsıyor mu
+    kontrolünde ve (b) `Ay büyük ölçüde boş` notunun paydasında kullanılıyor; saatlere
+    hiç dokunmuyor. `tests/test_merge.py` bunu artık sabitliyor.
 13. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken

@@ -372,3 +372,44 @@ def test_net_never_goes_negative(settings):
     workdays, _, _, _, _ = build_workdays(
         [punch("11:00", "17:30", source="teknopark")], settings)
     assert workdays[0].net >= timedelta()
+
+
+# --- weekends and public holidays are worked time ---------------------------
+#
+# Asked directly, and worth pinning: is Saturday work counted, or silently zeroed?
+# Measured on May 2026 — 30 weekend person-days worth 164:31, and 41 public-holiday
+# person-days worth 325:01, all of them inside the reported 17 103:58. The weekday
+# calendar exists only to say how much of a month a SOURCE FILE covers and to give the
+# "Ay büyük ölçüde boş" note a denominator. It never decides whether hours count.
+
+def test_a_saturday_is_counted_like_any_other_day(settings):
+    saturday = date(2026, 5, 23)
+    assert saturday.weekday() == 5, "the fixture day must really be a Saturday"
+
+    workdays, _notes, _accepted, _union, total = build_workdays(
+        [punch("09:00", "17:30", day=saturday)], settings)
+
+    assert len(workdays) == 1
+    assert hhmm(total) == "8:30"
+
+
+def test_a_public_holiday_is_counted_like_any_other_day(settings):
+    # 19.05.2026 — a public holiday in the shipped calendar, and a Tuesday.
+    holiday = date(2026, 5, 19)
+
+    workdays, _notes, _accepted, _union, total = build_workdays(
+        [punch("08:00", "16:00", day=holiday)], settings)
+
+    assert len(workdays) == 1
+    assert hhmm(total) == "8:00"
+
+
+def test_the_weekday_calendar_does_not_touch_the_hours(settings):
+    """Same records, one on a working day and one on a Sunday: identical totals."""
+    weekday = build_workdays([punch("09:00", "18:00", day=date(2026, 5, 21))],
+                             settings)[4]
+    sunday = build_workdays([punch("09:00", "18:00", day=date(2026, 5, 24))],
+                            settings)[4]
+
+    assert date(2026, 5, 24).weekday() == 6
+    assert weekday == sunday
