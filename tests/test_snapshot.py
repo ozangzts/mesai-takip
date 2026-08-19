@@ -44,7 +44,7 @@ def _anomalies() -> Collector:
         raw_name="AYŞE DENEME", date=date(2026, 7, 6)))
     # `info` severity — expected behaviour, must NOT become a "problem" to mail about.
     collector.add(Anomaly(
-        kind=AnomalyKind.REMOTE_OVERLAP, source="izin", source_row=11, key=KEY_B,
+        kind=AnomalyKind.REMOTE_REPLACED_NOMINAL, source="izin", source_row=11, key=KEY_B,
         raw_name="VELİ ÖRNEK", date=date(2026, 7, 8)))
     return collector
 
@@ -115,7 +115,7 @@ def test_info_anomalies_are_not_problems(settings):
     built = _build(settings)
     veli = next(p for p in built.people if p.name == "VELİ ÖRNEK")
 
-    assert veli.problems == (), "REMOTE_OVERLAP is info severity"
+    assert veli.problems == (), "REMOTE_REPLACED_NOMINAL is info severity"
 
 
 def test_problem_labels_are_ordered_by_frequency(settings):

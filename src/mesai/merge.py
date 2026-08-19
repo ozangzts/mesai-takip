@@ -314,8 +314,13 @@ def _classify_overlap(
     nominal = settings.nominal_day
     if nominal is not None and nominal.matches(
             badged.source, badged.entry, badged.exit):
-        return (AnomalyKind.REMOTE_OVERLAP,
-                "puantajdaki kayıt nominal tam gün, turnike okuması değil — "
+        # Same kind as the replacement path. The two were separate labels, and the
+        # difference between them — whether the day also held a record that was not a
+        # placeholder — was invisible to anybody reading the list. What was actually
+        # done stays in this detail line. ADR-034.
+        return (AnomalyKind.REMOTE_REPLACED_NOMINAL,
+                "puantajdaki kayıt nominal tam gün, turnike okuması değil; o gün "
+                "başka bir kart kaydı da olduğu için değiştirme yapılmadı — "
                 "çakışan süre bir kez sayıldı")
     return (AnomalyKind.REMOTE_OVERLAP_REAL,
             "puantajdaki kayıt gerçek turnike okuması — çakışan süre bir kez "

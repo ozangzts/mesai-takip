@@ -187,10 +187,13 @@ Sınır 20 saat — en uzun gerçek vardiyanın 4,5 saat üstünde, en kısa boz
 
 | Not | Ne demek | Ağırlık |
 | --- | --- | --- |
-| `Uzaktan + sistem kaydı` | Uzaktan çalışma günü; Teknopark'ta kart okuması yok, sistem varsayılan tam gün yazmış. Sistemin günü yerine uzaktan saatler sayıldı | ⚪ |
+| `Uzaktan + sistem kaydı` | Uzaktan çalışma günü; Teknopark'ta kart okuması yok, sistem varsayılan tam gün yazmış. Çakışan süre bir kez sayıldı | ⚪ |
 | `Uzaktan + kart kaydı` | Uzaktan çalışma beyanı var **ama o gün gerçek kart okuması da var** — kişi binaya girmiş görünüyor | 🟡 |
-| `Uzaktan + sistem + ek kayıt` | Uzaktan gün; sistemin varsayılan günü dışında başka bir kart kaydı daha var, bu yüzden değiştirme yapılmadı | ⚪ |
 | `Çok günlü uzaktan` | Tek izin satırı birden çok güne yayılmış, günlere bölündü | 🟡 |
+
+Uzaktan çalışmayla ilgili tek soru şu: **o gün gerçekten kart basılmış mı?** Basılmamışsa
+beklenen durum (⚪), basılmışsa bakılması gereken bir çelişki (🟡). Programın bu iki
+durumu içeride nasıl işlediği `Şüpheli Kayıtlar` sayfasındaki açıklama satırında yazar.
 
 ### Diğer
 

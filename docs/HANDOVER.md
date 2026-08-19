@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (33 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (34 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 321 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 320 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -174,7 +174,31 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     yalnızca 24 dakika altında — 16 saatlik bir gece vardiyası imkânsız değil. Bozuk
     kayıtlar 21:56 / 23:58 / 23:59'da olduğu için üçü de hâlâ reddediliyor ve
     **hiçbir rakam değişmedi**. Günlük 16 saat işaretlemesi olduğu gibi duruyor.
-14. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+14. **Uzaktan çalışma notu ikiye indi (ADR-034).** `Uzaktan + sistem + ek kayıt`
+    kaldırıldı; iki `info` etiket aynı durumu anlatıyordu ve aradaki fark yalnızca
+    içeride hangi kuralın çalıştığıydı. Artık `Uzaktan + sistem kaydı` (⚪) ve
+    `Uzaktan + kart kaydı` (🟡). Hangi kuralın çalıştığı `Şüpheli Kayıtlar`'daki
+    açıklama satırında duruyor. Rakam değişmedi.
+15. **SIRADAKİ İŞ — istisna listesi (4. dosya).** Proje sahibi "bu kişilere mail
+    atılmayacak" diye bir Excel bekliyor. Yapı hazır:
+
+    - `recipients.selected(snapshot, filtre, çıkarılanlar)` zaten bir isim kümesi alıp
+      çıkarıyor. Mekanizma var, doldurulması gerekiyor.
+    - Eklenecek: dosyayı okuyan fonksiyon (**`mail/recipients.py` içine, ekrana
+      değil**), bir onay kutusu (`☑ İstisna listesindekileri çıkar`) ve kalıcı istisna
+      ile o oturumdaki elle çıkarmayı **ayrı tutmak** — biri kural, öteki tercih.
+      Filtrede görünmemeleri bundan doğal olarak gelir.
+
+    **Asıl risk arayüzde değil, isim eşleştirmede.** Haziran'da ölçüldü: 163 kişinin
+    **126'sında sicil no var, 37'sinde yok** (personel listesinde olmayanlar). İsimler
+    benzersiz ama isimle eşleştirmek bu projenin bilinen zor problemi — Türkçe karakter,
+    evlilik soyadı, kısaltılmış ad. İstisna listesi ismi farklı yazarsa **o kişi
+    sessizce mail alır**, ki tam da kaçınılması gereken hata türü.
+
+    Liste eline geçtiğinde **ilk bakılacak şey: içinde sicil no var mı.** Varsa
+    eşleştirme güvenli. Yoksa isim eşleştirmesi kurulacak ve **eşleşmeyen her satır
+    için uyarı verilecek** — program tahmin etmez, söyler (AGENTS §2.1).
+16. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 321 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 320 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -413,7 +413,7 @@ open the original file and look.
 Kinds (`AnomalyKind`, a `StrEnum`): `MISSING_ENTRY`, `MISSING_EXIT`,
 `EMPTY_RECORD`, `NEGATIVE_DURATION`, `IMPLAUSIBLE_DURATION`, `SUSPICIOUS_SHORT`,
 `CROSS_SITE_EXTENDED`, `UNRESOLVED_IDENTITY`, `DURATION_MISMATCH`,
-`NO_ATTENDANCE_DATA`, `REMOTE_OVERLAP`, `MULTI_DAY_REMOTE`, `UNPARSEABLE_ROW`.
+`NO_ATTENDANCE_DATA`, `MULTI_DAY_REMOTE`, `UNPARSEABLE_ROW`.
 
 Each kind carries a Turkish label and a severity — `excluded` (contributed zero
 hours) or `included` (counted, but look at it) — which drives the report's colour

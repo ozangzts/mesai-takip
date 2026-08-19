@@ -1811,3 +1811,51 @@ impossible, and it would have been thrown away.
 - If a genuine crossing ever exceeds 20 hours it will still be refused. That is a
   deliberate floor on absurdity: at that point the record is indistinguishable from a
   stuck badge, and the day is visible on the anomaly sheet either way.
+
+---
+
+## ADR-034 — One remote-work note for the placeholder case, not two
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+A declared remote-work day that also carries the Teknopark placeholder produced one of
+two notes, depending on what the tool then did with it:
+
+* `Uzaktan + sistem kaydı` — the placeholder was set aside and the remote hours counted.
+  36 people in June 2026.
+* `Uzaktan + sistem + ek kayıt` — the day also held a record that was **not** a
+  placeholder, so the replacement stood down and everything was merged. **One person.**
+
+Together with `Uzaktan + kart kaydı` that made three remote entries in the filter list,
+and the project owner — reading the list, which is what it is for — could not tell what
+the middle one was doing there. Fairly: the two `info` labels describe the same
+situation. What differs between them is which internal rule fired, and that is not a
+distinction anybody filtering a list needs to make.
+
+The measured case behind the second label is instructive. That day held a remote
+declaration, the system's `09:00–18:00`, and a real Macunköy badge-in at `01:39:44`
+with no exit. The rule correctly stood down — there was real evidence it may not throw
+away — and the day already carries `Tesis birleştirme` and
+`Günlük süre çok uzun (>16 saat)`. Anybody who needs to look at it will.
+
+### Decision
+
+`REMOTE_OVERLAP` is removed. The overlap path emits `REMOTE_REPLACED_NOMINAL`, so both
+cases carry the single label `Uzaktan + sistem kaydı`.
+
+The label and its explanation now describe the **situation** — a remote day whose
+attendance side is the system's placeholder, counted once. **What was actually done
+stays in each record's own detail line** on `Şüpheli Kayıtlar`, where the two cases
+still read differently. Nothing is lost from the audit trail; what is lost is a filter
+entry nobody could use.
+
+### Consequences
+
+- Two remote entries in the filter instead of three. June: `Uzaktan + sistem kaydı` 36,
+  `Uzaktan + kart kaydı` 4. **No figure changes** — May stays 17 103:58, June 27 166:19.
+- The real-punch case keeps its own kind and its own severity. That one *is* a
+  different question, and it is the only remote note that is not expected behaviour.
+- ADR-027's rule that two kinds may not share a label still holds: rather than sharing
+  one, the two kinds became one.

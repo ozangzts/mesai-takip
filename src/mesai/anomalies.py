@@ -28,8 +28,8 @@ class AnomalyKind(StrEnum):
     LONG_DAY = "LONG_DAY"                  # the whole day is over the ceiling
     NO_ATTENDANCE_DATA = "NO_ATTENDANCE_DATA"
     SPARSE_MONTH = "SPARSE_MONTH"          # has records, but almost none
-    # Two kinds, because they are two different questions. See ADR-017.
-    REMOTE_OVERLAP = "REMOTE_OVERLAP"              # nominal placeholder — expected
+    # One question, not two: did the day carry a real punch as well as the
+    # declaration? See ADR-017 and ADR-034.
     REMOTE_OVERLAP_REAL = "REMOTE_OVERLAP_REAL"    # a real punch — worth asking
     MULTI_DAY_REMOTE = "MULTI_DAY_REMOTE"
     UNPARSEABLE_ROW = "UNPARSEABLE_ROW"
@@ -102,14 +102,15 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
         "Günlük süre çok kısa (<2 saat)", "included",
         "Günün ilk girişinden son çıkışına kadar geçen süre 2 saatin altında",
         "Süre"),
-    # This is the one that fires under the shipped config, so it carries the plain
-    # name. ADR-018 REMOVES the system's default day and counts the remote hours, so
-    # nothing is left to overlap with — measured on May 2026: 35 days here, 0 in
-    # REMOTE_OVERLAP below. Switch `remote_replaces` to "never" and the counts swap.
+    # The label and the explanation describe the SITUATION; what was done about it
+    # varies from day to day and lives in each record's own detail line. A second kind
+    # used to carry the case where the replacement stood down, and the difference
+    # between the two labels was invisible to everybody but the code — one day in two
+    # months, reading as a third kind of remote work. ADR-034.
     AnomalyKind.REMOTE_REPLACED_NOMINAL: (
         "Uzaktan + sistem kaydı", "info",
         "Uzaktan çalışma günü; Teknopark kaydında kart okuması yok, sistem "
-        "varsayılan tam gün yazmış. Sistemin günü yerine uzaktan saatler sayıldı",
+        "varsayılan tam gün yazmış. Çakışan süre bir kez sayıldı",
         "Uzaktan çalışma"),
     AnomalyKind.CROSS_SITE_EXTENDED: (
         "Tesis birleştirme", "included",
@@ -138,21 +139,6 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
         "olabilir — personel listesinde giriş/çıkış tarihi olmadığı için program "
         "bunları ayırt edemez",
         "Eksik kayıt"),
-    # The same situation, handled the other way: both records kept and unioned. Only
-    # reachable with `remote_replaces: never`, hence the qualifier — two kinds may not
-    # share a label, because the label is the filter key.
-    # Measured, after ADR-027 claimed this was unreachable under the shipped config and
-    # was wrong: June 2026 has exactly one. That day held a remote declaration, the
-    # system's default 09:00-18:00, AND a broken Macunköy record with no exit. The
-    # replacement rule stands down when the day carries an attendance record that is
-    # not the system's default, so nothing was replaced and everything was merged.
-    # Rare, real, and previously named in a way that explained none of it.
-    AnomalyKind.REMOTE_OVERLAP: (
-        "Uzaktan + sistem + ek kayıt", "info",
-        "Uzaktan çalışma günü; sistem varsayılan tam gün yazmış, ama o gün başka bir "
-        "kart kaydı daha var. Bu yüzden değiştirme yapılmadı — hepsi birleştirildi, "
-        "çakışan süre bir kez sayıldı",
-        "Uzaktan çalışma"),
     AnomalyKind.REMOTE_OVERLAP_REAL: (
         "Uzaktan + kart kaydı", "included",
         "Uzaktan çalışma beyanı var ama o gün gerçek kart okuması da var — "

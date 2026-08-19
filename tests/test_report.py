@@ -344,7 +344,6 @@ def test_the_remote_pair_names_the_kind_that_actually_fires():
     label = {kind: value[0] for kind, value in DESCRIPTIONS.items()}
     assert label[AnomalyKind.REMOTE_REPLACED_NOMINAL] == "Uzaktan + sistem kaydı"
     assert label[AnomalyKind.REMOTE_OVERLAP_REAL] == "Uzaktan + kart kaydı"
-    assert label[AnomalyKind.REMOTE_OVERLAP] == "Uzaktan + sistem + ek kayıt"
 
 
 def test_the_worklist_prints_the_explanation_beside_the_keyword(tmp_path, settings):
