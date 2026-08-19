@@ -28,7 +28,7 @@ Where things go:
 
 | What changed | Update |
 | --- | --- |
-| Business rule | `docs/DOMAIN-RULES.md` |
+| Business rule | `docs/DOMAIN-RULES.md` **and** `docs/KURALLAR.md` |
 | Source file structure or quirk | `docs/DATA-SOURCES.md` |
 | Module layout, data flow | `docs/ARCHITECTURE.md` |
 | A choice with alternatives | `docs/DECISIONS.md` (append a new ADR, never edit an old one) |
@@ -36,6 +36,12 @@ Where things go:
 | Phase status | `docs/ROADMAP.md` |
 | What is in flight right now | `docs/HANDOVER.md` — short, and stale by design |
 | Anything an agent needs day one | this file |
+
+`docs/KURALLAR.md` is the same rules in Turkish, written for whoever is asked to
+justify a number — a manager, HR, an employee querying their hours. It carries no
+repository references and no jargon. A rule change means editing both it and
+`DOMAIN-RULES.md`; a rule the operator cannot explain to their manager is a rule that
+will be argued with instead of applied.
 
 If a change spans several, update all of them. Stale docs here are worse than no
 docs, because they are trusted.

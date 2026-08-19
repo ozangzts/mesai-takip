@@ -48,7 +48,6 @@ def test_the_fixture_mirrors_the_shipped_rules(settings, real_settings):
     assert settings.brk.minutes == real_settings.brk.minutes
     assert settings.remote_replaces == real_settings.remote_replaces
     assert settings.plausibility.short_day == real_settings.plausibility.short_day
-    assert settings.plausibility.min_duration == real_settings.plausibility.min_duration
     assert settings.plausibility.max_duration == real_settings.plausibility.max_duration
     assert settings.nominal_day == real_settings.nominal_day
     assert settings.shift_start == real_settings.shift_start

@@ -24,6 +24,9 @@ gidiyor.)
 
 Bu araç bunları otomatik ve her seferinde aynı şekilde hallediyor.
 
+> **Sayılar nasıl çıkıyor?** Bütün hesaplama kuralları tek yerde ve sade Türkçe:
+> **[docs/KURALLAR.md](docs/KURALLAR.md)**. Yöneticiye ya da İK'ya gösterilebilir.
+
 ## Girdi dosyaları ve klasör yapısı
 
 ```

@@ -65,10 +65,6 @@ def build_interval(
             detail=f"çıkış girişten önce; +24 saat uygulandı, süre {_hhmm(duration)}",
         ))
 
-    if duration < settings.plausibility.min_duration:
-        anomalies.append(_anomaly(
-            AnomalyKind.SUSPICIOUS_SHORT, record, detail=f"süre {_hhmm(duration)}"))
-
     reported = _reported(record)
     if reported is not None and abs(reported - duration) > timedelta(minutes=2):
         anomalies.append(_anomaly(

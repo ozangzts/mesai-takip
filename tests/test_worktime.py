@@ -67,11 +67,16 @@ def test_empty_record_is_flagged(settings):
     assert [n.kind for n in notes] == [AnomalyKind.EMPTY_RECORD]
 
 
-def test_short_interval_is_kept_but_flagged(settings):
-    # The real 01.05.2026 13:32 -> 13:34 row.
+def test_a_two_minute_reading_is_kept_and_no_longer_flagged(settings):
+    """The real 01.05.2026 13:32 -> 13:34 row. It still counts; it just says nothing.
+
+    The note it used to raise described a stray reading, not a person — every May and
+    June person whose only note it was had an ordinary month behind it. ADR-031: the
+    day-level total is what answers "did this person work".
+    """
     interval, notes = build_interval(punch("13:32", "13:34"), settings)
-    assert interval is not None, "a suspicious short interval is real data"
-    assert any(n.kind is AnomalyKind.SUSPICIOUS_SHORT for n in notes)
+    assert interval is not None, "a short interval is real data"
+    assert notes == [], "and not worth saying anything about on its own"
 
 
 def test_long_but_plausible_interval_is_kept(settings):

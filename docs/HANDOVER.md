@@ -8,11 +8,12 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (30 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (31 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
 > | Kullanım (Türkçe) | [README.md](../README.md) |
+> | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 >
 > **Bu dosya son commit'ten eskiyse ona değil, yukarıdakilere güven.**
 
@@ -140,7 +141,19 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     **Uyarı:** personel listesinde işe giriş/çıkış tarihi olmadığı için (ROADMAP Q18)
     ay ortasında başlayan biriyle kaydı eksik olan biri ayırt edilemiyor. Bu yüzden
     dışlama değil, insana gösterilen işaret.
-12. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+12. **`Aralık çok kısa` kaldırıldı (ADR-031)** ve **`docs/KURALLAR.md` yazıldı.**
+    Beş dakikanın altındaki tek okuma artık not düşmüyor — sadece o notu taşıyan
+    kişilerin hepsinin ayı sıradandı (106–242 saat, 11–24 gün), yani kayıt tuhaflığını
+    kişi sorunu gibi gösteriyordu. Saatler değişmedi (Mayıs 17 103:58); şüpheli kayıt
+    Mayıs'ta 262→250, Haziran'da 449→426.
+    `KURALLAR.md` bütün hesaplama kurallarını sade Türkçe, jargonsuz ve depo referansı
+    olmadan tek yerde topluyor — proje sahibi yöneticisine gösterebilsin diye. Kural
+    değişirse ikisi birlikte güncellenir.
+    **AÇIK KONU:** 16 saat üst sınırı (`Aralık çok uzun`) el değmeden duruyor ve
+    **tek başına bir günü 0 saat sayan tek kural**. Proje sahibi bunu ayrıca konuşmak
+    istiyor: biri gerçekten 16 saatten fazla çalışmış olabilir mi, ve o günü tamamen
+    sıfırlamak doğru mu?
+13. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

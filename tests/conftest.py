@@ -23,7 +23,6 @@ def settings() -> Settings:
             deduct=False,
         ),
         plausibility=Plausibility(
-            min_duration=timedelta(minutes=5),
             max_duration=timedelta(hours=16),
             short_day=timedelta(hours=2),
             # Mirrors config/settings.yaml. Left out, it defaults to 0 — which

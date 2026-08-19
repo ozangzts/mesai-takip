@@ -1652,3 +1652,45 @@ measured options.
 - It will flag legitimate mid-month joiners and leavers until the roster carries dates.
   That is understood and accepted: the note says so in its own explanation, so nobody
   reading the report has to guess what it is claiming.
+
+---
+
+## ADR-031 — Drop the per-interval short-reading note; the day is the unit
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+`plausibility.min_minutes` flagged any single entry→exit interval under five minutes —
+the `13:32 → 13:34` badge test. It was introduced to surface a bad *record*, and it
+did that faithfully: 11 people in May 2026, 20 in June.
+
+The trouble is what it meant to whoever read the list. Of the people whose **only**
+note it was — 3 in May, 5 in June — every single one had an entirely ordinary month
+behind them: 106 to 242 hours over 11 to 24 days. The note was reporting a stray
+reading, not a person who needed looking at, and it put them in the same list as
+somebody with no attendance data at all.
+
+The project owner's judgement: the question worth asking is per-day, and
+`Süre çok kısa` (a whole day under two hours) already asks it.
+
+### Decision
+
+Remove `SUSPICIOUS_SHORT` and the `min_minutes` threshold. A two-minute interval is
+still read and still counted — it is real badge data, and ADR-003 has always held that
+we do not delete records. It simply no longer raises a note on its own.
+
+The day-level checks are unchanged and are now the only ones: `Süre çok kısa` (under
+two hours in a day) and `Ay büyük ölçüde boş` (under half the month accounted for).
+
+### Consequences
+
+- May's anomaly count falls from 262 to 250, June's from 449 to 426. **No hours move** —
+  May still reports 17 103:58.
+- June's clean list grows from 47 to 52. Those five have ordinary months and nothing
+  else to say about them, which is the point.
+- The 16-hour ceiling (`Aralık çok uzun`) is untouched and remains **per interval and
+  excluding** — it is the one plausibility rule that changes a payroll figure, and the
+  project owner has explicitly reserved it for a separate conversation: whether
+  somebody can genuinely work more than sixteen hours, and whether counting such a day
+  as zero is the right answer. That question is open.

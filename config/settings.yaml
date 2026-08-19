@@ -26,9 +26,11 @@ break:
   min_workday_hours: 6.0
 
 plausibility:
-  # A single interval shorter than this is kept but flagged — badge-test artefacts
-  # like 13:32 -> 13:34.
-  min_minutes: 5
+  # There is no per-interval minimum any more. A 13:32 -> 13:34 badge test used to
+  # raise "Aralık çok kısa", which put 11 people on the May list and 20 on June's —
+  # and every one of those whose only note it was had a perfectly ordinary month
+  # (106-242 hours over 11-24 days). It was reporting a stray reading, not a person.
+  # The day-level check below is what actually answers "did this person work". ADR-031.
   # A whole PERSON-DAY shorter than this is kept but flagged. Different question from
   # min_minutes: that one catches a bad record, this one catches a real person who
   # barely worked. HR asked for 2 hours (ADR-019).

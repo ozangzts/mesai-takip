@@ -20,7 +20,6 @@ class AnomalyKind(StrEnum):
     EMPTY_RECORD = "EMPTY_RECORD"
     NEGATIVE_DURATION = "NEGATIVE_DURATION"
     IMPLAUSIBLE_DURATION = "IMPLAUSIBLE_DURATION"
-    SUSPICIOUS_SHORT = "SUSPICIOUS_SHORT"      # one interval is implausibly brief
     SHORT_DAY = "SHORT_DAY"                    # the whole day is under the threshold
     REMOTE_REPLACED_NOMINAL = "REMOTE_REPLACED_NOMINAL"
     CROSS_SITE_EXTENDED = "CROSS_SITE_EXTENDED"
@@ -86,10 +85,6 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
     AnomalyKind.IMPLAUSIBLE_DURATION: (
         "Aralık çok uzun", "excluded",
         "Tek aralık 16 saati aşıyor — okuma hatası olabilir",
-        "Süre"),
-    AnomalyKind.SUSPICIOUS_SHORT: (
-        "Aralık çok kısa", "included",
-        "Tek aralık 5 dakikanın altında — aynı kartın iki kez okunması olabilir",
         "Süre"),
     AnomalyKind.SHORT_DAY: (
         "Süre çok kısa", "included",
