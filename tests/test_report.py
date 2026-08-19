@@ -103,7 +103,7 @@ def test_every_anomaly_kind_can_be_written(tmp_path, settings):
 
 def test_every_severity_has_impact_text():
     """A kind whose severity has no impact text kills the run at report time."""
-    for kind, (_, severity, _explanation) in DESCRIPTIONS.items():
+    for kind, (_, severity, _explanation, _group) in DESCRIPTIONS.items():
         assert severity in IMPACT_TEXT, f"{kind} has severity {severity!r}"
 
 
@@ -304,19 +304,19 @@ def test_the_result_panel_names_both_output_paths(tmp_path, settings, monkeypatc
 
 def test_no_two_kinds_share_a_label():
     """The people screen filters on the label, so a duplicate would merge two groups."""
-    labels = [label for label, _severity, _explanation in DESCRIPTIONS.values()]
+    labels = [label for label, _s, _e, _g in DESCRIPTIONS.values()]
     assert len(labels) == len(set(labels))
 
 
 def test_every_label_is_short_enough_to_scan_in_a_dropdown():
     """They used to be sentences. A dropdown of sentences cannot be read at a glance."""
-    for kind, (label, _severity, _explanation) in DESCRIPTIONS.items():
+    for kind, (label, _severity, _explanation, _group) in DESCRIPTIONS.items():
         assert len(label) <= 38, f"{kind}: {label!r}"
 
 
 def test_every_kind_explains_itself():
     """The short label drops the meaning; the explanation has to carry it."""
-    for kind, (label, _severity, explanation) in DESCRIPTIONS.items():
+    for kind, (label, _severity, explanation, _group) in DESCRIPTIONS.items():
         assert explanation, f"{kind} has no explanation"
         assert explanation != label, kind
 
@@ -345,7 +345,7 @@ def test_the_remote_pair_names_the_kind_that_actually_fires():
     label = {kind: value[0] for kind, value in DESCRIPTIONS.items()}
     assert label[AnomalyKind.REMOTE_REPLACED_NOMINAL] == "Uzaktan + sistem kaydı"
     assert label[AnomalyKind.REMOTE_OVERLAP_REAL] == "Uzaktan + kart kaydı"
-    assert label[AnomalyKind.REMOTE_OVERLAP].startswith("Uzaktan + sistem kaydı (")
+    assert label[AnomalyKind.REMOTE_OVERLAP] == "Uzaktan + sistem + ek kayıt"
 
 
 def test_the_worklist_prints_the_explanation_beside_the_keyword(tmp_path, settings):

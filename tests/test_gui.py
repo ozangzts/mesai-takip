@@ -788,7 +788,8 @@ def test_the_dropdown_is_built_from_the_loaded_file(people_screen, tmp_path):
     shown = list(screen.filter_box.cget("values"))
     assert any("Herkes  (3)" == s for s in shown)
     assert any("Çıkış yok  (2)" == s for s in shown)
-    assert any("Uzaktan + sistem kaydı  (1)" == s for s in shown)
+    assert any(s.startswith("Uzaktan + sistem kaydı  (1)") for s in shown)
+    assert any("beklenen durum" in s for s in shown), "and it says it is not a problem"
 
 
 def test_choosing_a_filter_narrows_the_list(people_screen, tmp_path):

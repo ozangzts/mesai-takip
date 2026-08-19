@@ -59,28 +59,41 @@ SEVERITIES = ("excluded", "included", "info")
 #       "only the entry exists" and "only the entry is missing" — opposite people.
 #
 # See ADR-027.
-DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str]] = {
+# Families, in the order a filter list shows them. Frequency ordering alone scattered
+# them: "Giriş yok" landed four rows below "Çıkış yok" because fewer people had it,
+# which is exactly the neighbour somebody is looking for when they pick one of the two.
+# Most actionable family first; "Diğer" last because it holds the leftovers.
+GROUPS = ("Eksik kayıt", "Süre", "Uzaktan çalışma", "Diğer")
+
+DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
     AnomalyKind.MISSING_ENTRY: (
         "Giriş yok", "excluded",
-        "Çıkış basılmış, giriş kaydı yok"),
+        "Çıkış basılmış, giriş kaydı yok",
+        "Eksik kayıt"),
     AnomalyKind.MISSING_EXIT: (
         "Çıkış yok", "excluded",
-        "Giriş basılmış, çıkış kaydı yok"),
+        "Giriş basılmış, çıkış kaydı yok",
+        "Eksik kayıt"),
     AnomalyKind.EMPTY_RECORD: (
         "Giriş-çıkış yok", "excluded",
-        "Satır var ama giriş de çıkış da boş"),
+        "Satır var ama giriş de çıkış da boş",
+        "Eksik kayıt"),
     AnomalyKind.NEGATIVE_DURATION: (
         "Gece geçişi", "included",
-        "Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi"),
+        "Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi",
+        "Süre"),
     AnomalyKind.IMPLAUSIBLE_DURATION: (
         "Aralık çok uzun", "excluded",
-        "Tek aralık 16 saati aşıyor — okuma hatası olabilir"),
+        "Tek aralık 16 saati aşıyor — okuma hatası olabilir",
+        "Süre"),
     AnomalyKind.SUSPICIOUS_SHORT: (
         "Aralık çok kısa", "included",
-        "Tek aralık 5 dakikanın altında — aynı kartın iki kez okunması olabilir"),
+        "Tek aralık 5 dakikanın altında — aynı kartın iki kez okunması olabilir",
+        "Süre"),
     AnomalyKind.SHORT_DAY: (
         "Süre çok kısa", "included",
-        "Günlük toplam 2 saatin altında"),
+        "Günlük toplam 2 saatin altında",
+        "Süre"),
     # This is the one that fires under the shipped config, so it carries the plain
     # name. ADR-018 REMOVES the system's default day and counts the remote hours, so
     # nothing is left to overlap with — measured on May 2026: 35 days here, 0 in
@@ -88,37 +101,52 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str]] = {
     AnomalyKind.REMOTE_REPLACED_NOMINAL: (
         "Uzaktan + sistem kaydı", "info",
         "Uzaktan çalışma günü; Teknopark kaydında kart okuması yok, sistem "
-        "varsayılan tam gün yazmış. Sistemin günü yerine uzaktan saatler sayıldı"),
+        "varsayılan tam gün yazmış. Sistemin günü yerine uzaktan saatler sayıldı",
+        "Uzaktan çalışma"),
     AnomalyKind.CROSS_SITE_EXTENDED: (
         "Tesis birleştirme", "included",
-        "Eksik kayıt, kişinin aynı gün diğer tesisteki kaydıyla tamamlandı"),
+        "Eksik kayıt, kişinin aynı gün diğer tesisteki kaydıyla tamamlandı",
+        "Diğer"),
     AnomalyKind.UNRESOLVED_IDENTITY: (
         "İsim eşleşmedi", "excluded",
-        "Personel listesinde bu ismin karşılığı bulunamadı"),
+        "Personel listesinde bu ismin karşılığı bulunamadı",
+        "Diğer"),
     AnomalyKind.DURATION_MISMATCH: (
         "Süre uyuşmazlığı", "included",
-        "Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil"),
+        "Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil",
+        "Süre"),
     AnomalyKind.NO_ATTENDANCE_DATA: (
         "Mesai verisi yok", "excluded",
-        "Dönem boyunca hiç kart kaydı yok"),
+        "Dönem boyunca hiç kart kaydı yok",
+        "Eksik kayıt"),
     # The same situation, handled the other way: both records kept and unioned. Only
     # reachable with `remote_replaces: never`, hence the qualifier — two kinds may not
     # share a label, because the label is the filter key.
+    # Measured, after ADR-027 claimed this was unreachable under the shipped config and
+    # was wrong: June 2026 has exactly one. That day held a remote declaration, the
+    # system's default 09:00-18:00, AND a broken Macunköy record with no exit. The
+    # replacement rule stands down when the day carries an attendance record that is
+    # not the system's default, so nothing was replaced and everything was merged.
+    # Rare, real, and previously named in a way that explained none of it.
     AnomalyKind.REMOTE_OVERLAP: (
-        "Uzaktan + sistem kaydı (birleştirildi)", "info",
-        "Uzaktan çalışma günü; Teknopark kaydında kart okuması yok, sistem "
-        "varsayılan tam gün yazmış. İki kayıt da tutuldu, çakışan süre bir kez "
-        "sayıldı"),
+        "Uzaktan + sistem + ek kayıt", "info",
+        "Uzaktan çalışma günü; sistem varsayılan tam gün yazmış, ama o gün başka bir "
+        "kart kaydı daha var. Bu yüzden değiştirme yapılmadı — hepsi birleştirildi, "
+        "çakışan süre bir kez sayıldı",
+        "Uzaktan çalışma"),
     AnomalyKind.REMOTE_OVERLAP_REAL: (
         "Uzaktan + kart kaydı", "included",
         "Uzaktan çalışma beyanı var ama o gün gerçek kart okuması da var — "
-        "kişi binaya girmiş görünüyor"),
+        "kişi binaya girmiş görünüyor",
+        "Uzaktan çalışma"),
     AnomalyKind.MULTI_DAY_REMOTE: (
         "Çok günlü uzaktan", "included",
-        "Tek izin satırı birden çok güne yayılmış, günlere bölündü"),
+        "Tek izin satırı birden çok güne yayılmış, günlere bölündü",
+        "Uzaktan çalışma"),
     AnomalyKind.UNPARSEABLE_ROW: (
         "Satır okunamadı", "excluded",
-        "Kaynak dosyadaki satır ayrıştırılamadı"),
+        "Kaynak dosyadaki satır ayrıştırılamadı",
+        "Diğer"),
 }
 
 # The single source of truth for "what happened to this record". The report imports
@@ -155,6 +183,10 @@ class Anomaly:
     def explanation(self) -> str:
         """The sentence the short label leaves out. For the report, not for filters."""
         return DESCRIPTIONS[self.kind][2]
+
+    @property
+    def group(self) -> str:
+        return DESCRIPTIONS[self.kind][3]
 
     @property
     def impact(self) -> str:

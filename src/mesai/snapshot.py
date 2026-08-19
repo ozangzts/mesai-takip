@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from .anomalies import Collector
+from .anomalies import DESCRIPTIONS, GROUPS, Collector
 from .config import Settings
 from .models import MonthSummary, RunStats
 
@@ -112,12 +112,22 @@ class Snapshot:
                      if is_problem)
 
     def label_counts(self) -> tuple[tuple[str, int, bool], ...]:
-        """`(label, people, is_problem)` — the filter list, problems first.
+        """`(label, people, is_problem)` — the filter list, grouped by family.
 
-        Ordered problems-before-expected and then by frequency, because a dropdown is
-        read top-down and the rows that cost somebody hours belong above the rows that
-        are working as intended.
+        Family first, frequency second. Ordering by frequency alone put "Giriş yok"
+        four rows below "Çıkış yok" simply because fewer people had it, and those two
+        are precisely each other's neighbour when somebody is choosing between them.
+        A family that is entirely absent from this month never appears.
         """
+        family = {label: group for label, _s, _e, group in DESCRIPTIONS.values()}
+        order = {name: index for index, name in enumerate(GROUPS)}
+        # Declaration order within a family, not frequency. Frequency reshuffles the
+        # dropdown every month, so somebody who learned where a note sits has to find
+        # it again; and it split the punch pair, putting "Mesai verisi yok" between
+        # "Çıkış yok" and "Giriş yok".
+        declared = {label: index for index, (label, _s, _e, _g)
+                    in enumerate(DESCRIPTIONS.values())}
+
         seen: dict[str, tuple[int, bool]] = {}
         for person in self.people:
             for label in person.problems:
@@ -126,10 +136,16 @@ class Snapshot:
             for label in person.expected:
                 count, _ = seen.get(label, (0, False))
                 seen[label] = (count + 1, False)
-        return tuple(
-            (label, count, is_problem)
-            for label, (count, is_problem) in sorted(
-                seen.items(), key=lambda item: (not item[1][1], -item[1][0], item[0])))
+
+        def key(item: tuple[str, tuple[int, bool]]) -> tuple[int, int, str]:
+            label, _value = item
+            # An unknown label sorts last rather than crashing: labels come from a file
+            # that a future version may have written.
+            return (order.get(family.get(label, ""), len(GROUPS)),
+                    declared.get(label, len(declared)), label)
+
+        return tuple((label, count, is_problem)
+                     for label, (count, is_problem) in sorted(seen.items(), key=key))
 
 
 def default_path(period: str, output_path: Path) -> Path:

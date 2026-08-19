@@ -1526,3 +1526,63 @@ them.
   the owner expects one — is a different thing: a standing rule rather than one
   session's choice, and it belongs in `recipients.py` beside the filter, not in the
   screen.
+
+---
+
+## ADR-029 — The filter list is grouped by family and ordered by declaration, not frequency
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner · Corrects ADR-027
+
+### Context
+
+The people screen ordered its filter list by how many people carried each note. In
+June 2026 that produced:
+
+```
+Çıkış yok (54)   Giriş-çıkış yok (34)   Aralık çok kısa (20)   Mesai verisi yok (18)
+Tesis birleştirme (18)   Süre çok kısa (17)   Giriş yok (15)   ...
+```
+
+`Giriş yok` sits four rows below `Çıkış yok`, separated by three unrelated notes,
+purely because fewer people happened to have it — and those two are precisely each
+other's neighbour when somebody is deciding which one they want.
+
+Frequency ordering has a second cost that only shows up over time: the list reshuffles
+every month. Somebody who learned where a note sits has to find it again in July.
+
+Separately, ADR-027 stated that `REMOTE_OVERLAP` was "only reachable with
+`remote_replaces: never`". **That was wrong.** June 2026 has one. The day held a remote
+declaration, the system's default `09:00–18:00`, *and* a broken Macunköy record with no
+exit punch. The replacement rule stands down when the day carries an attendance record
+that is not the system's default, so nothing was replaced and everything was merged.
+The label it carried — `Uzaktan + sistem kaydı (birleştirildi)` — explained none of
+that, and the project owner reasonably asked what it was doing there.
+
+### Decision
+
+1. Every note declares a **family**: `Eksik kayıt`, `Süre`, `Uzaktan çalışma`, `Diğer`.
+   The filter list is ordered by family, then by **declaration order** within it. Both
+   halves are curated, so the list is identical every month and related notes are
+   adjacent.
+2. Frequency no longer affects order at all. The count is still shown — it is what
+   tells somebody whether a filter is worth opening — it just does not move the row.
+3. Grouping mixes expected-behaviour notes in among real problems, which is what
+   ADR-017 spent its effort separating. So each one now **says so in the list**:
+   `Uzaktan + sistem kaydı  (36)  ·  beklenen durum`. Position no longer carries that
+   meaning, so the text has to.
+4. `REMOTE_OVERLAP` is renamed `Uzaktan + sistem + ek kayıt`, and its explanation says
+   what actually happened: another card record on the same day meant no replacement was
+   made. It is rare — one day in June, none in May — but it is real, and a label whose
+   only content is "(birleştirildi)" tells the reader nothing.
+
+### Consequences
+
+- Adding a note now means choosing its family. A note with an unfamiliar family sorts
+  last rather than failing, because labels arrive from a data file that a future
+  version may have written.
+- A test that asserted "problems are listed before expected behaviour" was **removed,
+  not adapted**: family grouping makes it false — June's `Uzaktan + kart kaydı` is a
+  problem and sits below an expected note. A test that keeps passing while stating
+  something untrue is worse than no test.
+- ADR-027 stays as written, including the claim this corrects. ADRs are appended to,
+  never edited; the record of having been wrong is part of what the log is for.

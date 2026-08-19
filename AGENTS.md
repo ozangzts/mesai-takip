@@ -194,7 +194,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 299 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 303 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -425,7 +425,9 @@ report sheet. They are not printed warnings and not silent skips.
 Anomaly **labels are keywords, and they are filter keys** (ADR-027) — the people
 screen builds its dropdown from them. Two kinds may never share a label, no label may
 grow back into a sentence, and the sentence lives in the kind's `explanation` instead.
-Changing a label is a breaking change to the snapshot, not a copy edit.
+Changing a label is a breaking change to the snapshot, not a copy edit. Every note also
+declares a **family** (`anomalies.py:GROUPS`); the filter list is ordered by family then
+by declaration order, never by frequency, so it reads the same every month (ADR-029).
 
 Three severities, and the third one earns its keep: `excluded` (counted as zero
 hours), `included` (counted, worth a look), `info` (counted, **expected behaviour**).

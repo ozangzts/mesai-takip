@@ -41,7 +41,12 @@ class Choice:
 
     @property
     def display(self) -> str:
-        return f"{self.label}  ({self.count})"
+        # Grouping by family means expected-behaviour notes no longer sit together at
+        # the bottom, so each one says what it is. Without this, "working as intended"
+        # would be indistinguishable from "somebody lost hours" (ADR-017).
+        suffix = "" if self.is_problem or self.key in (ALL, NO_PROBLEM) \
+            else "  ·  beklenen durum"
+        return f"{self.label}  ({self.count}){suffix}"
 
 
 def choices(snapshot: Snapshot | None) -> tuple[Choice, ...]:

@@ -362,7 +362,7 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
     # The label is what rows are grouped by, so the explanation is looked up from it
     # rather than carried on every row.
     explanations = {label: explanation
-                    for label, _severity, explanation in DESCRIPTIONS.values()}
+                    for label, _severity, explanation, _group in DESCRIPTIONS.values()}
 
     # (employee key, problem label) -> dates
     grouped: dict[tuple[NameKey | None, str], list[date]] = defaultdict(list)

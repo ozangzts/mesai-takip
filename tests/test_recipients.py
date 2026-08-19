@@ -50,12 +50,12 @@ def test_the_filter_list_is_built_from_the_data_not_hard_coded(snap):
     assert "Uzaktan + sistem kaydı" in keys
 
 
-def test_problems_are_listed_before_expected_behaviour(snap):
-    """A dropdown is read top-down; hours-losing rows belong above working-as-intended."""
-    notes = [c for c in recipients.choices(snap) if c.key not in
-             (recipients.ALL, recipients.NO_PROBLEM)]
-    assert [c.is_problem for c in notes] == sorted(
-        (c.is_problem for c in notes), reverse=True)
+def test_the_two_standing_filters_come_first(snap):
+    """Everyone, then the clean ones. Both are answers to "who", not notes."""
+    entries = recipients.choices(snap)
+    assert [c.key for c in entries[:2]] == [recipients.ALL, recipients.NO_PROBLEM]
+    assert all(c.key not in (recipients.ALL, recipients.NO_PROBLEM)
+               for c in entries[2:])
 
 
 def test_each_entry_carries_its_own_count(snap):
@@ -121,3 +121,51 @@ def test_people_without_an_address_are_reported_not_dropped(snap):
     chosen = recipients.selected(snap, recipients.ALL, set())
     assert len(chosen) == 5
     assert [p.name for p in recipients.without_email(chosen)] == ["BERK NUMUNE"]
+
+
+# --- the order the filter list is read in (ADR-029) -------------------------
+
+def test_related_notes_are_neighbours(snap):
+    """Frequency ordering split the punch pair: "Giriş yok" landed four rows below
+    "Çıkış yok" simply because fewer people had it — and those two are exactly each
+    other's neighbour when somebody is choosing between them."""
+    from mesai.anomalies import DESCRIPTIONS, GROUPS
+
+    family = {label: group for label, _s, _e, group in DESCRIPTIONS.values()}
+    notes = [c.label for c in recipients.choices(snap)
+             if c.key not in (recipients.ALL, recipients.NO_PROBLEM)]
+    groups = [family[label] for label in notes]
+
+    assert groups == sorted(groups, key=GROUPS.index), "families must not interleave"
+
+
+def test_the_order_does_not_depend_on_how_many_people_have_each_note(snap):
+    """A dropdown that reshuffles every month makes somebody re-find what they knew."""
+    busy = Snapshot(
+        period=snap.period, generated_at=snap.generated_at, rules={},
+        coverage=snap.coverage,
+        # "Süre çok kısa" now dwarfs "Çıkış yok"; the order must not move.
+        people=snap.people + tuple(
+            person(f"EK {n} DENEME", problems=("Süre çok kısa",)) for n in range(20)),
+    )
+    order = [c.label for c in recipients.choices(snap)]
+    busier = [c.label for c in recipients.choices(busy)]
+
+    assert [l for l in order if l in busier] == [l for l in busier if l in order]
+
+
+def test_expected_behaviour_says_so_in_the_list(snap):
+    """Grouping by family mixes them in with real problems, so each one is marked."""
+    entries = {c.label: c.display for c in recipients.choices(snap)}
+
+    assert "beklenen durum" in entries["Uzaktan + sistem kaydı"]
+    assert "beklenen durum" not in entries["Çıkış yok"]
+
+
+# --- appearing in more than one filter --------------------------------------
+
+def test_someone_with_two_notes_appears_under_both(snap):
+    """Measured on June 2026: 62 of 163 people carry more than one note. Being in one
+    filter must never take somebody out of another."""
+    for label in ("Çıkış yok", "Süre çok kısa"):
+        assert "AHMET SINAMA" in [p.name for p in recipients.matching(snap, label)]
