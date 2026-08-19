@@ -201,7 +201,7 @@ açılmaz, bir pencere gelir.
 │          │  └─────────────────────────────────────┘  │
 │          │  ┌─────────────────────────────────────┐  │
 │          │  │ Temmuz 2026 raporu yazıldı — EKSİK  │  │
-│          │  │ Toplam çalışma süresi : 16029:17    │  │
+│          │  │ Toplam çalışma süresi : 16078:44    │  │
 │          │  │ ⚠ EKSİK VERİ — teknopark dosyası …  │  │
 │          │  │                                     │  │
 │          │  │ RAPOR DOSYASI                       │  │
@@ -489,9 +489,9 @@ Ayrıntılı sayfa ve kolon tasarımı: [docs/OUTPUT-SPEC.md](docs/OUTPUT-SPEC.m
 | mesai verisi olan | 145 | 145 | 144 |
 | mesai verisi olmayan | 26 | 18 | 31 |
 | personel listesinde olmayan (muhtemelen ayrılmış) | 11 | 9 | 9 |
-| Kişi-gün kaydı | 1 823 | 2 820 | 1 726 |
-| **Toplam çalışma süresi** | **17 103:58** | **27 119:24** | **16 029:17** |
-| Şüpheli kayıt | 257 (175'i dahil edilmedi) | 441 (269) | 527 (452) |
+| Kişi-gün kaydı | 1 823 | 2 822 | 1 729 |
+| **Toplam çalışma süresi** | **17 103:58** | **27 166:19** | **16 078:44** |
+| Şüpheli kayıt | 250 (175'i dahil edilmedi) | 427 (266) | 554 (449) |
 
 **Temmuz sayıları eksik veriye dayanıyor** — Teknopark dosyası ayın 1–19'unu
 kapsıyor. Karşılaştırma için kullanılmamalı.

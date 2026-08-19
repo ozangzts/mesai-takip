@@ -497,26 +497,34 @@ an input mechanism (Q8). Public-holiday rows are colour-coded in the report
   distinguish "worked zero" from "no data".
 
 
-## Plausibility: three thresholds, three different questions
+## Plausibility: four thresholds, and only one of them removes hours
 
-They are easy to confuse, and two of them once shared the words "Süre çok kısa". A
-fourth — a per-interval five-minute minimum — was removed in ADR-031: it reported a
-stray badge reading rather than a person, and everybody whose only note it was had an
-ordinary month.
-
-The plain-Turkish version of everything below is `KURALLAR.md`.
+Easy to confuse, and every one of them has been confused at some point. The
+plain-Turkish version of all this is `KURALLAR.md`.
 
 | Note | What it measures | Threshold | Effect |
 | --- | --- | --- | --- |
-| `Aralık çok uzun` | **one** entry→exit interval | `max_shift_hours` (16 h) | **excluded**, 0 hours |
-| `Süre çok kısa` | **one person-day**, total | `short_day_hours` (2 h) | counted, flagged |
-| `Ay büyük ölçüde boş` | **one person-month**, coverage | `sparse_month_ratio` (0.5) | counted, flagged |
+| `Günlük süre çok kısa (<2 saat)` | one person-day, total | `short_day_hours` | counted, flagged |
+| `Günlük süre çok uzun (>16 saat)` | one person-day, total | `max_shift_hours` | counted, flagged |
+| `Ay büyük ölçüde boş` | one person-month, coverage | `sparse_month_ratio` (0.5) | counted, flagged |
+| `Giriş-çıkış tutarsız` | **our own repair** of one interval | `repair_max_hours` (20 h) | **excluded**, 0 hours |
 
-`Aralık çok uzun` hunts a **bad record** — a day whose exit was never punched, read as
-one enormous interval. `Süre çok kısa` hunts a **real person who barely worked that
-day**. A day can hold several intervals, which is why "interval" and "day" stay
-separate rules rather than one with two thresholds.
+The first three ask about a **person**: did they barely work that day, work an
+implausibly long one, or barely appear all month. None of them removes an hour — a
+16-hour day is real work until somebody says otherwise (ADR-032), and the month
+coverage rule cannot tell a mid-month joiner from missing records (ADR-030).
 
-The fourth (ADR-030) exists because the second and third leave a gap: somebody with one
-ordinary nine-hour day and twenty-one missing ones passes both. Coverage is worked days
-plus leave days against the period's expected working days.
+The fourth asks about a **record**, and it is the only one that zeroes a day. When the
+exit precedes the entry the tool assumes the shift crossed midnight and adds 24 hours.
+That assumption is *ours*; if it produces something above `repair_max_hours` it was the
+wrong assumption and the record is refused. All five real cases across May–July are two
+stamps minutes or seconds apart — `13:58:56 → 13:57:50` becomes 23:58.
+
+The two ceilings are **separate numbers on purpose** (ADR-033): 16 flags a long day, 20
+refuses a bad guess. They were one number, and that cost two people a June day they had
+actually worked — 16:06 and 16:39, both counted as zero. The longest genuine midnight
+crossing in the data is 15:36, which left 16 with only 24 minutes of headroom.
+
+A fifth threshold, a per-interval five-minute minimum, was removed in ADR-031: it
+reported a stray badge reading rather than a person, and everybody whose only note it
+was had an ordinary month behind them.

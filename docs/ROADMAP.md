@@ -85,16 +85,16 @@ folder can be pointed at directly — the Phase 4 automation needs no renaming s
 | with attendance data | 145 | 145 |
 | without attendance data (Q4) | 26 | 18 |
 | not in the roster (probable leavers) | 11 | 9 |
-| Person-days | 1 823 | 2 820 |
+| Person-days | 1 823 | 2 822 |
 | Presence (Σ intervals) | 16 931:16 | 26 834:48 |
 | In-day gaps, paid (ADR-015) | 172:41 | 284:35 |
-| **Total reported** | **17 103:58** | **27 119:24** |
+| **Total reported** | **17 103:58** | **27 166:19** |
 | Anomalies | 257 (175 excluded) | 441 (269 excluded) |
 | Reconciliation | TAMAM | TAMAM |
 | Teknopark block totals matching | 110 / 110 | 110 / 110 |
 
 **July 2026 is NOT in this table on purpose.** Its Teknopark export covers only
-1–19 July (13 of 23 working days), so its `16 029:17` is not comparable and must not
+1–19 July (13 of 23 working days), so its `16 078:44` is not comparable and must not
 reach payroll. The run now says so: red banner on `Aylık Özet`, `3. Dönem kapsamı` on
 `Kontrol`, and exit code 5. See ADR-020 and Q23.
 
