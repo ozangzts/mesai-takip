@@ -21,6 +21,7 @@ from tkinter import filedialog, ttk
 
 from .. import snapshot as snapshot_module
 from ..mail import recipients
+from ..mail.recipients import other_problems
 from . import widgets as w
 from .period import period_label
 
@@ -238,7 +239,11 @@ class PeopleScreen:
         for child in self.list_frame.winfo_children():
             child.destroy()
         self._rows = []
-        self.list_frame.columnconfigure(1, weight=1)
+        # The address column takes the slack, not the name column. Names are short and
+        # of a known length; an address is the thing that runs out of room, and it was
+        # being clipped mid-word with no indication that anything had been cut.
+        self.list_frame.columnconfigure(1, weight=0)
+        self.list_frame.columnconfigure(4, weight=1)
 
         if self.snapshot is None:
             tk.Label(self.list_frame,
@@ -267,13 +272,24 @@ class PeopleScreen:
             tk.Label(self.list_frame, text=person.hours_text, background=w.CARD,
                      foreground=w.MUTED, font=(w.MONO, 9), anchor="e", width=8).grid(
                 row=row, column=2, sticky="e", padx=(8, 8))
+
+            # Only a count, never the notes themselves. Somebody filtering by one note
+            # still needs to know this person has others — "fix the missing exit" is a
+            # different conversation if the same person also has three short days —
+            # but printing every label on every row turns the list into a wall of text
+            # and pushes the address off the edge.
+            others = other_problems(person, self.filter_key)
+            tk.Label(self.list_frame, text=f"+{others}" if others else "",
+                     background=w.CARD, foreground=w.WARN if others else w.MUTED,
+                     font=(w.FACE, 9), anchor="w", width=3).grid(
+                row=row, column=3, sticky="w", padx=(0, 8))
             # No address is a fact about the row, not a reason to hide it. Eleven of
             # May's people are leavers the roster no longer carries an address for.
             trailing = person.email or "e-posta yok"
             tk.Label(self.list_frame, text=trailing, background=w.CARD,
                      foreground=w.MUTED if person.email else w.WARN,
-                     font=(w.FACE, 9), anchor="w", width=30).grid(
-                row=row, column=3, sticky="w", padx=(0, 12))
+                     font=(w.FACE, 9), anchor="w").grid(
+                row=row, column=4, sticky="ew", padx=(0, 12))
 
         self._update_count()
 

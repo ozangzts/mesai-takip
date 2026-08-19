@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 303 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 306 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -118,6 +118,11 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     unutuluyor. E-postası olmayan gösteriliyor ve sayılıyor, atılmıyor.
     Seçim mantığı `mail/recipients.py`'de, pencerede değil — pencere olmadan test
     edilebiliyor.
+    Filtre listesi **ailelere göre** sıralı (Eksik kayıt / Süre / Uzaktan çalışma /
+    Diğer), aile içinde bildirim sırasına göre — sıklığa göre değil, çünkü o her ay
+    listeyi yeniden diziyordu (ADR-029). Satırda kişinin **öteki sorun sayısı** `+2`
+    diye görünüyor; notların kendisi yazılmıyor, liste metin duvarına dönüşmesin diye.
+    Kolon olarak ne ekleneceği (departman, sicil, izin günü…) **henüz açık**.
     Notlar da anahtar kelimeye çevrildi (ADR-027) ve gri notlar veri dosyasına
     `expected` alanıyla girdi (`format_version` 3).
     **Gönderme yok.** HANDOVER'daki üç mail kararı hâlâ cevapsız ve ekran onlarsız

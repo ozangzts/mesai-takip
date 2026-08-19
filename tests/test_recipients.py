@@ -169,3 +169,25 @@ def test_someone_with_two_notes_appears_under_both(snap):
     filter must never take somebody out of another."""
     for label in ("Çıkış yok", "Süre çok kısa"):
         assert "AHMET SINAMA" in [p.name for p in recipients.matching(snap, label)]
+
+
+# --- "is there more going on with this person" ------------------------------
+
+def test_the_extra_count_excludes_the_note_being_filtered_on(snap):
+    ahmet = next(p for p in snap.people if p.name == "AHMET SINAMA")
+
+    assert recipients.other_problems(ahmet, "Çıkış yok") == 1, "the short day remains"
+    assert recipients.other_problems(ahmet, "Süre çok kısa") == 1
+    assert recipients.other_problems(ahmet, recipients.ALL) == 2, "nothing to exclude"
+
+
+def test_expected_behaviour_does_not_inflate_the_extra_count(snap):
+    """It is not a problem. Counting it as one is the mistake ADR-017 exists for."""
+    zeynep = next(p for p in snap.people if p.name == "ZEYNEP ÖRNEK")
+    assert zeynep.expected
+    assert recipients.other_problems(zeynep, recipients.ALL) == 0
+
+
+def test_someone_with_one_note_shows_nothing_extra(snap):
+    cagla = next(p for p in snap.people if p.name == "ÇAĞLA DENEME")
+    assert recipients.other_problems(cagla, "Çıkış yok") == 0

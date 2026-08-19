@@ -97,3 +97,16 @@ def without_email(people: Iterable[Person]) -> tuple[Person, ...]:
     removing them would make a list of 30 quietly become 27.
     """
     return tuple(p for p in people if not p.email)
+
+
+def other_problems(person: Person, filter_key: str) -> int:
+    """How many problems this person has *besides* the one being filtered on.
+
+    A count, not a list. Under a specific note it answers "is there more going on with
+    this person than the thing I filtered for"; under `Herkes` there is nothing to
+    exclude, so it is simply how many problems they have.
+
+    Expected-behaviour labels are not counted. They are not problems, and inflating a
+    problem count with them is the mistake ADR-017 exists to prevent.
+    """
+    return sum(1 for label in person.problems if label != filter_key)
