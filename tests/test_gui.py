@@ -1026,3 +1026,18 @@ def test_the_roster_can_be_set_before_a_folder_is_chosen(screen, tmp_path):
     assert "Değiştir…" in labels
     assert any("Gözat" in text for text in labels), "and the instruction still shows"
     assert str(window.run_button.cget("state")) == "disabled", "no folder, no run"
+
+
+def test_settings_written_with_a_byte_order_mark_are_still_read(screen, tmp_path):
+    """Notepad and PowerShell both add one, and the strict decoder rejects the file.
+
+    The failure was silent and total: the output folder reverted to the Desktop, the
+    remembered roster vanished, and nothing said why.
+    """
+    kept = tmp_path / "Raporlar"
+    kept.mkdir()
+    (tmp_path / "arayuz-ayarlari.json").write_text(
+        json.dumps({"output_dir": str(kept)}), encoding="utf-8-sig")
+
+    window = screen()
+    assert window.output_dir == kept

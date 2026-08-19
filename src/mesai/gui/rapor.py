@@ -406,7 +406,13 @@ class ReportScreen:
         self.output_dir: Path = places.desktop_dir()
         saved: dict[str, object] = {}
         try:
-            saved = json.loads(self._settings_path().read_text(encoding="utf-8"))
+            # utf-8-sig, not utf-8: a byte-order mark makes a perfectly valid file
+            # unreadable to the strict decoder, and anything that writes this file
+            # other than us — Notepad, PowerShell's Set-Content — adds one. The
+            # failure was silent: every remembered path reverted at once and nothing
+            # said why. `utf-8-sig` reads both forms.
+            saved = json.loads(
+                self._settings_path().read_text(encoding="utf-8-sig"))
         except (OSError, ValueError):
             pass
 
@@ -664,7 +670,11 @@ class ReportScreen:
                 row=row, column=1, sticky="w", padx=(6, 8))
 
             note = state.note
-            if state.chosen and state.ready:
+            # Only meaningful for the monthly three, where it distinguishes "found in
+            # the folder you chose" from "you pointed at it somewhere else". The roster
+            # has no folder of its own, so every roster is pointed at in some sense and
+            # the words said nothing.
+            if state.chosen and state.ready and state.key != "roster":
                 note += "   (elle seçildi)"
             if state.mismatch:
                 note += "   — adı bu kaynağa benzemiyor, yine de kullanılacak"
@@ -682,12 +692,17 @@ class ReportScreen:
             # it. Found automatically, it still offers `Değiştir…`; otherwise a newer
             # list sitting anywhere else is simply unreachable, which is what the
             # project owner ran into.
-            if not state.ready:
+            if state.key == "roster":
+                # Never "Geri al". Reverting means going back to the automatic lookup,
+                # and for a program that is not running from a clone there may be
+                # nothing to go back to — the button would undo the user's setup and
+                # leave them with no roster at all.
+                action, command = (("Değiştir…", self._choose_source) if state.ready
+                                   else ("Seç…", self._choose_source))
+            elif not state.ready:
                 action, command = "Seç…", self._choose_source
             elif state.chosen:
                 action, command = "Geri al", self._forget_source
-            elif state.key == "roster":
-                action, command = "Değiştir…", self._choose_source
             else:
                 action, command = "", None
 

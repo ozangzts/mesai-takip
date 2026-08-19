@@ -337,3 +337,41 @@ def test_izin_splits_a_multi_day_remote_record(settings, tmp_path):
     assert len(remote) == 3
     assert {r.date.day for r in remote} == {4, 5, 6}
     assert any(a.kind is AnomalyKind.MULTI_DAY_REMOTE for a in anomalies)
+
+
+# --- a file the library cannot open at all -----------------------------------
+#
+# Wrong COLUMNS already produced a clear LayoutError. A file that is not a workbook at
+# all reached the user as `BadZipFile: File is not a zip file`, which names a library
+# and a container format and helps nobody — and it is exactly what a renamed CSV, a
+# half-downloaded file or a corrupt one produces.
+
+def test_a_file_that_is_not_a_workbook_says_so_plainly(tmp_path):
+    from mesai.readers.base import LayoutError, open_sheets
+
+    fake = tmp_path / "liste.xlsx"
+    fake.write_text("bu bir excel değil", encoding="utf-8")
+
+    with pytest.raises(LayoutError) as caught:
+        open_sheets(fake)
+
+    message = str(caught.value)
+    assert "liste.xlsx" in message, "name the file"
+    assert "bozuk olabilir" in message, "and say what to do"
+
+
+def test_the_roster_reader_refuses_a_workbook_with_the_wrong_columns(tmp_path):
+    """A wrong file must fail loudly rather than produce empty people."""
+    import openpyxl
+    from mesai.readers import roster
+    from mesai.readers.base import LayoutError
+
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet.append(["Tarih", "Giriş", "Çıkış"])
+    sheet.append(["01.06.2026", "08:00", "18:00"])
+    path = tmp_path / "yanlis.xlsx"
+    book.save(path)
+
+    with pytest.raises(LayoutError, match="beklenen kolonları"):
+        roster.read(path)

@@ -108,7 +108,19 @@ def _open_openpyxl(path: Path) -> list[Sheet]:
         warnings.filterwarnings(
             "ignore", message="Workbook contains no default style",
             category=UserWarning)
-        workbook = openpyxl.load_workbook(path, data_only=True)
+        try:
+            workbook = openpyxl.load_workbook(path, data_only=True)
+        except Exception as exc:                       # noqa: BLE001
+            # Anything the library refuses to open. A `.xlsx` that is not a zip — a
+            # renamed CSV, a half-downloaded file, a corrupt one — used to reach the
+            # user as `BadZipFile: File is not a zip file`, which names a library and
+            # a container format and helps nobody. The window can now say which file
+            # and what to do about it.
+            raise LayoutError(
+                f"{path.name}: dosya açılamadı. Excel dosyası olmayabilir ya da "
+                f"bozuk olabilir — Excel'de açıp .xlsx olarak kaydedip tekrar "
+                f"deneyin.\n({type(exc).__name__}: {exc})"
+            ) from exc
     try:
         return [Sheet(ws.title, [tuple(r) for r in ws.iter_rows(values_only=True)])
                 for ws in workbook.worksheets]
@@ -123,10 +135,18 @@ def _open_xlrd(path: Path) -> list[Sheet]:
         raise UnsupportedFormat(
             f"{path.name}: .xls okumak için 'xlrd' paketi gerekiyor ama "
             "kurulu değil.  Kurulum:  pip install xlrd"
-            "Kurulum:  pip install xlrd"
         ) from exc
 
-    book = xlrd.open_workbook(path, on_demand=False)
+    try:
+        book = xlrd.open_workbook(path, on_demand=False)
+    except Exception as exc:                           # noqa: BLE001
+        # Same reason as the openpyxl side: a file the library cannot open must say
+        # so in words the person holding it can act on.
+        raise LayoutError(
+            f"{path.name}: dosya açılamadı. Excel dosyası olmayabilir ya da bozuk "
+            f"olabilir — Excel'de açıp .xlsx olarak kaydedip tekrar deneyin.\n"
+            f"({type(exc).__name__}: {exc})"
+        ) from exc
     sheets: list[Sheet] = []
     for ws in book.sheets():
         rows: list[tuple] = []

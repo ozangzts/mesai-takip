@@ -1935,6 +1935,55 @@ Keep it, and stop it being a surprise.
 - The row is shown **before a month folder is picked**, for the same reason: it is not
   month-specific, so gating it behind a month is an ordering constraint with nothing
   behind it. The run button stays disabled until a folder is chosen.
+- The roster row never says `(elle seçildi)` and never offers `Geri al`. Both are
+  meaningful for the monthly three — one distinguishes "found in the folder you chose"
+  from "you pointed at it", the other returns to the folder. Neither is meaningful
+  here: the roster has no folder of its own, so every roster is pointed at in some
+  sense, and "revert" would undo the user's setup and leave a program with no
+  `data/personel/` holding nothing at all. It offers `Değiştir…` and that is all.
 - Making the roster optional was considered and rejected. A report with no addresses
   produces a data file with no addresses, and the mail step would then receive a
   silently empty list — trading a loud failure now for a quiet one later.
+
+---
+
+## ADR-036 — A file the library cannot open says so in words
+
+2026-08-19 · Status: **Accepted** · Decided by: implementation
+
+### Context
+
+The readers were careful about the wrong *shape* — a workbook whose columns are not
+the ones expected raises `LayoutError` naming the file and what was missing — and
+careless about the wrong *file*. Asked what happens if the roster cannot be read,
+measured:
+
+| Given | Result |
+| --- | --- |
+| workbook with the wrong columns | `LayoutError: beklenen kolonları taşıyan sayfa bulunamadı` |
+| empty workbook | the same |
+| **a `.xlsx` that is not a workbook** | **`BadZipFile: File is not a zip file`** |
+
+The last one is what a renamed CSV, a half-downloaded file or a corrupt one produces,
+and it reached the window as `Beklenmeyen hata: BadZipFile`. It names a library and a
+container format, and tells the person holding the file nothing about what to do.
+
+### Decision
+
+Both container openers wrap the library call and raise `LayoutError` naming the file
+and the remedy: open it in Excel, save as `.xlsx`, try again. The original exception is
+appended in brackets so a developer still has it.
+
+Separately, `arayuz-ayarlari.json` is now read with `utf-8-sig`. A byte-order mark
+makes a perfectly valid file unreadable to the strict decoder, and everything that
+writes such a file other than this program — Notepad, PowerShell's `Set-Content` —
+adds one. The failure was silent and total: every remembered path reverted at once and
+nothing said why. Found while testing the roster memory, in the harness rather than the
+program, which is exactly how a user would meet it.
+
+### Consequences
+
+- One pre-existing defect fixed on the way: the `.xls` missing-dependency message
+  printed its `pip install xlrd` line twice.
+- `UnsupportedFormat` still handles a suffix we do not read at all (`.xlsb`), which is
+  a different question from a file we cannot open.

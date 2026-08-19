@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (35 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (36 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 336 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 339 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -205,6 +205,9 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     **Seçim hatırlanıyor** — aya bağlı olmadığı için (çıktı klasörüyle aynı mantık,
     girdi klasörünün tersi). Dosya taşınmışsa hatırlanan yol düşürülüyor ve normal
     arama devreye giriyor.
+    Satırda `(elle seçildi)` yazmıyor ve `Geri al` yok — ikisi de üç aylık dosya için
+    anlamlı, liste için değil: listenin kendi klasörü olmadığı için "geri al" kullanıcının
+    kurduğu düzeni bozup elinde hiç liste bırakmayabilir.
     Liste **bulunmuş olsa bile** satırda `Değiştir…` var — üç aylık dosyanın klasör
     seçicisi var, listenin yok; düğme olmasa aramanın bulduğu listeden başkasına
     geçmek imkânsızdı. Satır **klasör seçilmeden de** görünüyor, aynı sebeple.
