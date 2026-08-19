@@ -1757,3 +1757,57 @@ Split the rule along the line the data draws.
 - `max_shift_hours` now does two jobs — the repair ceiling and the day-level flag — and
   they are deliberately the same number. If they ever need to differ, that is a second
   config key and a new decision, not a quiet reinterpretation of this one.
+
+---
+
+## ADR-033 — The repair ceiling is its own number, and it is 20 hours
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner · Refines ADR-032
+
+### Context
+
+ADR-032 gave `max_shift_hours` two jobs on purpose: flag a person-day over sixteen
+hours, and refuse an interval whose midnight-crossing repair lands above sixteen hours.
+It also said that if the two ever needed to differ, that would be a second key and a new
+decision. They need to differ.
+
+Every midnight crossing in May and June 2026 — 33 records where the exit precedes the
+entry — measured:
+
+| | Repaired and kept | Refused |
+| --- | --- | --- |
+| May | 7 (longest **15:36**) | 2 — at 21:56 and 23:58 |
+| June | 23 (longest 10:16) | 1 — at 23:59 |
+
+The genuine crossings are a tight cluster: a 15:30-ish entry against a 01:00-ish exit,
+nine to ten hours. The refused ones are records whose two stamps are minutes or seconds
+apart, so adding 24 hours lands them just under a full day.
+
+The gap between the two groups is wide — 15:36 to 21:56 — but the ceiling sat at 16:00,
+**24 minutes above the longest real crossing**. A sixteen-hour night shift is not
+impossible, and it would have been thrown away.
+
+### Decision
+
+`plausibility.repair_max_hours: 20`, separate from `max_shift_hours: 16`.
+
+- **20 hours**, because it clears the longest observed genuine crossing by four and a
+  half hours while still catching all three broken records, which land at 21:56, 23:58
+  and 23:59.
+- **The day-level flag stays at 16 hours.** A long day is still worth pointing at; it
+  is simply never removed.
+- Two keys rather than one reused. Tying them together is what cost two people a day
+  they had worked, and the two thresholds answer different questions: one asks "is this
+  day worth a look", the other asks "did our own guess produce something impossible".
+
+### Consequences
+
+- **Nothing moves.** May stays at 17 103:58 and June at 27 166:19, and the same three
+  records are refused. The change buys headroom, not figures — which is the point of
+  making it before a long night shift turns up rather than after.
+- `tests/conftest.py` mirrors the new key, and `test_config.py` compares the whole
+  `Plausibility` object, so a fixture that forgot it would fail rather than quietly
+  test a ceiling nobody runs.
+- If a genuine crossing ever exceeds 20 hours it will still be refused. That is a
+  deliberate floor on absurdity: at that point the record is indistinguishable from a
+  stuck badge, and the day is visible on the anomaly sheet either way.

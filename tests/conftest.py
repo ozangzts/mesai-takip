@@ -24,6 +24,7 @@ def settings() -> Settings:
         ),
         plausibility=Plausibility(
             max_duration=timedelta(hours=16),
+            repair_max=timedelta(hours=20),
             short_day=timedelta(hours=2),
             # Mirrors config/settings.yaml. Left out, it defaults to 0 — which
             # DISABLES the check, so every test would pass against a rule the program

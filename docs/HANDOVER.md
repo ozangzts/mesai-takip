@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (32 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (33 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 318 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 321 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -169,6 +169,11 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     Mayıs değişmedi (17 103:58). **Haziran 27 119:24 → 27 166:19, +46:55.**
     Yeni etiketler: `Günlük süre çok uzun (>16 saat)` ve `Giriş-çıkış tutarsız`.
     `Günlük süre çok kısa (<2 saat)` de eşiği adında taşıyor artık.
+    **ADR-033 ile düzeltme üst sınırı ayrı bir anahtar oldu ve 20 saate çıktı.**
+    Sebebi ölçüldü: gerçek gece vardiyalarının en uzunu 15:36, yani 16 saatlik sınırın
+    yalnızca 24 dakika altında — 16 saatlik bir gece vardiyası imkânsız değil. Bozuk
+    kayıtlar 21:56 / 23:58 / 23:59'da olduğu için üçü de hâlâ reddediliyor ve
+    **hiçbir rakam değişmedi**. Günlük 16 saat işaretlemesi olduğu gibi duruyor.
 14. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken

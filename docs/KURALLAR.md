@@ -162,14 +162,25 @@ duruyordu.
 | `Günlük süre çok kısa (<2 saat)` | Günün toplamı 2 saatin altında | 🟡 |
 | `Günlük süre çok uzun (>16 saat)` | Günün toplamı 16 saati aşıyor — **süre sayılır**, sadece kontrol için işaretlenir | 🟡 |
 | `Gece geçişi` | Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi | 🟡 |
-| `Giriş-çıkış tutarsız` | Çıkış girişten önce ve gece geçişi varsayılınca süre 16 saati aşıyor — kayıt kullanılamaz | 🔴 |
+| `Giriş-çıkış tutarsız` | Çıkış girişten önce ve gece geçişi varsayılınca süre 20 saati aşıyor — kayıt kullanılamaz | 🔴 |
 | `Süre uyuşmazlığı` | Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil | 🟡 |
 
 **Uzun gün sayılır, atılmaz.** 16 saati aşan bir gün gerçek olabilir; program onu
-toplamdan çıkarmaz, sadece "buna bakın" der. Atılan tek şey **kendi içinde tutarsız**
-kayıt: çıkışı girişten önce yazılmış ve gece geçişi varsayımıyla düzeltilince 16 saati
-aşan kayıt. O varsayım programın kendi tahmini; tahmin imkânsız bir sonuç veriyorsa
-tahmin yanlıştır.
+toplamdan çıkarmaz, sadece "buna bakın" der.
+
+Atılan tek şey **kendi içinde tutarsız** kayıt: çıkışı girişten önce yazılmış olan.
+Program böyle bir kaydı görünce "gece yarısını geçmiş" varsayıp 24 saat ekler — ve bu
+varsayım **programın kendi tahminidir**. Tahmin 20 saati aşan bir sonuç veriyorsa
+tahmin yanlıştır, kayıt kullanılmaz.
+
+### Gece vardiyaları neden karışmıyor
+
+Gerçek gece vardiyaları düzeltmeden sonra 9–10 saat çıkıyor (Mayıs–Haziran'da en uzunu
+15:36). Atılan kayıtlar ise giriş ile çıkışı **dakikalar hatta saniyeler** arayla olan
+kayıtlar; 24 saat eklenince neredeyse tam güne çıkıyorlar (21:56, 23:58, 23:59).
+
+Sınır 20 saat — en uzun gerçek vardiyanın 4,5 saat üstünde, en kısa bozuk kaydın
+2 saat altında.
 
 
 ### Uzaktan çalışma
@@ -197,6 +208,7 @@ tahmin yanlıştır.
 | --- | --- | --- |
 | Günlük kısa süre | 2 saat | Bir günün toplamı |
 | Günlük uzun süre | 16 saat | Bir günün toplamı (işaretlenir, çıkarılmaz) |
+| Düzeltme üst sınırı | 20 saat | Gece geçişi varsayımı bunu aşarsa kayıt kullanılmaz |
 | Ay kapsama oranı | %50 | Çalışma + izin ÷ beklenen iş günü |
 | Sistemin varsayılan günü | `09:00–18:00` | Teknopark'ın kart verisi olmayan güne yazdığı saat |
 | Öğle arası kesintisi | Yok | — |

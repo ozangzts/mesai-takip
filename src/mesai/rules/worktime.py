@@ -62,12 +62,17 @@ def build_interval(
     # An interval the source states plainly is kept however long it is. Two June days
     # ran 16:06 and 16:39 — real people, real shifts — and were being counted as zero
     # because a ceiling meant for broken records caught them. ADR-032.
-    if repaired and duration > settings.plausibility.max_duration:
+    #
+    # The ceiling here is `repair_max` (20 h), not the day-level `max_duration` (16 h).
+    # The longest genuine midnight crossing in the data is 15:36, which left only 24
+    # minutes of headroom under 16 — and a sixteen-hour night shift is not impossible.
+    # ADR-033.
+    if repaired and duration > settings.plausibility.repair_max:
         return None, [_anomaly(
             AnomalyKind.IMPLAUSIBLE_DURATION, record,
             detail=f"gece geçişi varsayılıp düzeltilince süre {_hhmm(duration)} "
                    f"çıkıyor, üst sınır "
-                   f"{_hhmm(settings.plausibility.max_duration)} — kayıt kullanılamaz",
+                   f"{_hhmm(settings.plausibility.repair_max)} — kayıt kullanılamaz",
         )]
 
     for kind in tags:

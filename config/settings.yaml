@@ -47,15 +47,23 @@ plausibility:
   # somebody whose records went missing — and that is exactly the person to ask about.
   # ADR-030.
   sparse_month_ratio: 0.5
-  # Two jobs, deliberately the same number (ADR-032):
-  #  * a person-DAY longer than this is flagged — counted, never excluded. A 16-hour
-  #    day is real work until somebody says otherwise.
-  #  * an interval we REPAIRED (exit before entry, so we assumed a midnight crossing
-  #    and added 24 h) is refused if the repair lands above it. That is our guess
-  #    failing, not a long day: `13:58:56 -> 13:57:50` becomes 23:58.
+  # A person-DAY longer than this is flagged — counted, never excluded. A 16-hour day
+  # is real work until somebody says otherwise (ADR-032).
   # Also the ceiling for
   # accepting a midnight-crossing repair.
   max_shift_hours: 16.0
+
+  # A SEPARATE ceiling, for intervals the program repaired rather than read. When the
+  # exit precedes the entry we assume the shift crossed midnight and add 24 hours; if
+  # that assumption lands above this, the assumption was wrong and the record is
+  # refused. Measured on May and June 2026: the three broken records land at 21:56,
+  # 23:58 and 23:59, while the longest genuine midnight crossing is 15:36.
+  #
+  # 20 rather than 16, because 16 was only 24 minutes above that longest real crossing
+  # and a sixteen-hour night shift is not impossible. It is deliberately NOT the same
+  # number as max_shift_hours: one flags a long day, this one rejects a bad guess, and
+  # tying them together once already cost two people a day they had worked. ADR-033.
+  repair_max_hours: 20
 
 # What a declared remote-work day does to that day's attendance records (ADR-018).
 #   nominal_only — remote hours replace the attendance record only when every

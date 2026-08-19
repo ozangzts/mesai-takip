@@ -49,8 +49,11 @@ class BreakRule:
 
 @dataclass(frozen=True)
 class Plausibility:
-    max_duration: timedelta
+    max_duration: timedelta          # per person-day — flags a long day, never excludes
     short_day: timedelta             # per person-day — catches a barely-worked day
+    # per interval, and only one WE repaired — rejects a failed midnight-crossing
+    # guess. Deliberately separate from max_duration; see ADR-033.
+    repair_max: timedelta = timedelta(hours=20)
     # per person-month — catches a month that is mostly unaccounted for. ADR-030.
     sparse_month_ratio: float = 0.0  # 0 disables the check
 
@@ -221,6 +224,7 @@ def load(config_dir: Path, period: str) -> Settings:
     )
     plaus = Plausibility(
         max_duration=timedelta(hours=float(pl_raw.get("max_shift_hours", 16))),
+        repair_max=timedelta(hours=float(pl_raw.get("repair_max_hours", 20))),
         short_day=timedelta(hours=float(pl_raw.get("short_day_hours", 2))),
         # Absent means 0, which disables the check rather than inventing a threshold.
         # This one decides who a human is asked about, and a made-up default would

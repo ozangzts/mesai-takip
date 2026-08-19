@@ -296,3 +296,34 @@ def test_hhmm_exceeds_24_hours():
 
 def test_decimal_hours():
     assert decimal_hours(timedelta(hours=8, minutes=15)) == 8.25
+
+
+def test_a_long_night_shift_now_survives_the_repair_ceiling(settings):
+    """18 hours across midnight: repaired, and kept. ADR-033.
+
+    At the old 16-hour ceiling this was refused. The longest genuine crossing in the
+    real data is 15:36, which left 24 minutes of headroom — and a sixteen-hour night
+    shift is not impossible.
+    """
+    interval, notes = build_interval(punch("14:00", "08:00"), settings)
+
+    assert interval is not None
+    assert hhmm(interval.end - interval.start) == "18:00"
+    assert AnomalyKind.IMPLAUSIBLE_DURATION not in [n.kind for n in notes]
+    assert any(n.kind is AnomalyKind.NEGATIVE_DURATION for n in notes)
+
+
+def test_a_repair_landing_near_a_full_day_is_still_refused(settings):
+    """The three real broken records land at 21:56, 23:58 and 23:59 — all above 20."""
+    # 09:09 -> 09:08 stands in for the real 09:08:10 -> 09:08:06; this helper works
+    # to the minute, and a record whose two stamps are equal never looks reversed.
+    for entry, exit_ in (("18:08", "16:04"), ("13:58", "13:57"), ("09:09", "09:08")):
+        interval, notes = build_interval(punch(entry, exit_), settings)
+        assert interval is None, f"{entry} -> {exit_}"
+        assert [n.kind for n in notes] == [AnomalyKind.IMPLAUSIBLE_DURATION]
+
+
+def test_the_two_ceilings_are_separate_numbers(settings):
+    """Tying them together once already cost two people a day they had worked."""
+    assert settings.plausibility.max_duration != settings.plausibility.repair_max
+    assert settings.plausibility.repair_max > settings.plausibility.max_duration
