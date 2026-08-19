@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (29 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (30 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 306 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 311 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -129,7 +129,18 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     çalışıyor. Sıradaki: "bu kişilere mail atılmayacak" istisna listesi — proje sahibi
     böyle bir Excel bekliyor; o bir *kalıcı kural*, bir oturumun seçimi değil, ve
     `recipients.py`'ye filtrenin yanına girmeli, ekrana değil.
-11. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+11. **"Ay büyük ölçüde boş" notu eklendi (ADR-030).** Kişiler ekranını kullanırken
+    çıktı: Haziran'da sorunsuz görünen 51 kişinin 4'ü 20 saatin altındaydı ve **hiç
+    notu yoktu**. Sebep, iki kural arasındaki boşluk — `Süre çok kısa` *günlük*
+    çalışıyor (bu kişilerin günleri normaldi), `Mesai verisi yok` ise ancak hiç kayıt
+    yoksa. Bir tam gün + 21 eksik gün ikisinin arasına düşüyordu.
+    Artık çalışma + izin, beklenen iş gününün **%50'sinden azını** açıklıyorsa not
+    düşülüyor. Saatlere dokunmuyor (Mayıs yine 17 103:58). Haziran'ın sorunsuz listesi
+    51 → 47 oldu.
+    **Uyarı:** personel listesinde işe giriş/çıkış tarihi olmadığı için (ROADMAP Q18)
+    ay ortasında başlayan biriyle kaydı eksik olan biri ayırt edilemiyor. Bu yüzden
+    dışlama değil, insana gösterilen işaret.
+12. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

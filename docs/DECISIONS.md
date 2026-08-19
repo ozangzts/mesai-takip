@@ -1586,3 +1586,69 @@ that, and the project owner reasonably asked what it was doing there.
   something untrue is worse than no test.
 - ADR-027 stays as written, including the claim this corrects. ADRs are appended to,
   never edited; the record of having been wrong is part of what the log is for.
+
+---
+
+## ADR-030 — A month that is mostly unaccounted for gets a note
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+Two rules already looked at how little somebody worked, and there was a gap between
+them wide enough to drive a month through.
+
+* `short_day_hours` (ADR-019) flags **one day** under two hours.
+* `NO_ATTENDANCE_DATA` flags a person with **no card record at all**.
+
+Neither catches a person with one perfectly ordinary day and twenty-one missing ones.
+Found by the project owner looking at June 2026's "no problems" list and asking why
+some of them had two-digit monthly totals. Measured:
+
+| Total | Worked days | Leave | Of 22 expected days, explained |
+| --- | --- | --- | --- |
+| 2:30 | 1 | 0 | **1** |
+| 9:00 | 1 | 1 | 2 |
+| 9:00 | 1 | 0 | **1** |
+| 18:00 | 2 | 5 | 7 |
+
+All four carried **no note whatsoever** and sat in the clean list. Their days were
+above the two-hour threshold, so no per-day rule fired; they had records, so the
+empty-month rule did not fire either. A person with 2.5 hours in a month appeared
+alongside people with 180, with nothing to distinguish them.
+
+That is the failure mode AGENTS.md §2.2 exists to prevent: not a wrong number, but a
+real question that nothing surfaces.
+
+### Decision
+
+A person **with attendance** whose worked days plus leave days cover less than
+`plausibility.sparse_month_ratio` of the period's expected working days gets the note
+`Ay büyük ölçüde boş`. The threshold ships at **0.5** — the project owner's choice from
+measured options.
+
+- **`included`, not `excluded`.** Their hours are real and stay in the total. This
+  changes no figure anywhere; May 2026 still reports 17 103:58.
+- **A flag for a human, never an exclusion.** The roster carries no hire or leaving
+  dates (ROADMAP Q18), so somebody who started on the 20th is indistinguishable from
+  somebody whose records went missing. The tool must not pretend to know which — and
+  the person it cannot classify is exactly the person worth asking HR about.
+- **Leave counts as explanation.** Three weeks of annual leave is an accounted-for
+  month, not a suspicious one.
+- **Not applied to a month with no records at all.** That already has the louder
+  `Mesai verisi yok`, and two notes for one situation reads as two problems.
+- **An absent threshold disables the check** rather than defaulting to a number. This
+  rule decides who a human is asked about; a made-up default would either accuse
+  people or hide them, and silently either way.
+
+### Consequences
+
+- June 2026's clean list drops from 51 people to 47, and nobody under 20 hours remains
+  in it. May gains 5 notes. No hours move.
+- `tests/conftest.py` mirrors the threshold and `test_config.py` compares the whole
+  `Plausibility` object, not field by field — the fixture had already drifted from the
+  shipped config twice, and leaving the ratio out would have disabled the rule for the
+  entire suite while every test still passed.
+- It will flag legitimate mid-month joiners and leavers until the roster carries dates.
+  That is understood and accepted: the note says so in its own explanation, so nobody
+  reading the report has to guess what it is claiming.

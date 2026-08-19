@@ -495,3 +495,24 @@ an input mechanism (Q8). Public-holiday rows are colour-coded in the report
   derived from the `timedelta`, never the source of truth.
 - Empty is empty. Never print `0:00` where no record exists — HR must be able to
   distinguish "worked zero" from "no data".
+
+
+## Plausibility: three thresholds, three different questions
+
+They are easy to confuse, and two of them once shared the words "Süre çok kısa".
+
+| Note | What it measures | Threshold | Effect |
+| --- | --- | --- | --- |
+| `Aralık çok kısa` | **one** entry→exit interval | `min_minutes` (5 min) | counted, flagged |
+| `Aralık çok uzun` | **one** entry→exit interval | `max_shift_hours` (16 h) | **excluded**, 0 hours |
+| `Süre çok kısa` | **one person-day**, total | `short_day_hours` (2 h) | counted, flagged |
+| `Ay büyük ölçüde boş` | **one person-month**, coverage | `sparse_month_ratio` (0.5) | counted, flagged |
+
+The first two hunt a **bad record** — a badge test at `13:32 → 13:34`, or a day whose
+exit was never punched. The third hunts a **real person who barely worked that day**. A
+day can hold several intervals, which is why "interval" and "day" are separate rules
+rather than one with two thresholds.
+
+The fourth (ADR-030) exists because the second and third leave a gap: somebody with one
+ordinary nine-hour day and twenty-one missing ones passes both. Coverage is worked days
+plus leave days against the period's expected working days.

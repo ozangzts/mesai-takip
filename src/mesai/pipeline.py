@@ -394,6 +394,8 @@ def _summarise(
             leave_days[record.key] += record.days
 
     anomaly_counts = anomalies.count_by_key()
+    year, month = (int(part) for part in period.split("-"))
+    expected_days = len(settings.calendar.expected_workdays(year, month))
 
     summaries: list[MonthSummary] = []
     for key, employee in employees.items():
@@ -414,6 +416,20 @@ def _summarise(
                 detail="İzin kaydı var, hiçbir kart kaydı yok. Bu kişinin ayı eksik "
                        "görünüyor — kart sisteminden kontrol edilmeli",
             ))
+        elif expected_days and settings.plausibility.sparse_month_ratio:
+            # Deliberately `elif`: somebody with no attendance at all already has the
+            # louder note above, and two notes for one situation reads as two problems.
+            covered = len(days) + leave_days.get(key, 0.0)
+            share = covered / expected_days
+            if share < settings.plausibility.sparse_month_ratio:
+                notes.append("Ayın çoğu açıklanmıyor")
+                anomalies.add(Anomaly(
+                    kind=AnomalyKind.SPARSE_MONTH, source="izin", source_row=0,
+                    key=key, raw_name=employee.display_name,
+                    detail=f"{expected_days} iş gününün {covered:g} tanesi "
+                           f"açıklanıyor (%{share * 100:.0f}) — çalışma "
+                           f"{len(days)} gün, izin {leave_days.get(key, 0.0):g} gün",
+                ))
         if not employee.in_roster:
             notes.append("Personel listesinde yok")
         if any("uzaktan-çakışma" in w.tags for w in days):

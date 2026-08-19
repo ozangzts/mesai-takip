@@ -52,6 +52,8 @@ class Plausibility:
     min_duration: timedelta          # per interval — catches a bad record
     max_duration: timedelta
     short_day: timedelta             # per person-day — catches a barely-worked day
+    # per person-month — catches a month that is mostly unaccounted for. ADR-030.
+    sparse_month_ratio: float = 0.0  # 0 disables the check
 
 
 @dataclass(frozen=True)
@@ -222,6 +224,10 @@ def load(config_dir: Path, period: str) -> Settings:
         min_duration=timedelta(minutes=float(pl_raw.get("min_minutes", 5))),
         max_duration=timedelta(hours=float(pl_raw.get("max_shift_hours", 16))),
         short_day=timedelta(hours=float(pl_raw.get("short_day_hours", 2))),
+        # Absent means 0, which disables the check rather than inventing a threshold.
+        # This one decides who a human is asked about, and a made-up default would
+        # either accuse people or hide them, silently either way.
+        sparse_month_ratio=float(pl_raw.get("sparse_month_ratio", 0) or 0),
     )
 
     # A payroll-affecting switch: required, and validated rather than defaulted, so a

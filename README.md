@@ -94,7 +94,7 @@ pip install -e . --no-deps
 python -m pytest
 ```
 
-Son satır **306 passed** demeli. Demiyorsa kurulum bozuk, aşağıdaki tabloya bak.
+Son satır **311 passed** demeli. Demiyorsa kurulum bozuk, aşağıdaki tabloya bak.
 
 ### Yeni bilgisayarda: git'ten gelmeyen iki dosya
 
@@ -501,7 +501,7 @@ otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü
 ## Geliştirme
 
 ```bash
-python -m pytest          # 306 test
+python -m pytest          # 311 test
 ```
 
 Doğrulama mekanizmaları:

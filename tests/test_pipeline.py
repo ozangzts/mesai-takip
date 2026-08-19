@@ -5,7 +5,7 @@ the tool at the wrong folder, or at a folder holding two months, and getting a
 confident report full of the wrong numbers.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import openpyxl
 import pytest
@@ -420,3 +420,91 @@ def test_each_source_is_measured_separately(settings):
 
     assert not cov["macunkoy"].is_partial
     assert cov["teknopark"].is_partial
+
+
+# --- a month that is mostly unaccounted for (ADR-030) -----------------------
+#
+# The gap between two existing rules, found by looking at June 2026: one person had a
+# single 2:30 day out of 22 expected working days and carried no note at all.
+# `short_day_hours` asks about ONE day and theirs was above the threshold;
+# NO_ATTENDANCE_DATA needs the month to be completely empty.
+
+def _summaries(settings, workdays, leave=(), employees=None):
+    from mesai.anomalies import Collector
+    from mesai.pipeline import _summarise
+    collector = Collector()
+    return _summarise("2026-06", employees, workdays, list(leave), collector,
+                      settings), collector
+
+
+def _employee(key=("AYSE", "DENEME")):
+    from mesai.models import Employee
+    return Employee(key=key, display_name="AYŞE DENEME", personnel_no="8801",
+                    department=None, job_title=None, facility=None, in_roster=True,
+                    sources=frozenset({"teknopark"}))
+
+
+def _day(day: int, key=("AYSE", "DENEME")):
+    from datetime import date as _date
+    from mesai.models import Interval, WorkDay
+    start = datetime(2026, 6, day, 9, 0)
+    end = datetime(2026, 6, day, 18, 0)
+    return WorkDay(key=key, date=_date(2026, 6, day),
+                   intervals=(Interval(start, end, frozenset({"teknopark"})),),
+                   gross=timedelta(hours=9), break_deduction=timedelta(),
+                   net=timedelta(hours=9), tags=frozenset())
+
+
+def test_one_ordinary_day_in_a_whole_month_is_flagged(settings):
+    """The measured case: normal hours, so no per-day rule fires — but 1 day of 22."""
+    key = ("AYSE", "DENEME")
+    _, collector = _summaries(settings, [_day(3, key)], employees={key: _employee()})
+
+    labels = [a.label for a in collector.items]
+    assert "Ay büyük ölçüde boş" in labels
+
+
+def test_a_full_month_is_not_flagged(settings):
+    key = ("AYSE", "DENEME")
+    days = [_day(d, key) for d in (1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 15, 16)]
+    _, collector = _summaries(settings, days, employees={key: _employee()})
+
+    assert "Ay büyük ölçüde boş" not in [a.label for a in collector.items]
+
+
+def test_leave_counts_towards_the_month_being_accounted_for(settings):
+    """Somebody on leave for three weeks has an explained month, not a suspicious one."""
+    from mesai.models import LeaveRecord
+    key = ("AYSE", "DENEME")
+    leave = [LeaveRecord(key=key, raw_name="AYŞE DENEME", personnel_no="8801",
+                         leave_type="Yıllık İzin", status="Kullanıldı",
+                         start=datetime(2026, 6, 8), end=datetime(2026, 6, 26),
+                         days=15.0, department=None, source_row=2)]
+    _, collector = _summaries(settings, [_day(3, key)], leave=leave,
+                              employees={key: _employee()})
+
+    assert "Ay büyük ölçüde boş" not in [a.label for a in collector.items]
+
+
+def test_a_month_with_no_records_at_all_gets_only_the_louder_note(settings):
+    """Two notes for one situation reads as two problems."""
+    key = ("AYSE", "DENEME")
+    _, collector = _summaries(settings, [], employees={key: _employee()})
+
+    labels = [a.label for a in collector.items]
+    assert "Mesai verisi yok" in labels
+    assert "Ay büyük ölçüde boş" not in labels
+
+
+def test_the_check_is_off_when_no_ratio_is_configured(settings):
+    """An absent threshold disables it rather than inventing one — it decides who a
+    human is asked about, and a made-up default would accuse or hide, silently."""
+    import dataclasses
+    key = ("AYSE", "DENEME")
+    off = dataclasses.replace(
+        settings,
+        plausibility=dataclasses.replace(settings.plausibility,
+                                         sparse_month_ratio=0.0))
+    _, collector = _summaries(off, [_day(3, key)], employees={key: _employee()})
+
+    assert "Ay büyük ölçüde boş" not in [a.label for a in collector.items]
