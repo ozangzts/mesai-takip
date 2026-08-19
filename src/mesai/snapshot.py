@@ -33,7 +33,11 @@ from .models import MonthSummary, RunStats
 
 # Bump when a field changes meaning or disappears. A reader that meets a version it
 # does not know refuses rather than guessing — see load().
-FORMAT_VERSION = 1
+#
+# 2: `problems` carries the new keyword labels (ADR-027). The values changed, not the
+#    shape, which is exactly the kind of change a version guard exists for: a filter
+#    written against "Çıkış kaydı yok" would quietly match nobody under "Çıkış yok".
+FORMAT_VERSION = 2
 
 
 class SnapshotError(Exception):

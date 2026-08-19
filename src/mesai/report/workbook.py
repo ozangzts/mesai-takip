@@ -14,7 +14,7 @@ from pathlib import Path
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ..anomalies import IMPACT_TEXT, Collector
+from ..anomalies import DESCRIPTIONS, IMPACT_TEXT, Collector
 from ..config import Settings
 from ..models import Employee, LeaveRecord, MonthSummary, NameKey, RunStats, WorkDay
 from ..normalize import sort_key
@@ -328,11 +328,13 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
 # Sheet 3 — Sorulacaklar (per-person worklist)
 # ---------------------------------------------------------------------------
 
+# "Sorun" is a keyword now, so the sentence it used to be goes in its own column.
+# Without this the sheet would say "Gece geçişi" and leave the reader to guess.
 _WORKLIST_HEADERS = [
-    "Ad Soyad", "Sicil No", "Tesis", "Departman", "Sorun", "Gün Sayısı",
-    "Günler", "Etki",
+    "Ad Soyad", "Sicil No", "Tesis", "Departman", "Sorun", "Açıklama",
+    "Gün Sayısı", "Günler", "Etki",
 ]
-_WORKLIST_WIDTHS = [28, 10, 17, 30, 34, 11, 46, 24]
+_WORKLIST_WIDTHS = [28, 10, 14, 30, 22, 52, 11, 46, 24]
 
 
 def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
@@ -356,6 +358,11 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
         "sorun değil — bilgi için listelenmiştir. Satır bazlı denetim izi için "
         "'Şüpheli Kayıtlar' sayfasına bakın.", span)
     styles.write_header(sheet, 4, _WORKLIST_HEADERS, _WORKLIST_WIDTHS)
+
+    # The label is what rows are grouped by, so the explanation is looked up from it
+    # rather than carried on every row.
+    explanations = {label: explanation
+                    for label, _severity, explanation in DESCRIPTIONS.values()}
 
     # (employee key, problem label) -> dates
     grouped: dict[tuple[NameKey | None, str], list[date]] = defaultdict(list)
@@ -388,15 +395,16 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
             settings.facility(employee.facility if employee else ""),
             employee.department if employee else "",
             label,
+            explanations.get(label, ""),
             len(unique_days) or "",
             _day_list(unique_days, period),
             _impact_text(severity[(key, label)]),
         ]
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
-            if index == 6:
-                cell.alignment = styles.RIGHT
             if index == 7:
+                cell.alignment = styles.RIGHT
+            if index in (6, 8):
                 cell.alignment = styles.LEFT
         level = severity[(key, label)]
         fill = {"excluded": styles.RED_FILL, "info": styles.GREY_FILL}.get(

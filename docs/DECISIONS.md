@@ -1392,3 +1392,70 @@ facility_labels:
 - The snapshot carries `facility` too, and it is **not** relabelled there — it holds
   what the roster said. The workbook is presentation; the snapshot is data, and a
   downstream consumer should see the source value.
+
+---
+
+## ADR-027 — Note labels are keywords; the sentence moves to its own column
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+Every anomaly kind carried one Turkish sentence used in three places: the `Sorun`
+column of two report sheets, and — since ADR-021 — the `problems` list in the snapshot.
+Sentences are fine in a column. They are not fine in a **filter**, and a filter is
+exactly what the next screen needs: pick a note, see the people it applies to.
+`Uzaktan çalışma beyanı var, o gün gerçek turnike kaydı da var` cannot be scanned in a
+dropdown.
+
+Two of the old labels were worse than long. `Süre çok kısa` named **two different
+thresholds** — one reading under 5 minutes, and a whole day under 2 hours. Filtering on
+it would have selected both groups. And the obvious short forms for the missing-punch
+pair are ambiguous in Turkish: "sadece giriş" reads equally as *only the entry exists*
+and *only the entry is missing*, which are opposite people.
+
+A third thing surfaced while measuring, and it mattered more than the wording. The two
+remote-work kinds had been documented from a measurement taken before ADR-018 changed
+the order of operations. Re-measured on the real May 2026 data:
+
+| `remote_replaces` | notes emitted |
+| --- | --- |
+| `nominal_only` (shipped) | replaced-nominal **35**, overlap **0**, real-punch **2** |
+| `never` | replaced-nominal 0, overlap **35**, real-punch 2 |
+| `always` | replaced-nominal 37, real-punch **0** |
+
+ADR-018 *removes* the system's placeholder day and counts the remote hours, so nothing
+is left to overlap with. The kind named for the overlap never fires under the shipped
+configuration. The plain name had been put on it — a filter entry that would always
+have come back empty.
+
+### Decision
+
+1. `DESCRIPTIONS[kind]` becomes `(label, severity, explanation)`. The **label is a
+   keyword**; the **explanation is the sentence**, and `Sorulacaklar` gains an
+   `Açıklama` column so the report says no less than before.
+2. **No two kinds may share a label** — the label is the filter key, so a duplicate
+   would silently merge two groups. A test enforces it, as does a length limit.
+3. The ambiguous pairs are split by wording, not shortened into the ambiguity:
+   `Giriş yok` / `Çıkış yok` / `Giriş-çıkış yok`, and `Aralık çok kısa` (one reading)
+   versus `Gün çok kısa` (the whole day).
+4. The remote pair is named for what the shipped config actually produces:
+   `Uzaktan + sistem kaydı` (35 days) and `Uzaktan + kart kaydı` (2 days). The
+   unreachable overlap kind keeps a qualified name, `Uzaktan + sistem kaydı
+   (birleştirildi)`, so switching `remote_replaces` still produces a distinct,
+   readable label rather than a collision.
+5. "Nominal" and "puantaj" are gone from every user-facing string. They described how
+   a vendor system happens to record a day; the reader never has to make that
+   distinction.
+
+### Consequences
+
+- **The snapshot's `problems` values change**, because they are labels. Its
+  `format_version` goes up, and `snapshot.py` already refuses an unknown version with
+  "regenerate" rather than parsing it. Reports and snapshots produced before this are
+  not comparable by label.
+- The label is now load-bearing in a way it was not: it is an identifier a person
+  filters on, not only text. Renaming one is a breaking change to any saved selection,
+  which is a reason to keep them stable once the people screen exists.
+- `Şüpheli Kayıtlar` keeps its per-row `Açıklama` (the record's own detail) — that is a
+  different thing from the kind's explanation, and both earn their place.

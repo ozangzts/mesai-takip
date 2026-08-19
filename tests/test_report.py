@@ -103,7 +103,7 @@ def test_every_anomaly_kind_can_be_written(tmp_path, settings):
 
 def test_every_severity_has_impact_text():
     """A kind whose severity has no impact text kills the run at report time."""
-    for kind, (_, severity) in DESCRIPTIONS.items():
+    for kind, (_, severity, _explanation) in DESCRIPTIONS.items():
         assert severity in IMPACT_TEXT, f"{kind} has severity {severity!r}"
 
 
@@ -298,3 +298,61 @@ def test_the_result_panel_names_both_output_paths(tmp_path, settings, monkeypatc
     assert str(report.resolve()) in shown, "report path missing"
     assert str(data.resolve()) in shown, "snapshot path missing"
     assert "RAPOR DOSYASI" in shown and "VERİ DOSYASI" in shown
+
+
+# --- the labels are filter keys now (ADR-027) -------------------------------
+
+def test_no_two_kinds_share_a_label():
+    """The people screen filters on the label, so a duplicate would merge two groups."""
+    labels = [label for label, _severity, _explanation in DESCRIPTIONS.values()]
+    assert len(labels) == len(set(labels))
+
+
+def test_every_label_is_short_enough_to_scan_in_a_dropdown():
+    """They used to be sentences. A dropdown of sentences cannot be read at a glance."""
+    for kind, (label, _severity, _explanation) in DESCRIPTIONS.items():
+        assert len(label) <= 38, f"{kind}: {label!r}"
+
+
+def test_every_kind_explains_itself():
+    """The short label drops the meaning; the explanation has to carry it."""
+    for kind, (label, _severity, explanation) in DESCRIPTIONS.items():
+        assert explanation, f"{kind} has no explanation"
+        assert explanation != label, kind
+
+
+def test_the_two_ambiguous_pairs_stay_distinct():
+    """Both pairs caused a real misreading, and both are filter targets.
+
+    "sadece giriş" reads equally as "only the entry exists" and "only the entry is
+    missing" — opposite people. And one reading under 5 minutes is a different question
+    from a whole day under 2 hours; they shared the words "Süre çok kısa".
+    """
+    label = {kind: value[0] for kind, value in DESCRIPTIONS.items()}
+    assert label[AnomalyKind.MISSING_ENTRY] == "Giriş yok"
+    assert label[AnomalyKind.MISSING_EXIT] == "Çıkış yok"
+    assert label[AnomalyKind.SUSPICIOUS_SHORT] == "Aralık çok kısa"
+    assert label[AnomalyKind.SHORT_DAY] == "Gün çok kısa"
+
+
+def test_the_remote_pair_names_the_kind_that_actually_fires():
+    """Measured on May 2026: REMOTE_REPLACED_NOMINAL 35 days, REMOTE_OVERLAP 0.
+
+    ADR-018 removes the system's default day, so nothing is left to overlap with. The
+    plain name therefore belongs to the kind the shipped config produces — it was on
+    the unreachable one, which would have made the filter look empty.
+    """
+    label = {kind: value[0] for kind, value in DESCRIPTIONS.items()}
+    assert label[AnomalyKind.REMOTE_REPLACED_NOMINAL] == "Uzaktan + sistem kaydı"
+    assert label[AnomalyKind.REMOTE_OVERLAP_REAL] == "Uzaktan + kart kaydı"
+    assert label[AnomalyKind.REMOTE_OVERLAP].startswith("Uzaktan + sistem kaydı (")
+
+
+def test_the_worklist_prints_the_explanation_beside_the_keyword(tmp_path, settings):
+    book = openpyxl.load_workbook(_build(tmp_path, settings), read_only=True)
+    rows = list(book["Sorulacaklar"].iter_rows(values_only=True))
+    header = [c for c in rows[3] if c is not None]
+
+    assert header[4] == "Sorun" and header[5] == "Açıklama"
+    explanations = {row[4]: row[5] for row in rows[4:] if row and row[4]}
+    assert explanations["Çıkış yok"] == "Giriş basılmış, çıkış kaydı yok"

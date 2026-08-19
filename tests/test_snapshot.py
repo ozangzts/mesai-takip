@@ -105,7 +105,7 @@ def test_problems_are_per_person_and_filterable(settings):
     """"Mail only the people with a missing exit" is the whole reason for this field."""
     built = _build(settings)
 
-    assert built.with_problem("Çıkış kaydı yok") == \
+    assert built.with_problem("Çıkış yok") == \
         tuple(p for p in built.people if p.name == "AYŞE DENEME")
     assert built.with_problem("Bilinmeyen sorun") == ()
 
@@ -120,7 +120,7 @@ def test_info_anomalies_are_not_problems(settings):
 
 def test_problem_labels_are_ordered_by_frequency(settings):
     built = _build(settings)
-    assert set(built.problem_labels) == {"Çıkış kaydı yok", "Günlük süre eşiğin altında"}
+    assert set(built.problem_labels) == {"Çıkış yok", "Gün çok kısa"}
 
 
 def test_a_partial_run_is_marked_incomplete(settings):

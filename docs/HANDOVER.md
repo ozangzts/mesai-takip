@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (26 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (27 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 273 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 279 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |

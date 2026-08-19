@@ -45,34 +45,80 @@ class AnomalyKind(StrEnum):
 #                do not shade their summary row (ADR-017).
 SEVERITIES = ("excluded", "included", "info")
 
-DESCRIPTIONS: dict[AnomalyKind, tuple[str, str]] = {
-    AnomalyKind.MISSING_ENTRY: ("Giriş kaydı yok", "excluded"),
-    AnomalyKind.MISSING_EXIT: ("Çıkış kaydı yok", "excluded"),
-    AnomalyKind.EMPTY_RECORD: ("Giriş ve çıkış kaydı yok", "excluded"),
-    AnomalyKind.NEGATIVE_DURATION: ("Negatif süre (gece geçişi düzeltildi)", "included"),
-    AnomalyKind.IMPLAUSIBLE_DURATION: ("Süre inandırıcı değil", "excluded"),
-    AnomalyKind.SUSPICIOUS_SHORT: ("Süre çok kısa", "included"),
-    AnomalyKind.SHORT_DAY: ("Günlük süre eşiğin altında", "included"),
-    # The remote hours were used and a nominal placeholder was set aside. Expected,
-    # so `info` — the day still has hours, just from the declaration (ADR-018).
+# `label` is a keyword, not a sentence, because it is what somebody filters on: the
+# people screen builds its dropdown from these, and a dropdown of full sentences cannot
+# be scanned. `explanation` carries the meaning the short form drops, so the report is
+# no less clear than before — the Sorulacaklar sheet prints it in its own column.
+#
+# Two pairs are deliberately split rather than sharing a word:
+#
+#   "Aralık çok kısa" / "Gün çok kısa"  — one reading under 5 min versus a whole day
+#       under 2 h. Both used to read "Süre çok kısa", so a filter on one selected the
+#       other's people too.
+#   "Giriş yok" / "Çıkış yok"           — never "sadece giriş", which reads equally as
+#       "only the entry exists" and "only the entry is missing" — opposite people.
+#
+# See ADR-027.
+DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str]] = {
+    AnomalyKind.MISSING_ENTRY: (
+        "Giriş yok", "excluded",
+        "Çıkış basılmış, giriş kaydı yok"),
+    AnomalyKind.MISSING_EXIT: (
+        "Çıkış yok", "excluded",
+        "Giriş basılmış, çıkış kaydı yok"),
+    AnomalyKind.EMPTY_RECORD: (
+        "Giriş-çıkış yok", "excluded",
+        "Satır var ama giriş de çıkış da boş"),
+    AnomalyKind.NEGATIVE_DURATION: (
+        "Gece geçişi", "included",
+        "Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi"),
+    AnomalyKind.IMPLAUSIBLE_DURATION: (
+        "Aralık çok uzun", "excluded",
+        "Tek aralık 16 saati aşıyor — okuma hatası olabilir"),
+    AnomalyKind.SUSPICIOUS_SHORT: (
+        "Aralık çok kısa", "included",
+        "Tek aralık 5 dakikanın altında — aynı kartın iki kez okunması olabilir"),
+    AnomalyKind.SHORT_DAY: (
+        "Gün çok kısa", "included",
+        "Günlük toplam 2 saatin altında"),
+    # This is the one that fires under the shipped config, so it carries the plain
+    # name. ADR-018 REMOVES the system's default day and counts the remote hours, so
+    # nothing is left to overlap with — measured on May 2026: 35 days here, 0 in
+    # REMOTE_OVERLAP below. Switch `remote_replaces` to "never" and the counts swap.
     AnomalyKind.REMOTE_REPLACED_NOMINAL: (
-        "Uzaktan çalışma günü, puantajdaki nominal gün yerine uzaktan saatler "
-        "sayıldı", "info"),
-    AnomalyKind.CROSS_SITE_EXTENDED: ("Diğer tesis kaydıyla tamamlandı", "included"),
-    AnomalyKind.UNRESOLVED_IDENTITY: ("Kimlik eşleşmedi", "excluded"),
-    AnomalyKind.DURATION_MISMATCH: ("Kaynak dosyadaki süre uyuşmuyor", "included"),
-    AnomalyKind.NO_ATTENDANCE_DATA: ("Mesai verisi hiç yok", "excluded"),
-    # Expected, not a defect: the Teknopark timesheet writes a nominal 9-hour day
-    # for a workday with no turnstile data, and a remote-work day is one of the
-    # things that triggers it. The union counts the shared time once. ADR-017.
+        "Uzaktan + sistem kaydı", "info",
+        "Uzaktan çalışma günü; Teknopark kaydında kart okuması yok, sistem "
+        "varsayılan tam gün yazmış. Sistemin günü yerine uzaktan saatler sayıldı"),
+    AnomalyKind.CROSS_SITE_EXTENDED: (
+        "Tesis birleştirme", "included",
+        "Eksik kayıt, kişinin aynı gün diğer tesisteki kaydıyla tamamlandı"),
+    AnomalyKind.UNRESOLVED_IDENTITY: (
+        "İsim eşleşmedi", "excluded",
+        "Personel listesinde bu ismin karşılığı bulunamadı"),
+    AnomalyKind.DURATION_MISMATCH: (
+        "Süre uyuşmazlığı", "included",
+        "Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil"),
+    AnomalyKind.NO_ATTENDANCE_DATA: (
+        "Mesai verisi yok", "excluded",
+        "Dönem boyunca hiç kart kaydı yok"),
+    # The same situation, handled the other way: both records kept and unioned. Only
+    # reachable with `remote_replaces: never`, hence the qualifier — two kinds may not
+    # share a label, because the label is the filter key.
     AnomalyKind.REMOTE_OVERLAP: (
-        "Uzaktan çalışma günü, puantajda nominal gün olarak da kayıtlı", "info"),
-    # The rare one: the person declared remote work and a turnstile really recorded
-    # them. 2 of 39 in May 2026, 7 of 83 in June. This one is a genuine question.
+        "Uzaktan + sistem kaydı (birleştirildi)", "info",
+        "Uzaktan çalışma günü; Teknopark kaydında kart okuması yok, sistem "
+        "varsayılan tam gün yazmış. İki kayıt da tutuldu, çakışan süre bir kez "
+        "sayıldı"),
     AnomalyKind.REMOTE_OVERLAP_REAL: (
-        "Uzaktan çalışma beyanı var, o gün gerçek turnike kaydı da var", "included"),
-    AnomalyKind.MULTI_DAY_REMOTE: ("Çok günlü uzaktan çalışma kaydı bölündü", "included"),
-    AnomalyKind.UNPARSEABLE_ROW: ("Satır okunamadı", "excluded"),
+        "Uzaktan + kart kaydı", "included",
+        "Uzaktan çalışma beyanı var ama o gün gerçek kart okuması da var — "
+        "kişi binaya girmiş görünüyor"),
+    AnomalyKind.MULTI_DAY_REMOTE: (
+        "Çok günlü uzaktan", "included",
+        "Tek izin satırı birden çok güne yayılmış, günlere bölündü"),
+    AnomalyKind.UNPARSEABLE_ROW: (
+        "Satır okunamadı", "excluded",
+        "Kaynak dosyadaki satır ayrıştırılamadı"),
 }
 
 # The single source of truth for "what happened to this record". The report imports
@@ -104,6 +150,11 @@ class Anomaly:
     @property
     def severity(self) -> str:
         return DESCRIPTIONS[self.kind][1]
+
+    @property
+    def explanation(self) -> str:
+        """The sentence the short label leaves out. For the report, not for filters."""
+        return DESCRIPTIONS[self.kind][2]
 
     @property
     def impact(self) -> str:

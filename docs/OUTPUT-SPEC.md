@@ -24,6 +24,11 @@ is git-ignored by name, wherever the user pointed the output.
 
 Sheet names, column headers and all visible text are **Turkish** — HR reads this.
 
+The `Sorun` column holds a **keyword**, not a sentence — it is what the people screen
+filters on — and `Sorulacaklar` prints the sentence beside it in `Açıklama`. No two
+kinds may share a label; a test enforces that, because the label is the filter key
+(ADR-027).
+
 The `Tesis` column shows `Macunköy` / `Teknopark`, not the roster's `MACUNKÖY TESİSİ` /
 `DEICO TESİS` — same words the `Kayıt Kaynağı` column uses, so one building has one
 name in the workbook. The mapping is `config/settings.yaml:facility_labels` and every

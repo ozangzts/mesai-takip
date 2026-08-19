@@ -135,7 +135,7 @@ def test_an_unrepairable_missing_punch_contributes_nothing(result):
     anomalies = "\n".join(
         " | ".join(str(c) for c in row if c is not None)
         for row in book["Şüpheli Kayıtlar"].iter_rows(values_only=True))
-    assert "Çıkış kaydı yok" in anomalies
+    assert "Çıkış yok" in anomalies
 
 
 def test_a_remote_day_overrides_the_nominal_placeholder(result):
