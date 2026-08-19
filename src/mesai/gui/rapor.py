@@ -37,6 +37,7 @@ from ..readers import LayoutError, find_sources
 from ..report.workbook import ReportLocked
 from ..normalize import fold
 from ..rules.worktime import hhmm
+from . import places
 from . import widgets as w
 from .period import MONTHS, guess_period, parse_period, period_label
 
@@ -263,19 +264,37 @@ class ReportScreen:
         self.period_note.grid(row=0, column=1, sticky="w", padx=(12, 0))
         self.period_var.trace_add("write", lambda *_: self._period_changed())
 
+        # --- where the report goes ---------------------------------------
+        w.caption(body, "RAPOR KLASÖRÜ", row=5)
+
+        out_row = tk.Frame(body, background=w.BG)
+        out_row.grid(row=6, column=0, sticky="ew")
+        out_row.columnconfigure(0, weight=1)
+        self.output_var = tk.StringVar(value="")
+        tk.Entry(out_row, textvariable=self.output_var, state="readonly",
+                 font=(w.FACE, 9), relief="flat", readonlybackground=w.CARD,
+                 foreground=w.INK, highlightthickness=1, highlightbackground=w.LINE,
+                 highlightcolor=w.ACCENT).grid(row=0, column=0, sticky="ew", ipady=5)
+        w.button(out_row, "Değiştir…", self._choose_output, primary=False).grid(
+            row=0, column=1, sticky="e", padx=(8, 0))
+
+        self.output_note = tk.Label(body, background=w.BG, foreground=w.MUTED,
+                                    font=(w.FACE, 9), anchor="w")
+        self.output_note.grid(row=7, column=0, sticky="ew", pady=(8, 18))
+
         self.run_button = w.button(body, "Rapor Oluştur", self._start, primary=True)
-        self.run_button.grid(row=5, column=0, sticky="ew", ipady=4)
+        self.run_button.grid(row=8, column=0, sticky="ew", ipady=4)
         w.set_enabled(self.run_button, False)
 
         self.progress = w.Progress(body)
-        self.progress.grid(row=6, column=0, sticky="ew", pady=(10, 0))
+        self.progress.grid(row=9, column=0, sticky="ew", pady=(10, 0))
 
         # --- result card -------------------------------------------------
         card = tk.Frame(body, background=w.LINE)      # hairline border via padding
-        card.grid(row=7, column=0, sticky="nsew", pady=(12, 12))
+        card.grid(row=10, column=0, sticky="nsew", pady=(12, 12))
         card.columnconfigure(0, weight=1)
         card.rowconfigure(0, weight=1)
-        body.rowconfigure(7, weight=1)
+        body.rowconfigure(10, weight=1)
         self.result = tk.Text(card, height=12, relief="flat", wrap="word",
                               font=(w.FACE, 9), padx=14, pady=12, background=w.CARD,
                               foreground=w.INK, borderwidth=0, highlightthickness=0,
@@ -300,7 +319,7 @@ class ReportScreen:
             self.result.tag_configure(name, foreground=colour)
 
         buttons = tk.Frame(body, background=w.BG)
-        buttons.grid(row=8, column=0, sticky="e")
+        buttons.grid(row=11, column=0, sticky="e")
         self.open_report = w.button(buttons, "Raporu Aç", self._open_report,
                                     primary=False)
         self.open_report.grid(row=0, column=0, padx=(0, 8))
@@ -330,38 +349,59 @@ class ReportScreen:
     #
     # Remembering the PARENT keeps the convenience — the browse dialog opens on the
     # right share instead of Documents — while the selection itself stays deliberate.
+    #
+    # The OUTPUT folder is remembered outright, and the difference is the point: it is
+    # not month-specific. The month lives in the subfolder this makes (`06-2026
+    # Rapor`), so last month's choice is still exactly right this month. Restoring the
+    # input folder offers a stale month ready to run; restoring the output folder
+    # offers the place reports go. Same mechanism, opposite consequence.
 
     def _settings_path(self) -> Path:
         return self.base / SETTINGS_FILE
 
     def _restore(self) -> None:
-        """Load the browse starting point. Never selects anything."""
+        """Load the browse starting point and the output folder. Selects no input."""
         self.browse_dir: Path | None = None
+        self.output_dir: Path = places.desktop_dir()
+        saved: dict[str, object] = {}
         try:
             saved = json.loads(self._settings_path().read_text(encoding="utf-8"))
         except (OSError, ValueError):
-            self._describe()
-            return
+            pass
 
         candidate = saved.get("browse_dir")
         if candidate is None and saved.get("folder"):
             # Written by the version that remembered the selection itself. Its parent
             # is exactly the browse location we want, so upgrade rather than discard.
             candidate = str(Path(saved["folder"]).parent)
-        if candidate and Path(candidate).is_dir():
-            self.browse_dir = Path(candidate)
+        if candidate and Path(str(candidate)).is_dir():
+            self.browse_dir = Path(str(candidate))
+
+        # A vanished output folder falls back to the Desktop rather than failing. It
+        # is visible in the field either way, so a silent substitution is not possible.
+        stored_output = saved.get("output_dir")
+        if stored_output and Path(str(stored_output)).is_dir():
+            self.output_dir = Path(str(stored_output))
+
+        self._show_output()
         self._describe()
+
+    def _save(self) -> None:
+        """Write both remembered paths. Always both, so neither can drop the other."""
+        payload: dict[str, str] = {"output_dir": str(self.output_dir)}
+        if self.browse_dir is not None:
+            payload["browse_dir"] = str(self.browse_dir)
+        try:
+            self._settings_path().write_text(
+                json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass        # a read-only install is not worth failing a run over
 
     def _remember(self) -> None:
         if self.folder is None:
             return
         self.browse_dir = self.folder.parent
-        try:
-            self._settings_path().write_text(
-                json.dumps({"browse_dir": str(self.browse_dir)}, ensure_ascii=False),
-                encoding="utf-8")
-        except OSError:
-            pass        # a read-only install is not worth failing a run over
+        self._save()
 
     # --- actions -----------------------------------------------------------
     def _choose(self) -> None:
@@ -390,6 +430,34 @@ class ReportScreen:
         """Undo a hand-picked file and look in the folder again."""
         self.chosen.pop(key, None)
         self._describe()
+
+    def _choose_output(self) -> None:
+        picked = filedialog.askdirectory(
+            title="Raporun yazılacağı klasörü seçin",
+            initialdir=str(self.output_dir))
+        if picked:
+            self.output_dir = Path(picked)
+            self._show_output()
+            self._save()
+
+    def _show_output(self) -> None:
+        """Say where the report goes, and name the folder that will be made for it.
+
+        The folder is the part worth showing: the run creates `06-2026 Rapor` inside
+        the chosen directory rather than writing into it, and somebody who expects the
+        workbook to land where they pointed would otherwise go looking in the wrong
+        place.
+        """
+        self.output_var.set(str(self.output_dir))
+        period = parse_period(self.period_var.get().strip())
+        if period:
+            self.output_note.configure(
+                text=f"Bu koşu şu klasörü oluşturacak:  "
+                     f"{places.report_folder_name(period)}   "
+                     f"(rapor ve veri dosyası birlikte)")
+        else:
+            self.output_note.configure(
+                text="Dönem girildiğinde oluşturulacak klasörün adı burada yazacak.")
 
     def _set_folder(self, folder: Path) -> None:
         self.folder = folder
@@ -428,8 +496,10 @@ class ReportScreen:
         else:
             text, colour = period_label(parsed), w.MUTED
         self.period_note.configure(text=text, foreground=colour)
-        # The per-source rows carry a warning that depends on the period ("this file's
-        # name says Haziran"), so changing the period has to repaint them.
+        # Both the per-source warning ("this file's name says Haziran") and the name
+        # of the folder about to be created depend on the period, so editing it has to
+        # repaint them.
+        self._show_output()
         if self.folder and not self._running:
             self._describe()
 
@@ -555,12 +625,13 @@ class ReportScreen:
         self._render(Result(True, f"{period_label(period)} hesaplanıyor…", (),
                             w.MUTED))
         threading.Thread(target=self._work,
-                         args=(period, self.folder, dict(self.chosen)),
+                         args=(period, self.folder, dict(self.chosen),
+                               self.output_dir),
                          daemon=True).start()
         self.root.after(120, self._poll)
 
     def _work(self, period: str, folder: Path | None,
-              chosen: dict[str, Path]) -> None:
+              chosen: dict[str, Path], output_dir: Path) -> None:
         """Runs OFF the UI thread. Puts a Result on the queue; never touches widgets.
 
         `chosen` is copied by the caller rather than read off `self`: the user can go
@@ -569,11 +640,10 @@ class ReportScreen:
         """
         try:
             settings = config.load(self.config_dir, period)
-            output = (self.base / "data" / "out" / period
-                      / f"mesai-raporu-{period}.xlsx")
+            output, snapshot_path = places.report_paths(output_dir, period)
             result = run(folder, output, period, settings, datetime.now(),
                          roster_dir=self.roster_dir,
-                         snapshot_path=snapshot.default_path(period, self.base),
+                         snapshot_path=snapshot_path,
                          chosen=chosen)
             self._queue.put(self._summarise(period, result))
         except ReportLocked as exc:
@@ -663,9 +733,8 @@ class ReportScreen:
             self.result.insert("end", f"{result.output.resolve()}\n", "path")
         if result.snapshot:
             self.result.insert("end", "\nVERİ DOSYASI", "heading")
-            self.result.insert(
-                "end", "  (e-posta adımı bunu okuyacak; İK'nın açması gerekmez)\n",
-                "muted")
+            self.result.insert("end", "  (e-posta adımı bunu okuyacak)\n",
+                               "muted")
             self.result.insert("end", f"{result.snapshot.resolve()}\n",
                                ("path", "muted"))
         self.result.configure(state="disabled")

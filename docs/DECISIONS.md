@@ -1231,3 +1231,64 @@ Two supporting changes, neither of which decides anything:
   source would point at the wrong problem.
 - It cannot be turned off, and there is deliberately no override. "Run it anyway" here
   means publishing payroll hours known to be missing a site.
+
+---
+
+## ADR-024 — The window writes where the user chose, one folder per month, snapshot included
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+The window wrote its workbook to `data/out/<period>/` beneath the program, and its
+snapshot to `veri/` beside the program. Both are fine for a developer running from a
+clone. Neither is where the person who actually runs this every month would look.
+
+Worse, the two halves of one run were in two unrelated directories, and
+`snapshot.default_path` justified that in its own docstring — "deliberately NOT beside
+the workbook: the folder HR opens should hold one file per month". ADR-021 had already
+written the opposite: "the program finds the JSON beside the report". The code and the
+decision had been contradicting each other since the snapshot was introduced, and
+nobody noticed because both files were found by path, never by looking.
+
+### Decision
+
+1. **The window asks where output goes, and defaults to the Desktop.** The Desktop is
+   resolved through `SHGetKnownFolderPath(FOLDERID_Desktop)`, not assumed to be
+   `~/Desktop`: a machine with OneDrive redirection has it somewhere else, and writing
+   the month's payroll report into a folder nobody opens is a silent failure.
+2. **The choice is remembered between sessions.** This is the exact opposite of the
+   rule for the *input* folder, and the difference is the reason: the input folder is
+   month-specific, so restoring it offers a stale month pre-filled and ready to run.
+   The output folder is not — the month lives in the subfolder — so last month's
+   choice is still exactly right this month.
+3. **One folder per month, named `06-2026 Rapor`.** Month first and the word that says
+   what it is, because it is read in Explorer by a person, not sorted by a program.
+   The cost is sort order: twelve of these sort by month, not by date. Accepted —
+   they are opened one at a time, right after being made.
+4. **The snapshot goes in that folder too**, resolving the contradiction above in
+   favour of ADR-021. `snapshot.default_path` now takes the workbook's path and
+   returns a sibling, so the CLI's snapshot follows its `--cikti` as well.
+5. **The CLI default is unchanged**: `data/out/<period>/mesai-raporu-<period>.xlsx`,
+   with the snapshot now beside it. The *layout* is the same in both front ends — one
+   folder holding the pair — only the folder's name and location differ, and the name
+   is a presentation choice for whoever opens it. No flag was added to the CLI for a
+   need nobody has stated; `--cikti` already exists.
+6. The window's caption for the snapshot no longer says "İK'nın açması gerekmez".
+   Whether HR needs to open it is not that line's business; it says what the file is
+   for and stops.
+
+### Consequences
+
+- **`veri/` is no longer written by either front end.** The `.gitignore` entry stays as
+  belt and braces, and so does `gonderim-*.json`, which matches the file wherever it
+  now lands — including a Desktop, which is the point of having a filename rule rather
+  than a folder rule.
+- The snapshot is personal data (names, e-mail addresses, hours) and now sits next to
+  the workbook on somebody's Desktop. That folder already held names, badge-derived
+  hours and department data; the addition is e-mail addresses. It is not a new class of
+  exposure, but it is one more file to delete with the same care as `data/`.
+- A run no longer needs the program's own directory to be writable. That matters for
+  the packaged executable, which may end up somewhere read-only.
+- `Klasörü Aç` now opens the month's folder with both files in it, rather than a
+  directory of every month ever produced.

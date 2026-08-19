@@ -8,7 +8,7 @@ Each run produces **two** files:
 | File | For | Contents |
 | --- | --- | --- |
 | `data/out/<period>/mesai-raporu-<period>.xlsx` | people | the six sheets below |
-| `veri/gonderim-<period>.json` | programs | the same figures, machine-readable |
+| `gonderim-<period>.json`, beside the workbook | programs | the same figures, machine-readable |
 
 The workbook is a **presentation artifact** and is never read back. Durations are
 `HH:MM` strings, cells are merged, headers are Turkish, and e-mail addresses are
@@ -17,9 +17,10 @@ gross/net columns became one `Çalışma Süresi` pair on 2026-08-17. Anything d
 (the mail step, a "use last month's report" screen) loads the JSON instead. See
 `src/mesai/snapshot.py`.
 
-Both come from the same computed objects in the same run, so they cannot disagree. The
-JSON holds names, e-mail addresses and hours, so it lives next to the program rather
-than in the folder HR opens, and `veri/` is git-ignored.
+Both come from the same computed objects in the same run, so they cannot disagree, and
+since ADR-024 they are written **into the same folder** — one directory per month
+holding the pair. The JSON holds names, e-mail addresses and hours; `gonderim-*.json`
+is git-ignored by name, wherever the user pointed the output.
 
 Sheet names, column headers and all visible text are **Turkish** — HR reads this.
 

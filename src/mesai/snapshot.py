@@ -94,13 +94,21 @@ class Snapshot:
         return tuple(sorted(seen, key=lambda k: (-seen[k], k)))
 
 
-def default_path(period: str, base: Path) -> Path:
-    """Where the snapshot for `period` lives.
+def default_path(period: str, output_path: Path) -> Path:
+    """Where the snapshot for `period` lives: **beside its workbook.**
 
-    Deliberately NOT beside the workbook: the folder HR opens should hold one file per
-    month, and this one holds e-mail addresses.
+    It used to go to `veri/` next to the program instead, on the reasoning that the
+    folder HR opens should hold one file per month and this one holds e-mail
+    addresses. Two things were wrong with that. ADR-021 already described the pair as
+    living together ("the program finds the JSON beside the report") — the code and
+    the decision disagreed, and only one of them can be right. And once the window
+    writes to a folder the user chose, `veri/` is next to the *program*, which is a
+    place they never look; the two halves of one run would end up in two unrelated
+    directories.
+
+    They are one artifact pair from one run and they move together. See ADR-024.
     """
-    return base / "veri" / f"gonderim-{period}.json"
+    return output_path.parent / f"gonderim-{period}.json"
 
 
 def build(

@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         result = run(input_dir, output, period, settings, datetime.now(),
                      roster_dir=args.personel,
-                     snapshot_path=snapshot.default_path(period, program_dir()))
+                     snapshot_path=snapshot.default_path(period, output))
     except LayoutError as exc:
         print(f"DOSYA YAPISI HATASI: {exc}", file=sys.stderr)
         return 3

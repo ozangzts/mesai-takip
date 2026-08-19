@@ -165,8 +165,7 @@ mesai-takip/
 │   ├── personel/              # employee roster — NOT month-specific
 │   ├── raw/2026-05/           # monthly exports, one month per folder
 │   └── out/2026-05/           # generated workbooks — what HR opens
-├── veri/                      # GIT-IGNORED — the report's machine-readable twin
-│   └── gonderim-2026-05.json  # names, e-mails, hours. Phase 4 reads THIS.
+│                              # The window writes elsewhere — see below.
 ├── docs/
 │   ├── PRODUCT.md             # what the customer asked for
 │   ├── DATA-SOURCES.md        # anatomy + defects of every input file
@@ -182,16 +181,18 @@ mesai-takip/
 │   │   ├── nav.py             # the left rail — one item per registered screen
 │   │   ├── rapor.py           # the report screen
 │   │   ├── period.py          # month parsing and labels — pure, tested
+│   │   ├── places.py          # where output goes; the month folder name
 │   │   └── widgets.py         # palette and shared widget primitives
 │   ├── pipeline.py            # the stages. Both front ends call run().
-│   ├── snapshot.py            # writes veri/*.json. Read it, never the workbook.
+│   ├── snapshot.py            # writes gonderim-<ay>.json beside the workbook.
+│   │                          # Read it, never the workbook.
 │   ├── readers/               # one per source file; base.py hides the container
 │   ├── rules/                 # the business math
 │   └── report/                # the workbook
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 255 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 265 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -205,9 +206,16 @@ Two front ends, both thin shells over `pipeline.run()` — `cli.py` and `gui/`
 (tkinter, `arayuz.cmd` to launch). **Neither may contain a business rule.** Adding a
 window screen is one entry in `gui/app.py:SCREENS`; the left rail is generated from it.
 Only screens that exist are registered — no placeholder items. Every run
-also writes `veri/gonderim-<ay>.json`, the machine-readable companion to the workbook.
-Anything downstream reads that, **never the workbook** — see `src/mesai/snapshot.py`
-for why. It holds names, e-mail addresses and hours, so `veri/` is git-ignored.
+also writes `gonderim-<ay>.json` **beside the workbook**, the machine-readable
+companion to it. Anything downstream reads that, **never the workbook** — see
+`src/mesai/snapshot.py` for why. It holds names, e-mail addresses and hours, so
+`gonderim-*.json` is git-ignored wherever it lands.
+
+The two front ends put that pair in different places, deliberately (ADR-024). The CLI
+keeps `data/out/<ay>/`. The **window asks**, defaults to the Desktop, remembers the
+answer, and makes one folder per month named `06-2026 Rapor` holding both files. The
+output folder is remembered precisely because it is *not* month-specific — the opposite
+of the input folder, which is never restored.
 
 Input files are found by glob pattern (`config/settings.yaml:sources`), not by exact
 name, so a Drive-synced folder can be pointed at with `--girdi` without renaming
@@ -426,7 +434,7 @@ will be.
 - [ ] Decision made with a real alternative → ADR appended to `docs/DECISIONS.md`
 - [ ] Structure or module change → `docs/ARCHITECTURE.md` and §3 of this file
 - [ ] Tests written and passing
-- [ ] Nothing under `data/` or `veri/` was committed
+- [ ] Nothing under `data/`, and no `gonderim-*.json`, was committed
 - [ ] No repository reference (`ADR-0NN`, `Q4`, a file path) reached the workbook
 - [ ] No real employee name added to a test fixture
 - [ ] Totals still reconcile: Σ per-person hours == Σ measured person-days, and the

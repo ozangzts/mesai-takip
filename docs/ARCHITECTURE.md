@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 255 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 265 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -45,7 +45,7 @@ back. No stage mutates global state.
            [5] compute            -> gross/net, anomalies  [Phase 2: FM, Multinet]
                   v
            [6] report             -> data/out/2026-05/mesai-raporu-2026-05.xlsx
-                  |                   veri/gonderim-2026-05.json
+                  |                   data/out/2026-05/gonderim-2026-05.json
                   v
                             [Phase 4: mail reads the JSON, never the workbook]
 ```
@@ -184,6 +184,8 @@ sibling of `mesai/report/`, the package that writes the workbook, which it is no
 `period.py` sits outside any one screen because a month is not a report-screen
 concept — anything that reports on a period needs the same parsing and label. It is
 the one part of the window with real logic in it, and it is tested without a display.
+`places.py` is the same shape for a different question: where generated files go on
+this machine, and what the month's folder is called (ADR-024).
 
 **The workbook is never read back.** Anything downstream — the mail step, a future
 "use last month's report" screen — loads the snapshot. The workbook is a presentation

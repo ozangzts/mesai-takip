@@ -13,10 +13,12 @@ run would have produced one object with two jobs.
 
 | Module | What lives there |
 | --- | --- |
-| `app.py` | the toplevel window, the header band, `main()` |
+| `app.py` | the shell: toplevel, header band, `SCREENS` registry, `main()` |
+| `nav.py` | the left rail — one item per registered screen |
 | `rapor.py` | the report screen: folder, per-source files, period, the run, result |
 | `period.py` | reading and writing a month (`07-2026` → `2026-07` → `Temmuz 2026`) |
-| `widgets.py` | palette, buttons, captions — the vocabulary every screen shares |
+| `places.py` | where output goes on this machine, and the month folder's name |
+| `widgets.py` | palette, buttons, the activity bar — what every screen shares |
 
 `rapor.py` keeps the Turkish name the handover gave it; `report.py` would have read as
 a sibling of `mesai.report`, the package that writes the workbook, which it is not.

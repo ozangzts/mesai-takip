@@ -22,7 +22,8 @@ import tkinter as tk_module
 import pytest
 
 from mesai import gui
-from mesai.gui import app as app_module, rapor, widgets
+from mesai import snapshot as snapshot_module
+from mesai.gui import app as app_module, places, rapor, widgets
 from mesai import gui as _gui_pkg  # noqa: F401  (gui.rapor attribute access)
 
 
@@ -312,8 +313,8 @@ def test_remembering_stores_the_parent_not_the_selection(screen, tmp_path):
     window._remember()
 
     saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
-    assert saved == {"browse_dir": str(share)}
-    assert "07 - 2026" not in saved.get("browse_dir", ""), "month must not be stored"
+    assert saved["browse_dir"] == str(share)
+    assert "07 - 2026" not in saved["browse_dir"], "month must not be stored"
 
 
 # --- navigation -------------------------------------------------------------
@@ -593,3 +594,100 @@ def test_the_month_warning_is_painted_as_a_caution_not_a_failure(screen, tmp_pat
 
     notes = [str(child.cget("text")) for child in window.folder_note.winfo_children()]
     assert any("adında Haziran geçiyor" in text for text in notes), "and it says why"
+
+
+# --- where the report is written (ADR-024) ----------------------------------
+#
+# The output folder is remembered outright while the INPUT folder deliberately is not,
+# and the difference is the whole point: the month lives in the subfolder this makes,
+# so last month's output choice is still right this month. Restoring the input folder
+# offers a stale month ready to run; restoring this one offers the place reports go.
+
+def test_the_output_folder_defaults_to_the_desktop(screen):
+    window = screen()
+
+    assert window.output_dir == places.desktop_dir()
+    assert window.output_var.get() == str(places.desktop_dir())
+
+
+def test_a_remembered_output_folder_is_restored(screen, tmp_path):
+    kept = tmp_path / "Raporlar"
+    kept.mkdir()
+    window = screen({"output_dir": str(kept)})
+
+    assert window.output_dir == kept
+
+
+def test_a_vanished_output_folder_falls_back_to_the_desktop(screen, tmp_path):
+    """An unmounted drive must not stop the run — and the field shows the fallback."""
+    window = screen({"output_dir": str(tmp_path / "Z-yok")})
+
+    assert window.output_dir == places.desktop_dir()
+    assert window.output_var.get() == str(places.desktop_dir())
+
+
+def test_changing_the_output_folder_is_saved_without_losing_the_browse_location(
+        screen, tmp_path):
+    """Two keys, one file. Writing one used to mean writing the whole object."""
+    share = tmp_path / "MESAI TAKIP"
+    month = share / "07 - 2026"
+    month.mkdir(parents=True)
+    kept = tmp_path / "Raporlar"
+    kept.mkdir()
+
+    window = screen()
+    window.folder = month
+    window._remember()
+    window.output_dir = kept
+    window._save()
+
+    saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
+    assert saved == {"output_dir": str(kept), "browse_dir": str(share)}
+
+
+def test_the_folder_name_puts_the_month_first_and_says_what_it_is():
+    assert places.report_folder_name("2026-06") == "06-2026 Rapor"
+    assert places.report_folder_name("2026-12") == "12-2026 Rapor"
+
+
+def test_the_workbook_and_its_snapshot_land_in_the_same_folder(tmp_path):
+    """One run, one folder. They used to be written to two unrelated places."""
+    workbook, data = places.report_paths(tmp_path, "2026-06")
+
+    assert workbook.parent == data.parent == tmp_path / "06-2026 Rapor"
+    assert workbook.name == "mesai-raporu-2026-06.xlsx"
+    assert data.name == "gonderim-2026-06.json"
+
+
+def test_the_snapshot_default_follows_its_workbook(tmp_path):
+    """Wherever the workbook was pointed, including a path the CLI was handed."""
+    workbook = tmp_path / "baska" / "yer" / "rapor.xlsx"
+    assert snapshot_module.default_path("2026-06", workbook) == \
+        workbook.parent / "gonderim-2026-06.json"
+
+
+def test_the_window_names_the_folder_it_will_create(screen):
+    """It creates a subfolder rather than writing into the chosen one; say so."""
+    window = screen()
+    window.period_var.set("2026-06")
+
+    assert "06-2026 Rapor" in window.output_note.cget("text")
+
+
+def test_before_a_period_is_known_no_folder_name_is_invented(screen):
+    window = screen()
+
+    assert "Rapor" not in window.output_note.cget("text").split("klasör")[0]
+    assert "Dönem" in window.output_note.cget("text")
+
+
+def test_the_snapshot_caption_no_longer_speaks_for_hr(screen, tmp_path):
+    """Whether HR needs to open it is not this line's business — it says what it is."""
+    window = screen()
+    window._render(rapor.Result(
+        True, "bitti", (), widgets.OK,
+        output=tmp_path / "r.xlsx", snapshot=tmp_path / "v.json"))
+    shown = window.result.get("1.0", "end")
+
+    assert "e-posta adımı bunu okuyacak" in shown
+    assert "İK" not in shown

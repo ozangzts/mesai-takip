@@ -34,16 +34,24 @@ data/
 │   ├── Macunköy Mayıs Mesai giriş-çıkış.xlsx
 │   ├── Teknopark - Mayıs Mesai Takip Exceli.xlsx
 │   └── HCMT34_MAYIS_IZIN.xlsx
-└── out/2026-05/
-    └── mesai-raporu-2026-05.xlsx   ← İK'nın açtığı dosya
+└── out/2026-05/                    ← komut satırından çalıştırılırsa buraya
+    ├── mesai-raporu-2026-05.xlsx   ← İK'nın açtığı dosya
+    └── gonderim-2026-05.json       ← raporun makine-okunur eşleniği
 
-veri/                               ← programın kendi dosyası, İK açmaz
-└── gonderim-2026-05.json           ← raporun makine-okunur eşleniği
+Masaüstü/                           ← pencereden çalıştırılırsa buraya (varsayılan)
+└── 05-2026 Rapor/
+    ├── mesai-raporu-2026-05.xlsx
+    └── gonderim-2026-05.json
 ```
 
-`veri/` klasörü raporla aynı koşuda yazılıyor ve raporun içindeki sayıların makine
-tarafından okunabilir hâlini tutuyor. Faz 4'te e-posta adımı **bunu** okuyacak,
-Excel'i değil. İçinde isim, e-posta ve saat var; git'e dahil değil, paylaşılmaz.
+**Rapor ve veri dosyası her zaman aynı klasörde.** Nerede olacağını pencereden sen
+seçersin (varsayılan Masaüstü, seçim hatırlanır); komut satırı `data/out/<ay>/`
+kullanmaya devam eder.
+
+Veri dosyası (`gonderim-<ay>.json`) raporla aynı koşuda yazılıyor ve raporun içindeki
+sayıların makine tarafından okunabilir hâlini tutuyor. Faz 4'te e-posta adımı **bunu**
+okuyacak, Excel'i değil. İçinde isim, e-posta ve saat var; git'e dahil değil,
+paylaşılmaz.
 
 | Dosya | Ne | Kişi |
 | --- | --- | --- |
@@ -249,6 +257,13 @@ adımı geldiğinde oradan geçilecek.
   anlaşılmadıysa sebebini, klasörle uyuşmuyorsa `⚠ klasör 2026-07 dönemine ait
   görünüyor` uyarısını. Bu son durum yanlış ayın dosyalarını yanlış dönemle okumayı
   engelliyor.
+- **Raporun nereye yazılacağını sen seçersin.** Varsayılan **Masaüstü**. `Değiştir…`
+  ile başka bir klasör seçebilirsin ve seçtiğin yer sonraki açılışlarda hatırlanır.
+  Girdi klasörü bilerek hatırlanmıyor ama çıktı klasörü hatırlanıyor; fark şu: girdi
+  klasörü aya özel, çıktı klasörü değil — ay, içinde açılan alt klasörün adında.
+- **Her ay için bir klasör açılır: `06-2026 Rapor`.** Rapor ve veri dosyası bu klasöre
+  birlikte yazılır, yani `Klasörü Aç` ikisinin birden durduğu yeri açar. Seçtiğin
+  klasörün altında hangi klasörün açılacağı, düğmeye basmadan önce yazıyor.
 - **Rapor ve veri dosyasının tam yolu sonuç panelinde yazıyor**, sadece adı değil.
   `Raporu Aç` ve `Klasörü Aç` düğmeleri de aynı dosyayı açar. Panel sığmadığında
   kaydırılır — eksik veri uyarısı uzun olduğunda veri dosyasının yolu en altta kalır.
@@ -475,7 +490,7 @@ otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü
 ## Geliştirme
 
 ```bash
-python -m pytest          # 255 test
+python -m pytest          # 265 test
 ```
 
 Doğrulama mekanizmaları:
@@ -553,7 +568,7 @@ Kaynak dosyalar 162 çalışanın adı, sicil numarası, departmanı, günlük h
 sağlık/doğum izni kayıtlarını içeriyor.
 
 - `data/` klasörü git'e **dahil edilmez**. Gerçek bir dosyayı asla commit'leme.
-- `veri/` klasörü de dahil edilmez — raporun makine-okunur eşleniği isim, e-posta ve
+- `gonderim-*.json` de dahil edilmez — raporun makine-okunur eşleniği isim, e-posta ve
   saat içeriyor.
 - `config/personel.yaml` gerçek isim yazımlarını tuttuğu için git'te yok;
   `config/personel.example.yaml` onun yerine commit'lenir.

@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (23 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (24 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 255 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 265 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -91,7 +91,17 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    *okudu ama hiçbiri aya ait değil* yanlış dosya demek.
    Pencere ayrıca dosya **adında** başka bir ay geçiyorsa düğmeye basılmadan önce
    turuncu uyarı veriyor — karar vermiyor, sadece keşfi öne alıyor.
-8. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+8. **Rapor artık kullanıcının seçtiği klasöre yazılıyor (ADR-024).** Varsayılan
+   Masaüstü (`SHGetKnownFolderPath`, `~/Desktop` varsayımı değil — OneDrive
+   yönlendirmesi olan makinede Masaüstü başka yerde). Seçim hatırlanıyor; girdi
+   klasörünün aksine, çünkü çıktı klasörü aya özel değil. Ay başına tek klasör:
+   `06-2026 Rapor`, içinde rapor ve veri dosyası birlikte.
+   Bu arada mevcut bir çelişki çözüldü: `snapshot.default_path`'in docstring'i
+   "bilerek raporun yanında DEĞİL" diyordu, ADR-021 ise "program JSON'u raporun
+   yanında bulur" diyordu. ADR-021 lehine çözüldü.
+   CLI varsayılanı değişmedi (`data/out/<ay>/`), sadece veri dosyası artık orada da
+   raporun yanında.
+9. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 
@@ -198,16 +208,18 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
   gerçek turnike okumasını **asla ezmez** (ADR-017, ADR-018)
 - 2 saatin altındaki günler işaretlenir (ADR-019)
 - Okuyucular kabı ve kolon konumlarını **keşfeder**, varsaymaz (ADR-020)
-- Rapor **asla geri okunmaz**; her koşu `veri/gonderim-<ay>.json` yazar ve
-  aşağı akış onu okur (ADR-021)
+- Rapor **asla geri okunmaz**; her koşu `gonderim-<ay>.json` yazar ve aşağı akış onu
+  okur (ADR-021). Bu dosya artık **raporun yanında** duruyor (ADR-024)
 - Raporda **depoya ait hiçbir referans olmaz** (`ADR-015`, `Q4` gibi) — bir test
   bunu koruyor
 - Commit mesajları **Türkçe** (AGENTS.md §6'da düzeltildi, pratik buydu)
 
 ## Gözden kaçmaması gerekenler
 
-- `veri/` ve `data/` **kişisel veri**, git'e girmez. `veri/` neredeyse commit
-  edilecekti; `.gitignore`'a eklendi.
+- `data/` ve `gonderim-*.json` **kişisel veri**, git'e girmez. `veri/` neredeyse
+  commit edilecekti; `.gitignore`'a eklendi. `veri/` artık yazılmıyor (ADR-024) ama
+  `.gitignore` girdisi duruyor — asıl koruma dosya adı kuralı, çünkü veri dosyası artık
+  kullanıcının seçtiği herhangi bir yere (Masaüstü dahil) düşebiliyor.
 - Bordroyu etkileyen üç config anahtarı **zorunlu**: `daily_hours`,
   `break.deduct`, `remote_day_replaces_attendance`. Eksikse program durur.
 - `tests/conftest.py` fixture'ı gerçek config'den **sapabiliyor** — bir kez saptı ve

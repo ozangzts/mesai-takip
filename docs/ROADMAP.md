@@ -240,6 +240,10 @@ Reworked further the same day, in this order:
 - **failing the run when a source is the wrong month** (ADR-023) — which the previous
   item made easier to reach, and which was found by measuring rather than assuming: the
   run had been succeeding with a report 72 % short and no warning at all.
+- **Writing where the user chose** (ADR-024): Desktop by default, the choice
+  remembered, one folder per month named `06-2026 Rapor` holding the workbook and its
+  snapshot together. This is also what makes the packaged executable viable — a run no
+  longer needs the program's own directory to be writable.
 
 Design notes worth keeping:
 
