@@ -1694,3 +1694,66 @@ two hours in a day) and `Ay büyük ölçüde boş` (under half the month accoun
   project owner has explicitly reserved it for a separate conversation: whether
   somebody can genuinely work more than sixteen hours, and whether counting such a day
   as zero is the right answer. That question is open.
+
+---
+
+## ADR-032 — The 16-hour ceiling rejects our own repair, not a long day
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+`plausibility.max_shift_hours` excluded any interval over sixteen hours, counting that
+person-day as **zero**. It was the only plausibility rule that changed a payroll figure,
+and the project owner asked the obvious question: can somebody not genuinely work more
+than sixteen hours?
+
+All six exclusions across May and June 2026, opened one at a time:
+
+| Date | Raw record | Duration | What it is |
+| --- | --- | --- | --- |
+| 21.05 | `13:58:56 → 13:57:50` | 23:58 | exit one minute **before** entry |
+| 14.05 | `18:08:28 → 16:04:41` | 21:56 | exit before entry |
+| 09.06 | `09:08:10 → 09:08:06` | 23:59 | four seconds apart |
+| 22.06 | `07:24:38 → 23:31:25` | **16:06** | **a real shift** |
+| 30.06 | `07:19:04 → 23:58:21` | **16:39** | **a real shift** |
+| 30.06 | `08:28 → 07:37 (+1d)` | 23:09 | source states it plainly; implausible but stated |
+
+Two people had a day they actually worked counted as zero.
+
+The first three share a property the others do not: the exit **precedes** the entry, so
+the tool assumes the shift crossed midnight and adds 24 hours. That assumption is
+*ours*. When it produces 23:58 out of two timestamps a minute apart, the assumption was
+wrong — and rejecting the record is right.
+
+Simply removing the ceiling was measured and is worse: it admits those three, adding
+45:46 to May and 63:20 to June out of nothing.
+
+### Decision
+
+Split the rule along the line the data draws.
+
+1. **A repaired interval over the ceiling is refused**, as before, under a label that
+   now says why: `Giriş-çıkış tutarsız`. We do not trust a guess of ours that produces
+   an impossible figure.
+2. **An interval the source states plainly is kept, however long.** ADR-003's principle
+   applied in the other direction: we do not invent data, and we do not discard what the
+   source plainly says either.
+3. **A person-day over sixteen hours is flagged, not excluded** —
+   `Günlük süre çok uzun (>16 saat)`, counted, `included`. It is the mirror of
+   `Günlük süre çok kısa (<2 saat)`, measured the same way, at the same level.
+4. Both short and long labels **carry their threshold in the name**. Somebody choosing
+   a filter should not have to look up what "short" means, and the value is the whole
+   content of the rule.
+
+### Consequences
+
+- **May is unchanged at 17 103:58** — both of its cases were repairs. **June goes from
+  27 119:24 to 27 166:19, +46:55**, which is exactly `16:06 + 16:39 + (23:09 − the 9:00
+  already counted that day)`. Three person-days that were zero are now real.
+- The 23:09 case is now counted and flagged rather than silently dropped. It is
+  probably a missing exit paired with the next entry, but the tool cannot know that,
+  and a visible figure a human can question beats an invisible zero.
+- `max_shift_hours` now does two jobs — the repair ceiling and the day-level flag — and
+  they are deliberately the same number. If they ever need to differ, that is a second
+  config key and a new decision, not a quiet reinterpretation of this one.

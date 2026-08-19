@@ -87,16 +87,41 @@ def test_long_but_plausible_interval_is_kept(settings):
     assert notes == []
 
 
-def test_implausibly_long_interval_is_excluded(settings):
-    # A stuck badge must not silently add 24 hours to someone's month.
+def test_a_long_interval_the_source_states_plainly_is_kept(settings):
+    """The ceiling is about our own repair, not about long days. ADR-032.
+
+    Two June 2026 people worked 16:06 and 16:39 and were being counted as zero,
+    because a rule meant for a `13:58:56 -> 13:57:50` misread caught them too.
+    """
     record = PunchRecord(
         source="macunkoy", source_row=2, raw_name="TEST KİŞİ", key=("TEST", "KISI"),
         date=date(2026, 5, 21),
         entry=datetime(2026, 5, 21, 6, 0), exit=datetime(2026, 5, 22, 6, 0),
     )
     interval, notes = build_interval(record, settings)
+    assert interval is not None, "24 hours the source itself states is not our guess"
+    assert AnomalyKind.IMPLAUSIBLE_DURATION not in [n.kind for n in notes]
+
+
+def test_a_repair_that_produces_an_impossible_figure_is_refused(settings):
+    """The real 21.05.2026 row: exit one minute BEFORE entry.
+
+    Assuming a midnight crossing turns it into 23:58. The assumption is ours, and an
+    assumption that produces something impossible was the wrong assumption.
+    """
+    interval, notes = build_interval(punch("13:58", "13:57"), settings)
+
     assert interval is None
     assert [n.kind for n in notes] == [AnomalyKind.IMPLAUSIBLE_DURATION]
+
+
+def test_a_genuine_midnight_crossing_is_still_repaired(settings):
+    """23:30 -> 07:30 is eight hours, well under the ceiling: repaired and kept."""
+    interval, notes = build_interval(punch("23:30", "07:30"), settings)
+
+    assert interval is not None
+    assert hhmm(interval.end - interval.start) == "8:00"
+    assert any(n.kind is AnomalyKind.NEGATIVE_DURATION for n in notes)
 
 
 def test_reported_duration_mismatch_is_reported(settings):

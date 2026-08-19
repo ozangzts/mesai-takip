@@ -47,16 +47,27 @@ def build_interval(
         return None, []
 
     tags: list[AnomalyKind] = []
-    if exit_ < entry:
+    repaired = exit_ < entry
+    if repaired:
         exit_ = exit_ + _DAY
         tags.append(AnomalyKind.NEGATIVE_DURATION)
 
     duration = exit_ - entry
-    if duration > settings.plausibility.max_duration:
+    # The ceiling rejects OUR OWN GUESS, not a long day. When the exit precedes the
+    # entry we assume the shift crossed midnight and add 24 hours; if that assumption
+    # produces something over the ceiling, the assumption was wrong and the record is
+    # unusable. All three May/June cases of it are minutes or seconds apart —
+    # `13:58:56 -> 13:57:50` becomes 23:58.
+    #
+    # An interval the source states plainly is kept however long it is. Two June days
+    # ran 16:06 and 16:39 — real people, real shifts — and were being counted as zero
+    # because a ceiling meant for broken records caught them. ADR-032.
+    if repaired and duration > settings.plausibility.max_duration:
         return None, [_anomaly(
             AnomalyKind.IMPLAUSIBLE_DURATION, record,
-            detail=f"süre {_hhmm(duration)}, üst sınır "
-                   f"{_hhmm(settings.plausibility.max_duration)}",
+            detail=f"gece geçişi varsayılıp düzeltilince süre {_hhmm(duration)} "
+                   f"çıkıyor, üst sınır "
+                   f"{_hhmm(settings.plausibility.max_duration)} — kayıt kullanılamaz",
         )]
 
     for kind in tags:

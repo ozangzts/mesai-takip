@@ -413,3 +413,21 @@ def test_the_weekday_calendar_does_not_touch_the_hours(settings):
 
     assert date(2026, 5, 24).weekday() == 6
     assert weekday == sunday
+
+
+def test_a_sixteen_hour_day_is_counted_and_flagged(settings):
+    """The real 30.06.2026 case: 07:19 -> 23:58. It was being counted as zero."""
+    workdays, notes, _accepted, _union, total = build_workdays(
+        [punch("07:19", "23:58")], settings)
+
+    assert hhmm(total) == "16:39", "the hours are real and stay"
+    assert any(n.kind is AnomalyKind.LONG_DAY for n in notes), "and it is flagged"
+    assert "uzun-gün" in workdays[0].tags
+
+
+def test_a_day_just_under_the_ceiling_says_nothing(settings):
+    _workdays, notes, _accepted, _union, total = build_workdays(
+        [punch("07:00", "22:30")], settings)
+
+    assert hhmm(total) == "15:30"
+    assert not any(n.kind is AnomalyKind.LONG_DAY for n in notes)

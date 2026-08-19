@@ -31,7 +31,7 @@ def snap():
         coverage={"macunkoy": {"partial": False}},
         people=(
             person("ÇAĞLA DENEME", problems=("Çıkış yok",)),
-            person("AHMET SINAMA", problems=("Çıkış yok", "Süre çok kısa")),
+            person("AHMET SINAMA", problems=("Çıkış yok", "Günlük süre çok kısa (<2 saat)")),
             person("ZEYNEP ÖRNEK", expected=("Uzaktan + sistem kaydı",)),
             person("BERK NUMUNE", email=None, problems=("Mesai verisi yok",)),
             person("SEDA TASLAK"),
@@ -144,9 +144,9 @@ def test_the_order_does_not_depend_on_how_many_people_have_each_note(snap):
     busy = Snapshot(
         period=snap.period, generated_at=snap.generated_at, rules={},
         coverage=snap.coverage,
-        # "Süre çok kısa" now dwarfs "Çıkış yok"; the order must not move.
+        # "Günlük süre çok kısa (<2 saat)" now dwarfs "Çıkış yok"; the order must not move.
         people=snap.people + tuple(
-            person(f"EK {n} DENEME", problems=("Süre çok kısa",)) for n in range(20)),
+            person(f"EK {n} DENEME", problems=("Günlük süre çok kısa (<2 saat)",)) for n in range(20)),
     )
     order = [c.label for c in recipients.choices(snap)]
     busier = [c.label for c in recipients.choices(busy)]
@@ -167,7 +167,7 @@ def test_expected_behaviour_says_so_in_the_list(snap):
 def test_someone_with_two_notes_appears_under_both(snap):
     """Measured on June 2026: 62 of 163 people carry more than one note. Being in one
     filter must never take somebody out of another."""
-    for label in ("Çıkış yok", "Süre çok kısa"):
+    for label in ("Çıkış yok", "Günlük süre çok kısa (<2 saat)"):
         assert "AHMET SINAMA" in [p.name for p in recipients.matching(snap, label)]
 
 
@@ -177,7 +177,7 @@ def test_the_extra_count_excludes_the_note_being_filtered_on(snap):
     ahmet = next(p for p in snap.people if p.name == "AHMET SINAMA")
 
     assert recipients.other_problems(ahmet, "Çıkış yok") == 1, "the short day remains"
-    assert recipients.other_problems(ahmet, "Süre çok kısa") == 1
+    assert recipients.other_problems(ahmet, "Günlük süre çok kısa (<2 saat)") == 1
     assert recipients.other_problems(ahmet, recipients.ALL) == 2, "nothing to exclude"
 
 

@@ -70,7 +70,17 @@ Sonuç: 12 saat 36 dakika — 50 dakika ikinci kez sayılmaz
 | Kart okuması | ✅ | Asıl kaynak |
 | Teknopark'ın yazdığı varsayılan `09:00–18:00` gün | ✅ | Kart verisi olmayan iş gününe sistem bunu yazıyor; kaynak dosya da çalışma sayıyor |
 | `Uzaktan Çalışma` izni | ✅ | Uzaktan çalışma izin değil, çalışmadır. Kaydında gerçek saat var |
-| Yıllık izin, mazeret, rapor, doğum günü izni | ❌ | İzin, çalışma değil |
+| Diğer bütün izin türleri | ❌ | İzin, çalışma değil |
+
+İzin dosyasında görülen türler: `Yıllık İzin`, `Mazeret`, `Eğitim İzni`,
+`Doğum Günü İzni`, `İstirahat (Raporlu)`, `Doğum İzni (Tam Ödeme)`, `Ücretsiz İzin`,
+`Babalık İzni`. **`Uzaktan Çalışma` dışında hepsi izin sayılır.**
+
+`Uzaktan Çalışma` çift sayılmaz: saat olarak çalışmaya, gün olarak
+`Uzaktan Çalışma (Gün)` kolonuna girer — `İzin Günü` kolonuna girmez.
+
+> `Eğitim İzni` şu an izin sayılıyor ama bu henüz karara bağlanmadı. Kayıtlarında
+> gerçek saat var, yani "çalışma" denirse varsayım gerekmeden hesaplanabilir.
 
 **Uzaktan çalışma günü, sistemin varsayılan gününün yerine geçer.** Aynı gün için hem
 uzaktan çalışma beyanı hem sistemin `09:00–18:00`'i varsa, uzaktan çalışmanın gerçek
@@ -149,10 +159,18 @@ duruyordu.
 
 | Not | Ne demek | Ağırlık |
 | --- | --- | --- |
-| `Süre çok kısa` | Günlük toplam **2 saatin** altında | 🟡 |
-| `Aralık çok uzun` | Tek bir giriş-çıkış **16 saati** aşıyor | 🔴 |
+| `Günlük süre çok kısa (<2 saat)` | Günün toplamı 2 saatin altında | 🟡 |
+| `Günlük süre çok uzun (>16 saat)` | Günün toplamı 16 saati aşıyor — **süre sayılır**, sadece kontrol için işaretlenir | 🟡 |
 | `Gece geçişi` | Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi | 🟡 |
+| `Giriş-çıkış tutarsız` | Çıkış girişten önce ve gece geçişi varsayılınca süre 16 saati aşıyor — kayıt kullanılamaz | 🔴 |
 | `Süre uyuşmazlığı` | Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil | 🟡 |
+
+**Uzun gün sayılır, atılmaz.** 16 saati aşan bir gün gerçek olabilir; program onu
+toplamdan çıkarmaz, sadece "buna bakın" der. Atılan tek şey **kendi içinde tutarsız**
+kayıt: çıkışı girişten önce yazılmış ve gece geçişi varsayımıyla düzeltilince 16 saati
+aşan kayıt. O varsayım programın kendi tahmini; tahmin imkânsız bir sonuç veriyorsa
+tahmin yanlıştır.
+
 
 ### Uzaktan çalışma
 
@@ -178,7 +196,7 @@ duruyordu.
 | Eşik | Değer | Neyi ölçer |
 | --- | --- | --- |
 | Günlük kısa süre | 2 saat | Bir günün toplamı |
-| Aralık üst sınırı | 16 saat | Tek bir giriş-çıkış |
+| Günlük uzun süre | 16 saat | Bir günün toplamı (işaretlenir, çıkarılmaz) |
 | Ay kapsama oranı | %50 | Çalışma + izin ÷ beklenen iş günü |
 | Sistemin varsayılan günü | `09:00–18:00` | Teknopark'ın kart verisi olmayan güne yazdığı saat |
 | Öğle arası kesintisi | Yok | — |

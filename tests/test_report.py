@@ -331,7 +331,7 @@ def test_the_two_ambiguous_pairs_stay_distinct():
     label = {kind: value[0] for kind, value in DESCRIPTIONS.items()}
     assert label[AnomalyKind.MISSING_ENTRY] == "Giriş yok"
     assert label[AnomalyKind.MISSING_EXIT] == "Çıkış yok"
-    assert label[AnomalyKind.SHORT_DAY] == "Süre çok kısa"
+    assert label[AnomalyKind.SHORT_DAY] == "Günlük süre çok kısa (<2 saat)"
 
 
 def test_the_remote_pair_names_the_kind_that_actually_fires():

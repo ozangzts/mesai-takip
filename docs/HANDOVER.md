@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (31 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (32 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -21,11 +21,11 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 314 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 318 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
-| Toplam çalışma süresi | 17 103:58 | 27 119:24 | 16 029:17 ⚠ |
+| Toplam çalışma süresi | 17 103:58 | 27 166:19 | 16 029:17 ⚠ |
 
 ⚠ **Temmuz eksik** — Teknopark dosyası ayın 1–19'unu kapsıyor, 20 Temmuz'da alınmış.
 Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya uygun değil.
@@ -159,7 +159,17 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     toplamın içinde. Hafta içi takvimi yalnızca (a) kaynak dosya ayı kapsıyor mu
     kontrolünde ve (b) `Ay büyük ölçüde boş` notunun paydasında kullanılıyor; saatlere
     hiç dokunmuyor. `tests/test_merge.py` bunu artık sabitliyor.
-13. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+13. **16 saat kuralı düzeltildi (ADR-032) — AÇIK KONU KAPANDI.**
+    Altı vaka tek tek açıldı: üçü bozuk kayıt (çıkış girişten önce, düzeltilince
+    21–24 saat çıkıyor), **üçü gerçek** — 16:06, 16:39 ve 23:09. İki kişi gerçekten
+    çalıştıkları günü 0 saat alıyordu.
+    Ayrım şu: **çıkışı girişten önce olup bizim +24 saat ekleyerek onardığımız** kayıt
+    reddediliyor (onarım bizim tahminimiz, imkânsız sonuç veriyorsa tahmin yanlıştır);
+    kaynağın düpedüz yazdığı uzun gün ise sayılıp **işaretleniyor**.
+    Mayıs değişmedi (17 103:58). **Haziran 27 119:24 → 27 166:19, +46:55.**
+    Yeni etiketler: `Günlük süre çok uzun (>16 saat)` ve `Giriş-çıkış tutarsız`.
+    `Günlük süre çok kısa (<2 saat)` de eşiği adında taşıyor artık.
+14. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

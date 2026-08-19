@@ -47,7 +47,13 @@ plausibility:
   # somebody whose records went missing — and that is exactly the person to ask about.
   # ADR-030.
   sparse_month_ratio: 0.5
-  # An interval longer than this is excluded and flagged. Also the ceiling for
+  # Two jobs, deliberately the same number (ADR-032):
+  #  * a person-DAY longer than this is flagged — counted, never excluded. A 16-hour
+  #    day is real work until somebody says otherwise.
+  #  * an interval we REPAIRED (exit before entry, so we assumed a midnight crossing
+  #    and added 24 h) is refused if the repair lands above it. That is our guess
+  #    failing, not a long day: `13:58:56 -> 13:57:50` becomes 23:58.
+  # Also the ceiling for
   # accepting a midnight-crossing repair.
   max_shift_hours: 16.0
 

@@ -25,6 +25,7 @@ class AnomalyKind(StrEnum):
     CROSS_SITE_EXTENDED = "CROSS_SITE_EXTENDED"
     UNRESOLVED_IDENTITY = "UNRESOLVED_IDENTITY"
     DURATION_MISMATCH = "DURATION_MISMATCH"
+    LONG_DAY = "LONG_DAY"                  # the whole day is over the ceiling
     NO_ATTENDANCE_DATA = "NO_ATTENDANCE_DATA"
     SPARSE_MONTH = "SPARSE_MONTH"          # has records, but almost none
     # Two kinds, because they are two different questions. See ADR-017.
@@ -82,13 +83,24 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
         "Gece geçişi", "included",
         "Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi",
         "Süre"),
+    # Was "Aralık çok uzun", and it was catching real 16-hour shifts. It now fires
+    # only when the midnight-crossing repair produces an impossible figure — that is,
+    # when OUR assumption failed, not when somebody worked a long day. ADR-032.
     AnomalyKind.IMPLAUSIBLE_DURATION: (
-        "Aralık çok uzun", "excluded",
-        "Tek aralık 16 saati aşıyor — okuma hatası olabilir",
+        "Giriş-çıkış tutarsız", "excluded",
+        "Çıkış girişten önce görünüyor; gece geçişi varsayılıp düzeltilince süre "
+        "16 saati aşıyor. Kayıt kullanılamaz, o gün 0 saat sayıldı",
+        "Süre"),
+    # The threshold is in the label: somebody filtering a list should not have to look
+    # up what "short" means, and the value is the whole content of the rule.
+    AnomalyKind.LONG_DAY: (
+        "Günlük süre çok uzun (>16 saat)", "included",
+        "Günün ilk girişinden son çıkışına kadar geçen süre 16 saati aşıyor. "
+        "Süre sayıldı — kontrol edilmeli",
         "Süre"),
     AnomalyKind.SHORT_DAY: (
-        "Süre çok kısa", "included",
-        "Günlük toplam 2 saatin altında",
+        "Günlük süre çok kısa (<2 saat)", "included",
+        "Günün ilk girişinden son çıkışına kadar geçen süre 2 saatin altında",
         "Süre"),
     # This is the one that fires under the shipped config, so it carries the plain
     # name. ADR-018 REMOVES the system's default day and counts the remote hours, so

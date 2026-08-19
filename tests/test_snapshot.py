@@ -120,7 +120,7 @@ def test_info_anomalies_are_not_problems(settings):
 
 def test_problem_labels_are_ordered_by_frequency(settings):
     built = _build(settings)
-    assert set(built.problem_labels) == {"Çıkış yok", "Süre çok kısa"}
+    assert set(built.problem_labels) == {"Çıkış yok", "Günlük süre çok kısa (<2 saat)"}
 
 
 def test_a_partial_run_is_marked_incomplete(settings):

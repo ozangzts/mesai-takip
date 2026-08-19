@@ -111,6 +111,22 @@ def build_workdays(
             ))
             tags.add("kısa-gün")
 
+        # The other end of the same question, and deliberately a flag rather than an
+        # exclusion: a 16-hour day is real work until somebody says otherwise. The
+        # ceiling used to reject it outright, so two June people had a day they truly
+        # worked counted as zero. ADR-032.
+        if gross > settings.plausibility.max_duration:
+            anomalies.append(Anomaly(
+                kind=AnomalyKind.LONG_DAY, source=day_records[0].source,
+                source_row=day_records[0].source_row, key=key,
+                raw_name=day_records[0].raw_name, date=day,
+                raw_entry=f"{merged[0].start:%H:%M}",
+                raw_exit=f"{merged[-1].end:%H:%M}",
+                detail=f"günlük süre {worktime.hhmm(gross)}, eşik "
+                       f"{worktime.hhmm(settings.plausibility.max_duration)}",
+            ))
+            tags.add("uzun-gün")
+
         workdays.append(WorkDay(
             key=key, date=day, intervals=merged, gross=gross,
             break_deduction=deduction, net=net, tags=frozenset(tags),
