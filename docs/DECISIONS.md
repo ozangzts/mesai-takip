@@ -1927,6 +1927,14 @@ Keep it, and stop it being a surprise.
   prints all of it.
 - `arayuz-ayarlari.json` gains `roster_file`. It holds a path, never employee data, and
   is already git-ignored.
+- The roster row offers `Değiştir…` **even when it was found**, unlike the three
+  monthly sources. Those have a folder picker, so changing one means changing the
+  folder; the roster has no folder of its own, and without the button the only
+  reachable list was whichever one the lookup happened to find. The project owner hit
+  exactly that.
+- The row is shown **before a month folder is picked**, for the same reason: it is not
+  month-specific, so gating it behind a month is an ordering constraint with nothing
+  behind it. The run button stays disabled until a folder is chosen.
 - Making the roster optional was considered and rejected. A report with no addresses
   produces a data file with no addresses, and the mail step would then receive a
   silently empty list — trading a loud failure now for a quiet one later.

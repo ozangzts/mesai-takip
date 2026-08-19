@@ -981,3 +981,48 @@ def test_forgetting_a_roster_also_survives_a_restart(screen, tmp_path):
 
     saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
     assert "roster_file" not in saved
+
+
+def test_a_found_roster_can_still_be_changed(screen, tmp_path, settings):
+    """It has no folder picker of its own, so "change the folder" is not an escape.
+
+    Without this the only reachable roster is whichever one the lookup found, and a
+    newer list sitting anywhere else could not be used at all.
+    """
+    home = tmp_path / "personel"
+    _touch(home, "calisan_listesi.xlsx")
+    window = screen()
+    window.roster_dir = home
+    window._describe()
+
+    labels = [str(c.cget("text")) for c in window.folder_note.winfo_children()]
+    assert "Değiştir…" in labels
+    assert "Seç…" not in labels, "it was found; nothing is missing"
+
+
+def test_a_found_monthly_source_still_offers_nothing(screen, tmp_path, settings):
+    """The rule is unchanged for the three that do have a folder picker."""
+    folder = tmp_path / "07 - 2026"
+    _touch(folder, *COMPLETE)
+    _touch(tmp_path / "personel", "calisan_listesi.xlsx")
+    window = screen()
+    window.roster_dir = tmp_path / "personel"
+    window._set_folder(folder)
+
+    buttons = [str(c.cget("text")) for c in window.folder_note.winfo_children()
+               if isinstance(c, tk_module.Button)]
+    assert buttons == ["Değiştir…"], "only the roster offers one when all four are found"
+
+
+def test_the_roster_can_be_set_before_a_folder_is_chosen(screen, tmp_path):
+    """It is not month-specific, so waiting for a month to be picked is an odd gate."""
+    _touch(tmp_path / "personel", "calisan_listesi.xlsx")
+    window = screen()
+    window.roster_dir = tmp_path / "personel"
+    window._describe()
+
+    assert [s.key for s in window.states] == ["roster"]
+    labels = [str(c.cget("text")) for c in window.folder_note.winfo_children()]
+    assert "Değiştir…" in labels
+    assert any("Gözat" in text for text in labels), "and the instruction still shows"
+    assert str(window.run_button.cget("state")) == "disabled", "no folder, no run"

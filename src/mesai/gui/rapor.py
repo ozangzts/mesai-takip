@@ -595,15 +595,17 @@ class ReportScreen:
             return
 
         if not self.folder:
-            # A folder comes first and the per-source buttons appear underneath it, so
-            # there is no state where a file has been named but no folder chosen — and
-            # the pipeline still needs the folder for the sources nobody named.
+            # Nothing chosen yet is not a problem and must not be painted as one; a red
+            # line here made an untouched window look like something had gone wrong.
             #
-            # Not a problem, and it must not be painted as one. Nothing chosen yet is
-            # simply where every run starts; a red line here made an untouched window
-            # look like something had already gone wrong.
-            self._write_message("Başlamak için 'Gözat…' ile klasörü seçin.",
-                                problem=False)
+            # The roster row is shown anyway. It is not month-specific, so it is
+            # already settled or already wrong before any month is picked — and if it
+            # were hidden until a folder was chosen, there would be no way to point at
+            # a roster first.
+            self.states = (roster_state(self.roster_dir, None, settings,
+                                        self.roster_file),)
+            self._write_sources(self.states,
+                                lead="Başlamak için 'Gözat…' ile klasörü seçin.")
             w.set_enabled(self.run_button, False)
             return
 
@@ -628,7 +630,8 @@ class ReportScreen:
                  font=(w.FACE, 9), anchor="w").grid(row=0, column=0, columnspan=3,
                                                     sticky="ew")
 
-    def _write_sources(self, states: tuple[SourceState, ...]) -> None:
+    def _write_sources(self, states: tuple[SourceState, ...],
+                       lead: str = "") -> None:
         """One row per source: a mark, the site name, the file, and a way to fix it.
 
         Each row carries its own colour. When two of the three are found and one is
@@ -638,7 +641,16 @@ class ReportScreen:
         self._clear_note()
         self.note_lines = tuple(f"{s.label}: {s.note}" for s in states)
 
-        for row, state in enumerate(states):
+        offset = 0
+        if lead:
+            self.note_lines = (lead,) + self.note_lines
+            tk.Label(self.folder_note, text=lead, background=w.BG,
+                     foreground=w.MUTED, font=(w.FACE, 9), anchor="w").grid(
+                row=0, column=0, columnspan=4, sticky="w", pady=(0, 4))
+            offset = 1
+
+        for index, state in enumerate(states):
+            row = index + offset
             if not state.ready:
                 mark, colour = "✗", w.BAD
             elif state.suspect:
@@ -661,17 +673,27 @@ class ReportScreen:
             tk.Label(self.folder_note, text=note, background=w.BG, foreground=colour,
                      font=(w.FACE, 9), anchor="w").grid(row=row, column=2, sticky="w")
 
-            # A row only gets a button when it has something to offer: find the file
-            # the folder did not hold, or undo a hand-picked one. A source that was
-            # found where it was expected needs nothing.
+            # A monthly row only gets a button when it has something to offer: find the
+            # file the folder did not hold, or undo a hand-picked one. One found where
+            # it was expected needs nothing — the way to change it is to change the
+            # folder.
+            #
+            # The roster has no folder of its own, so that escape does not exist for
+            # it. Found automatically, it still offers `Değiştir…`; otherwise a newer
+            # list sitting anywhere else is simply unreachable, which is what the
+            # project owner ran into.
             if not state.ready:
-                w.button(self.folder_note, "Seç…",
-                         lambda k=state.key: self._choose_source(k),
-                         primary=False).grid(row=row, column=3, sticky="e",
-                                             padx=(10, 0), pady=1)
+                action, command = "Seç…", self._choose_source
             elif state.chosen:
-                w.button(self.folder_note, "Geri al",
-                         lambda k=state.key: self._forget_source(k),
+                action, command = "Geri al", self._forget_source
+            elif state.key == "roster":
+                action, command = "Değiştir…", self._choose_source
+            else:
+                action, command = "", None
+
+            if command is not None:
+                w.button(self.folder_note, action,
+                         lambda k=state.key, c=command: c(k),
                          primary=False).grid(row=row, column=3, sticky="e",
                                              padx=(10, 0), pady=1)
 

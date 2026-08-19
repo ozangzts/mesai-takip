@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 333 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 336 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -205,6 +205,9 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     **Seçim hatırlanıyor** — aya bağlı olmadığı için (çıktı klasörüyle aynı mantık,
     girdi klasörünün tersi). Dosya taşınmışsa hatırlanan yol düşürülüyor ve normal
     arama devreye giriyor.
+    Liste **bulunmuş olsa bile** satırda `Değiştir…` var — üç aylık dosyanın klasör
+    seçicisi var, listenin yok; düğme olmasa aramanın bulduğu listeden başkasına
+    geçmek imkânsızdı. Satır **klasör seçilmeden de** görünüyor, aynı sebeple.
     Proje sahibi "liste gerekli mi" diye sordu; ölçüldü: **saatleri hiç etkilemiyor**
     (çıkarılsa toplam aynı kalır) ama **e-posta, tesis ve görev alanlarının tek
     kaynağı** — Haziran'da 154 kişi. E-posta adımı onsuz mümkün değil.
