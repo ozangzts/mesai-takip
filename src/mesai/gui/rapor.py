@@ -25,7 +25,7 @@ import json
 import queue
 import threading
 import tkinter as tk
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path, PurePath
@@ -194,8 +194,12 @@ class ReportScreen:
     """
 
     def __init__(self, parent: tk.Misc, *, root: tk.Misc, base: Path,
-                 config_dir: Path, roster_dir: Path) -> None:
+                 config_dir: Path, roster_dir: Path,
+                 on_snapshot: Callable[[Path], None] | None = None) -> None:
         self.root = root
+        # Called with the data file after a successful run. The shell passes the path
+        # on to the people screen; this screen does not know that screen exists.
+        self.on_snapshot = on_snapshot
         self.base = base
         self.config_dir = config_dir
         self.roster_dir = roster_dir
@@ -710,6 +714,8 @@ class ReportScreen:
         self._running = False
         self._render(result)
         self._last_output = result.output
+        if result.snapshot is not None and self.on_snapshot is not None:
+            self.on_snapshot(result.snapshot)
         have_file = bool(result.output and result.output.exists())
         w.set_enabled(self.open_report, have_file)
         w.set_enabled(self.open_folder, have_file)

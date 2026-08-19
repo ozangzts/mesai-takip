@@ -332,7 +332,7 @@ def test_the_two_ambiguous_pairs_stay_distinct():
     assert label[AnomalyKind.MISSING_ENTRY] == "Giriş yok"
     assert label[AnomalyKind.MISSING_EXIT] == "Çıkış yok"
     assert label[AnomalyKind.SUSPICIOUS_SHORT] == "Aralık çok kısa"
-    assert label[AnomalyKind.SHORT_DAY] == "Gün çok kısa"
+    assert label[AnomalyKind.SHORT_DAY] == "Süre çok kısa"
 
 
 def test_the_remote_pair_names_the_kind_that_actually_fires():

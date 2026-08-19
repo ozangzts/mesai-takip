@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (27 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (28 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -20,7 +20,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 279 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 299 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -110,7 +110,21 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
    sayfası §8 görülen bütün tesis değerlerini listeliyor.
    **Sorulan soru şuydu: uzaktan çalışma için not düşülüyor mu?** Düşülüyor, üç ayrı
    yerde — cevap için ADR-017/018 ve `Aylık Özet`'in `Kayıt Kaynağı` kolonu.
-10. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+10. **Kişiler ekranı eklendi (ADR-028).** Sol rayda ikinci öğe. Rapor bitince veri
+    dosyası kendiliğinden yükleniyor; eski bir ay için `Aç…` var. Filtre dropdown'ı
+    **yüklenen dosyadan** üretiliyor — not eklenirse kendiliğinden görünür. Kişiler
+    tek tek seçilip çıkarılabiliyor, çıkarma **isim üzerinden** (liste yeniden
+    sıralandığında satır numarası başkasını gösterirdi). Filtre değişince çıkarmalar
+    unutuluyor. E-postası olmayan gösteriliyor ve sayılıyor, atılmıyor.
+    Seçim mantığı `mail/recipients.py`'de, pencerede değil — pencere olmadan test
+    edilebiliyor.
+    Notlar da anahtar kelimeye çevrildi (ADR-027) ve gri notlar veri dosyasına
+    `expected` alanıyla girdi (`format_version` 3).
+    **Gönderme yok.** HANDOVER'daki üç mail kararı hâlâ cevapsız ve ekran onlarsız
+    çalışıyor. Sıradaki: "bu kişilere mail atılmayacak" istisna listesi — proje sahibi
+    böyle bir Excel bekliyor; o bir *kalıcı kural*, bir oturumun seçimi değil, ve
+    `recipients.py`'ye filtrenin yanına girmeli, ekrana değil.
+11. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

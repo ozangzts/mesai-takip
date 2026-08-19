@@ -79,7 +79,7 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str]] = {
         "Aralık çok kısa", "included",
         "Tek aralık 5 dakikanın altında — aynı kartın iki kez okunması olabilir"),
     AnomalyKind.SHORT_DAY: (
-        "Gün çok kısa", "included",
+        "Süre çok kısa", "included",
         "Günlük toplam 2 saatin altında"),
     # This is the one that fires under the shipped config, so it carries the plain
     # name. ADR-018 REMOVES the system's default day and counts the remote hours, so

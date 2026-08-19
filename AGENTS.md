@@ -180,6 +180,7 @@ mesai-takip/
 │   │   ├── app.py             # the shell: header, SCREENS registry, main()
 │   │   ├── nav.py             # the left rail — one item per registered screen
 │   │   ├── rapor.py           # the report screen
+│   │   ├── people.py          # the people screen: filter a data file, select
 │   │   ├── period.py          # month parsing and labels — pure, tested
 │   │   ├── places.py          # where output goes; the month folder name
 │   │   └── widgets.py         # palette and shared widget primitives
@@ -187,12 +188,13 @@ mesai-takip/
 │   ├── snapshot.py            # writes gonderim-<ay>.json beside the workbook.
 │   │                          # Read it, never the workbook.
 │   ├── readers/               # one per source file; base.py hides the container
+│   ├── mail/                  # who the figures go to — recipients.py, no widget
 │   ├── rules/                 # the business math
 │   └── report/                # the workbook
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 279 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 299 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 

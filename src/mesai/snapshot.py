@@ -37,7 +37,9 @@ from .models import MonthSummary, RunStats
 # 2: `problems` carries the new keyword labels (ADR-027). The values changed, not the
 #    shape, which is exactly the kind of change a version guard exists for: a filter
 #    written against "Çıkış kaydı yok" would quietly match nobody under "Çıkış yok".
-FORMAT_VERSION = 2
+# 3: `expected` added — the `info`-severity labels, so they can be filtered on without
+#    joining `problems` and making expected behaviour look like a defect (ADR-028).
+FORMAT_VERSION = 3
 
 
 class SnapshotError(Exception):
@@ -65,7 +67,18 @@ class Person:
     remote_days: float
     leave_days: float
     problems: tuple[str, ...]
+    # Labels of `info` severity — expected behaviour, recorded so the audit trail is
+    # complete. Kept OUT of `problems` on purpose (ADR-017): 21 people's rows once read
+    # as defective because of these, burying the 2 real questions among them. Carried
+    # anyway so the people screen can offer them as a filter, clearly marked as not
+    # being anybody's problem. ADR-028.
+    expected: tuple[str, ...]
     notes: tuple[str, ...]
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        """Everything this person can be filtered by, problems first."""
+        return self.problems + self.expected
 
     @property
     def hours_text(self) -> str:
@@ -88,14 +101,35 @@ class Snapshot:
     def with_problem(self, label: str) -> tuple[Person, ...]:
         return tuple(p for p in self.people if label in p.problems)
 
+    def with_label(self, label: str) -> tuple[Person, ...]:
+        """People carrying `label`, whether it is a problem or expected behaviour."""
+        return tuple(p for p in self.people if label in p.labels)
+
     @property
     def problem_labels(self) -> tuple[str, ...]:
-        """Distinct problem labels, most common first — the filter list for a UI."""
-        seen: dict[str, int] = {}
+        """Distinct problem labels, most common first."""
+        return tuple(label for label, _count, is_problem in self.label_counts()
+                     if is_problem)
+
+    def label_counts(self) -> tuple[tuple[str, int, bool], ...]:
+        """`(label, people, is_problem)` — the filter list, problems first.
+
+        Ordered problems-before-expected and then by frequency, because a dropdown is
+        read top-down and the rows that cost somebody hours belong above the rows that
+        are working as intended.
+        """
+        seen: dict[str, tuple[int, bool]] = {}
         for person in self.people:
             for label in person.problems:
-                seen[label] = seen.get(label, 0) + 1
-        return tuple(sorted(seen, key=lambda k: (-seen[k], k)))
+                count, _ = seen.get(label, (0, True))
+                seen[label] = (count + 1, True)
+            for label in person.expected:
+                count, _ = seen.get(label, (0, False))
+                seen[label] = (count + 1, False)
+        return tuple(
+            (label, count, is_problem)
+            for label, (count, is_problem) in sorted(
+                seen.items(), key=lambda item: (not item[1][1], -item[1][0], item[0])))
 
 
 def default_path(period: str, output_path: Path) -> Path:
@@ -120,10 +154,12 @@ def build(
     stats: RunStats, settings: Settings, generated_at: datetime,
 ) -> Snapshot:
     by_key: dict[tuple[str, str], set[str]] = {}
+    expected_by_key: dict[tuple[str, str], set[str]] = {}
     for anomaly in anomalies.items:
-        if anomaly.key is None or not anomaly.is_problem:
+        if anomaly.key is None:
             continue
-        by_key.setdefault(anomaly.key, set()).add(anomaly.label)
+        target = by_key if anomaly.is_problem else expected_by_key
+        target.setdefault(anomaly.key, set()).add(anomaly.label)
 
     people = tuple(
         Person(
@@ -139,6 +175,7 @@ def build(
             remote_days=s.remote_days,
             leave_days=s.leave_days,
             problems=tuple(sorted(by_key.get(s.employee.key, ()))),
+            expected=tuple(sorted(expected_by_key.get(s.employee.key, ()))),
             notes=tuple(s.notes),
         )
         for s in summaries
@@ -186,7 +223,8 @@ def save(snapshot: Snapshot, path: Path) -> Path:
                 "in_roster": p.in_roster, "has_attendance": p.has_attendance,
                 "worked_days": p.worked_days, "minutes": p.minutes,
                 "remote_days": p.remote_days, "leave_days": p.leave_days,
-                "problems": list(p.problems), "notes": list(p.notes),
+                "problems": list(p.problems), "expected": list(p.expected),
+                "notes": list(p.notes),
             }
             for p in snapshot.people
         ],
@@ -233,6 +271,7 @@ def load(path: Path) -> Snapshot:
                 remote_days=p.get("remote_days", 0.0),
                 leave_days=p.get("leave_days", 0.0),
                 problems=tuple(p.get("problems", ())),
+                expected=tuple(p.get("expected", ())),
                 notes=tuple(p.get("notes", ())),
             )
             for p in payload.get("people", ())

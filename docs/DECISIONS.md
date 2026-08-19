@@ -1459,3 +1459,70 @@ have come back empty.
   which is a reason to keep them stable once the people screen exists.
 - `Şüpheli Kayıtlar` keeps its per-row `Açıklama` (the record's own detail) — that is a
   different thing from the kind's explanation, and both earn their place.
+
+---
+
+## ADR-028 — A people screen: filter a month's data file by note, pick who is in the list
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+The report answers "how many hours did everybody work". The next question is "who do I
+need to do something about" — everyone missing an exit punch, everyone with no
+attendance at all — and until now that meant scrolling a workbook.
+
+Two things were already in place for this and had been since ADR-021: the run writes a
+machine-readable data file, and that file carries each person's note labels. ADR-027
+then made those labels keywords, which is what makes them usable as a filter.
+
+### Decision
+
+**A second work face**, registered as one entry in `app.SCREENS` — the rail, the lazy
+construction and the state-preserving switch all come from ADR-022's shell for free.
+
+1. **The rule lives in `mail/recipients.py`, not in the window.** A filter, an
+   exclusion set, and the selection that survives both — pure functions over a
+   `Snapshot`, tested with hand-written expectations. `ARCHITECTURE.md` §3 already says
+   `cli.py` holds no business logic; a widget is a worse place for one, because a rule
+   that can only be exercised by clicking is a rule nobody checks.
+2. **The filter list is built from the loaded file, never hard-coded.** A note nobody
+   has does not appear; a note added to `anomalies.py` later appears with no change
+   here. The list of things worth filtering by is a property of the data.
+3. **`info` labels are carried in the data file, in their own `expected` field**
+   (`format_version` 3). They must be reachable — "show me everyone whose remote day
+   the system filled in" is a real question for a manager — but they must not join
+   `problems`, because ADR-017 exists precisely because expected behaviour once made 21
+   people look defective and buried the 2 real questions among them. The screen lists
+   problems above expected behaviour for the same reason.
+4. **Removal is by name, not by row.** The list re-sorts and re-filters under the user;
+   a remembered index would quietly come to mean somebody else.
+5. **Changing the filter forgets removals.** They belonged to the group they were made
+   in. Carrying them across would keep somebody out of a list they were never removed
+   from — and it would be invisible.
+6. **A person with no address is shown and counted, not dropped.** Eleven of May's 171
+   are leavers the roster no longer carries an address for. Silently removing them
+   would make a list of 30 quietly become 27.
+7. **An incomplete month says so** in the error colour, above the list. ADR-020's
+   `is_complete` already knew; this is the last screen before somebody acts on it.
+8. **The report screen hands its data file over when a run finishes.** Neither screen
+   knows the other exists — the shell holds `last_snapshot` and passes it on. A screen
+   nobody has opened is not built just to receive it; it loads on first opening
+   instead, and the two paths agree.
+
+**No sending.** The screen filters, selects and copies a list. The three open questions
+about mail — preview or send, whether a hand-removed person is recorded, whether an
+incomplete month may be mailed at all — are untouched, and the screen is useful without
+them.
+
+### Consequences
+
+- `format_version` 3. A file from before this is refused with "regenerate" rather than
+  read with an empty `expected`, which would have looked like "no expected notes" and
+  been indistinguishable from a month that genuinely had none.
+- Label stability now matters more than it did. The label is what a person filters on;
+  ADR-027 already made it a key, and a saved selection would break on a rename.
+- The exclusion list is in memory only. A future "these people never get mail" file —
+  the owner expects one — is a different thing: a standing rule rather than one
+  session's choice, and it belongs in `recipients.py` beside the filter, not in the
+  screen.

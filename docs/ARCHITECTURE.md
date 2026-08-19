@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 279 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 299 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -83,6 +83,7 @@ src/mesai/
 │   ├── app.py         ✅  the shell: header, screen registry, main()
 │   ├── nav.py         ✅  the left rail — one item per registered screen
 │   ├── rapor.py       ✅  the report screen: folder, period, run, result card
+│   ├── people.py      ✅  the people screen: load a data file, filter, select
 │   ├── period.py      ✅  `07-2026` -> `2026-07` -> `Temmuz 2026`; pure, tested
 │   └── widgets.py     ✅  palette, buttons, and the hand-drawn activity bar
 ├── snapshot.py        ✅  machine-readable companion to the workbook
@@ -108,9 +109,10 @@ src/mesai/
 ├── report/
 │   ├── workbook.py    ✅  all six sheets
 │   └── styles.py      ✅  fills, fonts, widths, number formats
-└── mail/              ○                                           [Phase 4]
-    ├── render.py
-    └── sender.py
+└── mail/
+    ├── recipients.py  ✅  filter + exclusions -> the selection. No widget, no I/O
+    ├── render.py      ○                                           [Phase 4]
+    └── sender.py      ○                                           [Phase 4]
 ```
 
 `pipeline.py` was not in the original design — `cli.py` was going to call the stages
@@ -211,7 +213,8 @@ and Windows will label a blocked window "not responding".
 | `test_merge.py` | cross-site union, repair, remote precedence, short days |
 | `test_snapshot.py` | the round trip the mail step depends on |
 | `test_report.py` | that a workbook can actually be written, for every severity |
-| `test_gui.py` | the window's period parsing, folder check, what it remembers, and screen navigation |
+| `test_gui.py` | the window's period parsing, folder check, what it remembers, screen navigation, and the people screen's wiring |
+| `test_recipients.py` | who a filter admits, minus who was removed — the rule, without a window |
 | `test_config.py` | that the fixture has not drifted from the shipped config |
 | `test_pipeline.py` | period filtering, file discovery, coverage |
 | `builders.py` | synthetic workbook builders — **not** a test file |

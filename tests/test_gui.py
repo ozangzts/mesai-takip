@@ -24,6 +24,7 @@ import pytest
 from mesai import gui
 from mesai import snapshot as snapshot_module
 from mesai.gui import app as app_module, places, rapor, widgets
+from mesai.mail import recipients
 from mesai import gui as _gui_pkg  # noqa: F401  (gui.rapor attribute access)
 
 
@@ -716,3 +717,144 @@ def test_the_month_folders_sort_into_date_order(tmp_path):
     names = sorted(places.report_folder_name(p)
                    for p in ("2026-05", "2026-12", "2027-01"))
     assert names == ["2026-05 Rapor", "2026-12 Rapor", "2027-01 Rapor"]
+
+
+# --- the people screen (ADR-028) --------------------------------------------
+#
+# The rule lives in mail/recipients.py and is tested there. What is tested here is the
+# wiring: that a run hands its data file over, that the dropdown reflects the file, and
+# that a tick actually removes somebody.
+
+def _snapshot_file(tmp_path, people, *, partial=False):
+    import json
+    payload = {
+        "format_version": snapshot_module.FORMAT_VERSION,
+        "period": "2026-05",
+        "generated_at": "2026-08-19T10:00:00",
+        "rules": {},
+        "coverage": {"macunkoy": {"partial": partial,
+                                  "missing_from": "2026-05-20" if partial else None}},
+        "people": people,
+    }
+    path = tmp_path / "gonderim-2026-05.json"
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _person(name, problems=(), expected=(), email="a@b.c"):
+    return {"name": name, "email": email, "personnel_no": None, "department": None,
+            "facility": None, "in_roster": True, "has_attendance": True,
+            "worked_days": 20, "minutes": 480, "remote_days": 0.0, "leave_days": 0.0,
+            "problems": list(problems), "expected": list(expected), "notes": []}
+
+
+@pytest.fixture
+def people_screen(shell, tmp_path):
+    window = shell()
+    window.show("kisiler")
+    return window
+
+
+def test_the_people_screen_starts_empty_and_says_what_to_do(people_screen):
+    screen = people_screen._screens["kisiler"]
+
+    assert screen.snapshot is None
+    assert recipients.choices(None) == ()
+    shown = [c.cget("text") for c in screen.list_frame.winfo_children()]
+    assert any("Rapor oluşturduktan sonra" in str(t) for t in shown)
+
+
+def test_a_finished_run_hands_its_data_file_over(shell, tmp_path):
+    """The usual path involves choosing nothing — the report screen passes the path."""
+    path = _snapshot_file(tmp_path, [_person("AYŞE DENEME", ["Çıkış yok"])])
+    window = shell()
+    window.snapshot_ready(path)
+    window.show("kisiler")
+    screen = window._screens["kisiler"]
+
+    assert screen.source == path
+    assert [p.name for p in recipients.matching(screen.snapshot, recipients.ALL)] == \
+        ["AYŞE DENEME"]
+
+
+def test_the_dropdown_is_built_from_the_loaded_file(people_screen, tmp_path):
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("AYŞE DENEME", ["Çıkış yok"]),
+        _person("BERK NUMUNE", ["Çıkış yok"]),
+        _person("CEM ÖRNEK", [], ["Uzaktan + sistem kaydı"]),
+    ]))
+
+    shown = list(screen.filter_box.cget("values"))
+    assert any("Herkes  (3)" == s for s in shown)
+    assert any("Çıkış yok  (2)" == s for s in shown)
+    assert any("Uzaktan + sistem kaydı  (1)" == s for s in shown)
+
+
+def test_choosing_a_filter_narrows_the_list(people_screen, tmp_path):
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("AYŞE DENEME", ["Çıkış yok"]),
+        _person("BERK NUMUNE", []),
+    ]))
+    screen.filter_var.set("Çıkış yok  (1)")
+    screen._filter_changed()
+
+    assert screen.filter_key == "Çıkış yok"
+    assert [name for name, _var in screen._rows] == ["AYŞE DENEME"]
+
+
+def test_unticking_someone_removes_them_from_the_selection(people_screen, tmp_path):
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("AYŞE DENEME"), _person("BERK NUMUNE")]))
+
+    name, var = screen._rows[0]
+    var.set(False)
+    screen._toggle(name, var)
+
+    chosen = recipients.selected(screen.snapshot, screen.filter_key, screen.excluded)
+    assert [p.name for p in chosen] == ["BERK NUMUNE"]
+    assert "1 / 2 kişi seçili" in screen.count_label.cget("text")
+
+
+def test_changing_the_filter_forgets_removals(people_screen, tmp_path):
+    """They belonged to the group they were made in."""
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [_person("AYŞE DENEME", ["Çıkış yok"])]))
+    screen.excluded.add("AYŞE DENEME")
+    screen.filter_var.set("Çıkış yok  (1)")
+    screen._filter_changed()
+
+    assert screen.excluded == set()
+
+
+def test_a_person_without_an_address_is_shown_and_counted(people_screen, tmp_path):
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("AYŞE DENEME", email=None), _person("BERK NUMUNE")]))
+
+    assert "1 kişinin e-postası yok" in screen.count_label.cget("text")
+    labels = [str(c.cget("text")) for c in screen.list_frame.winfo_children()]
+    assert "e-posta yok" in labels
+
+
+def test_an_incomplete_month_is_called_out_before_anyone_acts_on_it(people_screen,
+                                                                   tmp_path):
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [_person("AYŞE DENEME")], partial=True))
+
+    assert "BU AY EKSİK" in screen.source_note.cget("text")
+    assert str(screen.source_note.cget("foreground")) == widgets.BAD
+
+
+def test_a_data_file_from_an_older_version_is_refused_not_parsed(people_screen,
+                                                                tmp_path):
+    import json
+    path = tmp_path / "gonderim-2026-05.json"
+    path.write_text(json.dumps({"format_version": 1, "people": []}), encoding="utf-8")
+    screen = people_screen._screens["kisiler"]
+    screen.load(path)
+
+    assert screen.snapshot is None
+    assert str(screen.source_note.cget("foreground")) == widgets.BAD

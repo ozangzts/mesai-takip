@@ -26,6 +26,7 @@ from pathlib import Path
 from ..cli import program_dir
 from . import widgets as w
 from .nav import NavPanel
+from .people import PeopleScreen
 from .rapor import ReportScreen
 
 WINDOW_TITLE = "Mesai Raporu"
@@ -50,11 +51,22 @@ class Screen:
 
 def _report(parent: tk.Misc, app: "App") -> ReportScreen:
     return ReportScreen(parent, root=app.root, base=app.base,
-                        config_dir=app.config_dir, roster_dir=app.roster_dir)
+                        config_dir=app.config_dir, roster_dir=app.roster_dir,
+                        on_snapshot=app.snapshot_ready)
+
+
+def _people(parent: tk.Misc, app: "App") -> PeopleScreen:
+    screen = PeopleScreen(parent, root=app.root, base=app.base)
+    # Built on first opening, which is usually after a run has already finished — so
+    # it picks up that run's data file rather than making the user find it.
+    if app.last_snapshot is not None:
+        screen.load(app.last_snapshot)
+    return screen
 
 
 SCREENS: tuple[Screen, ...] = (
     Screen("rapor", "Rapor", _report),
+    Screen("kisiler", "Kişiler", _people),
 )
 
 
@@ -72,6 +84,10 @@ class App:
         self.screens = tuple(screens)
         self._screens: dict[str, object] = {}
         self._showing: str | None = None
+        # The last data file a run produced. The people screen reads it; the report
+        # screen writes it. Neither knows the other exists — the shell is the only
+        # thing that knows there is more than one screen.
+        self.last_snapshot: Path | None = None
 
         root.title(WINDOW_TITLE)
         root.minsize(880, 620)
@@ -105,6 +121,18 @@ class App:
     def report(self) -> ReportScreen:
         """The report screen. Built at startup, so this never triggers a build."""
         return self._screens["rapor"]                          # type: ignore[return-value]
+
+    def snapshot_ready(self, path: Path) -> None:
+        """A run finished and wrote `path`. Hand it to the people screen if it exists.
+
+        Not built on demand here: constructing a screen nobody has opened, to show it
+        data nobody asked for, is work done on spec. It is loaded either now or when
+        the screen is first opened, and the two paths agree.
+        """
+        self.last_snapshot = path
+        screen = self._screens.get("kisiler")
+        if screen is not None:
+            screen.load(path)                                  # type: ignore[attr-defined]
 
     # --- layout ------------------------------------------------------------
     def _build(self) -> None:
