@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 320 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 321 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
