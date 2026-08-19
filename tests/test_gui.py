@@ -859,3 +859,125 @@ def test_a_data_file_from_an_older_version_is_refused_not_parsed(people_screen,
 
     assert screen.snapshot is None
     assert str(screen.source_note.cget("foreground")) == widgets.BAD
+
+
+# --- the fourth file (ADR-035) ----------------------------------------------
+#
+# The window listed three sources and enabled the button on them, but the run needs
+# four. A missing roster surfaced only after pressing — the exact thing the pre-flight
+# check exists to prevent.
+
+def test_the_roster_is_checked_before_the_button_is_pressed(tmp_path, settings):
+    empty = tmp_path / "personel"
+    empty.mkdir()
+    state = rapor.roster_state(empty, tmp_path / "07 - 2026", settings)
+
+    assert not state.ready
+    assert "bulunamadı" in state.note
+    assert len(state.note) < 60, "the row sits beside three others; keep it short"
+
+
+def test_a_roster_found_in_its_own_folder_is_reported(tmp_path, settings):
+    home = tmp_path / "personel"
+    _touch(home, "calisan_listesi.xlsx")
+    state = rapor.roster_state(home, tmp_path / "07 - 2026", settings)
+
+    assert state.ready and state.path.name == "calisan_listesi.xlsx"
+    assert not state.chosen
+
+
+def test_a_hand_picked_roster_wins(tmp_path, settings):
+    """It is not month-specific, and a packaged program may have no data/personel/."""
+    home = tmp_path / "personel"
+    _touch(home, "calisan_listesi.xlsx")
+    elsewhere = tmp_path / "masaustu"
+    _touch(elsewhere, "IK listesi.xlsx")
+
+    state = rapor.roster_state(home, None, settings,
+                               elsewhere / "IK listesi.xlsx")
+    assert state.ready and state.chosen
+    assert state.path.parent == elsewhere
+
+
+def test_the_run_button_stays_disabled_without_a_roster(screen, tmp_path):
+    window = screen()
+    window.roster_dir = tmp_path / "yok"
+    _touch(tmp_path / "07 - 2026", *COMPLETE)
+    window._set_folder(tmp_path / "07 - 2026")
+
+    assert str(window.run_button.cget("state")) == "disabled"
+    assert any("Personel listesi" in line for line in window.note_lines)
+
+
+def test_naming_a_roster_completes_the_set(screen, tmp_path):
+    window = screen()
+    window.roster_dir = tmp_path / "yok"
+    _touch(tmp_path / "07 - 2026", *COMPLETE)
+    _touch(tmp_path / "ik", "calisan_listesi.xlsx")
+    window._set_folder(tmp_path / "07 - 2026")
+
+    window.roster_file = tmp_path / "ik" / "calisan_listesi.xlsx"
+    window._describe()
+
+    assert str(window.run_button.cget("state")) == "normal"
+
+
+def test_changing_the_month_folder_keeps_the_roster(screen, tmp_path):
+    """The three monthly picks belong to a month; this one belongs to the company."""
+    window = screen()
+    _touch(tmp_path / "ik", "calisan_listesi.xlsx")
+    window.roster_file = tmp_path / "ik" / "calisan_listesi.xlsx"
+    window.chosen["izin"] = tmp_path / "bir-yer" / "izin.xlsx"
+
+    (tmp_path / "07 - 2026").mkdir()
+    window._set_folder(tmp_path / "07 - 2026")
+
+    assert window.chosen == {}, "monthly picks belong to the month they were made in"
+    assert window.roster_file is not None, "the roster does not"
+
+
+def test_the_run_is_handed_the_roster_it_was_shown(screen, tmp_path):
+    window = screen()
+    window.roster_file = tmp_path / "ik" / "calisan_listesi.xlsx"
+    window.chosen["izin"] = tmp_path / "posta" / "izin.xlsx"
+
+    assert window._run_sources() == {
+        "izin": tmp_path / "posta" / "izin.xlsx",
+        "roster": tmp_path / "ik" / "calisan_listesi.xlsx",
+    }
+
+
+def test_a_chosen_roster_is_remembered_between_sessions(screen, tmp_path):
+    """Same reason the output folder is remembered and the input folder is not: this
+    file is not month-specific. The same list serves every period."""
+    _touch(tmp_path / "ik", "calisan_listesi.xlsx")
+    chosen = tmp_path / "ik" / "calisan_listesi.xlsx"
+
+    window = screen()
+    window.roster_file = chosen
+    window._save()
+
+    saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
+    assert saved["roster_file"] == str(chosen)
+
+    reopened = screen()
+    assert reopened.roster_file == chosen, "no need to pick it again"
+
+
+def test_a_roster_that_moved_is_forgotten_rather_than_blocking(screen, tmp_path):
+    """A remembered path that no longer exists must not lock the button forever."""
+    window = screen({"roster_file": str(tmp_path / "gitti" / "liste.xlsx")})
+
+    assert window.roster_file is None, "the normal lookup takes over"
+
+
+def test_forgetting_a_roster_also_survives_a_restart(screen, tmp_path):
+    _touch(tmp_path / "ik", "calisan_listesi.xlsx")
+    window = screen()
+    window.roster_file = tmp_path / "ik" / "calisan_listesi.xlsx"
+    window._save()
+
+    window._forget_source("roster")
+
+    saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
+    assert "roster_file" not in saved

@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (34 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (35 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
 > | Fazlar, 28 açık soru | [ROADMAP.md](ROADMAP.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, 321 test geçiyor.
+Faz 1 çalışıyor, üç ay üretiliyor, 333 test geçiyor.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -198,7 +198,17 @@ Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya 
     Liste eline geçtiğinde **ilk bakılacak şey: içinde sicil no var mı.** Varsa
     eşleştirme güvenli. Yoksa isim eşleştirmesi kurulacak ve **eşleşmeyen her satır
     için uyarı verilecek** — program tahmin etmez, söyler (AGENTS §2.1).
-16. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
+16. **Pencere dört dosyanın üçünü kontrol ediyordu (ADR-035).** Personel listesi
+    yalnızca koşu başlayınca aranıyordu, yani `Rapor Oluştur` yeşil oluyor ve hata
+    düğmeye basıldıktan sonra çıkıyordu. Artık dördüncü satır olarak listede, eksikse
+    düğme kilitli, `Seç…` ile gösterilebiliyor.
+    **Seçim hatırlanıyor** — aya bağlı olmadığı için (çıktı klasörüyle aynı mantık,
+    girdi klasörünün tersi). Dosya taşınmışsa hatırlanan yol düşürülüyor ve normal
+    arama devreye giriyor.
+    Proje sahibi "liste gerekli mi" diye sordu; ölçüldü: **saatleri hiç etkilemiyor**
+    (çıkarılsa toplam aynı kalır) ama **e-posta, tesis ve görev alanlarının tek
+    kaynağı** — Haziran'da 154 kişi. E-posta adımı onsuz mümkün değil.
+17. **E-posta adımı henüz başlamadı** ve başlamamalı — aşağıdaki iki cevap gelmeden.
 
 ## Genişletirken
 

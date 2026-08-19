@@ -247,6 +247,27 @@ kontrol edilebilsin diye.
 
 ## 8. Personel listesi hakkında
 
+Rapor **dört** dosyayla çalışır ve dördüncüsü personel listesidir. Saatleri
+etkilemez — onu çıkarsanız toplam süre bire bir aynı kalır, kimse eksilmez. Sağladığı
+şey kişiye dair bilgidir:
+
+| Alan | Haziran 2026 | Başka kaynağı var mı |
+| --- | --- | --- |
+| **E-posta** | 154 kişi | **Yok** — hiçbir mesai dosyasında e-posta kolonu yok |
+| **Tesis** | 154 kişi | Yok |
+| **Görev** | 154 kişi | Yok |
+| Departman | 162 kişi | Var, mesai dosyalarında da geçiyor |
+
+E-posta yalnızca burada olduğu için, kişilere kendi saatlerini göndermek bu liste
+olmadan mümkün değil.
+
+Listede olmayan 9 kişi, ayrılmış olanlar — onların e-postası da yok.
+
+**Listeyi bir kez göstermeniz yeterli.** Aya bağlı olmadığı için pencere seçiminizi
+hatırlar; dosya yerinde durduğu sürece her ay yeniden seçmeniz gerekmez. Yerini
+değiştirirseniz pencere bunu fark eder ve listede yazar.
+
+
 - **Kayıt defteridir, beyaz liste değildir.** Listede olmayıp mesai kaydı olan biri
   yine çalışmıştır, raporda yer alır, saatlerini korur.
 - **Kimin var olduğuna karar vermez.** Listede olup dönemde hiç hareketi olmayan

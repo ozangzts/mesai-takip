@@ -32,7 +32,8 @@ from pathlib import Path, PurePath
 from tkinter import filedialog, ttk
 
 from .. import config, snapshot
-from ..pipeline import InputError, period_bounds, run
+from ..pipeline import (
+    InputError, _locate_roster as locate_roster, period_bounds, run)
 from ..readers import LayoutError, find_sources
 from ..report.workbook import ReportLocked
 from ..normalize import fold
@@ -52,6 +53,12 @@ SETTINGS_FILE = "arayuz-ayarlari.json"
 SOURCES = (("macunkoy", "Macunköy"),
            ("teknopark", "Teknopark"),
            ("izin", "İzin"))
+
+# The fourth file the run needs, and the one the window used to say nothing about.
+# It is not month-specific — the same list serves every period — so it is looked up
+# somewhere else and is never cleared when the month folder changes. Checking three of
+# four meant the button went green and the failure arrived after pressing it. ADR-035.
+ROSTER_LABEL = "Personel listesi"
 
 
 @dataclass
@@ -80,6 +87,10 @@ WELCOME = Result(
     ("1.  'Gözat…' ile üç mesai dosyasının bulunduğu klasörü seçin.",
      "2.  Dönemi doğrulayın — klasör adından okunabiliyorsa kendiliğinden dolar.",
      "3.  'Rapor Oluştur'a basın.",
+     "",
+     "Dördüncü bir dosya daha gerekiyor: personel listesi. O aya bağlı olmadığı için",
+     "ayrı durur ve kendiliğinden bulunur; bulunamazsa listede kırmızı görünür ve",
+     "'Seç…' ile gösterebilirsiniz.",
      "",
      "Hesaplama birkaç saniye sürer. Bittiğinde özet ve dosya yolları burada yazar."),
     "")                              # no status colour: this is not an outcome
@@ -132,6 +143,29 @@ def month_in_name(name: str) -> str:
     folded = fold(name)
     found = [month for month in MONTHS if fold(month) in folded]
     return found[0] if len(found) == 1 else ""
+
+
+def roster_state(roster_dir: Path | None, folder: Path | None, settings,
+                 chosen: Path | None = None) -> SourceState:
+    """Where the employee roster stands, using the same lookup the run will use.
+
+    Deliberately calls `pipeline._locate_roster` rather than repeating its rules: the
+    lone-file fallback and the month-folder second chance are subtle, and a copy of
+    them here would drift from the one that decides.
+    """
+    try:
+        found = locate_roster(roster_dir, folder or Path("."), settings, chosen)
+    except InputError:
+        # A short note, not the exception's own text: this row sits beside three
+        # others, and the full message — four glob patterns and two folder paths —
+        # stretched the window half as wide again. A run that gets that far prints
+        # all of it.
+        where = roster_dir.name if roster_dir else "?"
+        note = ("seçilen dosya artık yok" if chosen is not None
+                else f"bulunamadı — '{where}' klasörüne konmalı")
+        return SourceState("roster", ROSTER_LABEL, None, note, chosen is not None)
+    return SourceState("roster", ROSTER_LABEL, found, found.name,
+                       chosen=chosen is not None)
 
 
 def inspect_sources(folder: Path | None, settings,
@@ -206,6 +240,9 @@ class ReportScreen:
         self.folder: Path | None = None
         # Files named outright, one per source key, when the folder did not hold them.
         self.chosen: dict[str, Path] = {}
+        # Kept apart from `chosen` on purpose: the roster is not month-specific, so it
+        # must survive a change of month folder while the three monthly picks do not.
+        self.roster_file: Path | None = None
         self.states: tuple[SourceState, ...] = ()
         self._queue: queue.Queue[Result] = queue.Queue()
         self._running = False
@@ -387,6 +424,15 @@ class ReportScreen:
         if stored_output and Path(str(stored_output)).is_dir():
             self.output_dir = Path(str(stored_output))
 
+        # Remembered for the same reason the output folder is, and NOT for the reason
+        # the input folder is refused: the roster is not month-specific. The same file
+        # in the same place serves every period, so restoring it is right rather than
+        # stale. If it has moved, the memory is dropped and the normal lookup takes
+        # over — the row will then say what it found. ADR-035.
+        stored_roster = saved.get("roster_file")
+        if stored_roster and Path(str(stored_roster)).is_file():
+            self.roster_file = Path(str(stored_roster))
+
         self._show_output()
         self._describe()
 
@@ -395,6 +441,8 @@ class ReportScreen:
         payload: dict[str, str] = {"output_dir": str(self.output_dir)}
         if self.browse_dir is not None:
             payload["browse_dir"] = str(self.browse_dir)
+        if self.roster_file is not None:
+            payload["roster_file"] = str(self.roster_file)
         try:
             self._settings_path().write_text(
                 json.dumps(payload, ensure_ascii=False), encoding="utf-8")
@@ -419,6 +467,9 @@ class ReportScreen:
 
     def _choose_source(self, key: str) -> None:
         """Name one export outright, for when it is not where the others are."""
+        if key == "roster":
+            self._choose_roster()
+            return
         label = dict(SOURCES)[key]
         start = self.folder or self.browse_dir or self.base
         picked = filedialog.askopenfilename(
@@ -430,9 +481,26 @@ class ReportScreen:
             self.chosen[key] = Path(picked)
             self._describe()
 
+    def _choose_roster(self) -> None:
+        start = (self.roster_file.parent if self.roster_file
+                 else self.roster_dir if self.roster_dir.is_dir() else self.base)
+        picked = filedialog.askopenfilename(
+            title="Personel listesini seçin",
+            initialdir=str(start),
+            filetypes=[("Excel dosyaları", "*.xlsx *.xlsm *.xls"),
+                       ("Tüm dosyalar", "*.*")])
+        if picked:
+            self.roster_file = Path(picked)
+            self._save()
+            self._describe()
+
     def _forget_source(self, key: str) -> None:
         """Undo a hand-picked file and look in the folder again."""
-        self.chosen.pop(key, None)
+        if key == "roster":
+            self.roster_file = None
+            self._save()          # forgetting is a choice too, and must survive a restart
+        else:
+            self.chosen.pop(key, None)
         self._describe()
 
     def _choose_output(self) -> None:
@@ -481,7 +549,7 @@ class ReportScreen:
         # them into a different month would quietly mix two periods — the one mistake
         # the period filter exists to catch, and it should not be made in the first
         # place.
-        self.chosen.clear()
+        self.chosen.clear()          # NOT roster_file: that one is not month-specific
         guessed = guess_period(folder)
         if guessed:
             self.period_var.set(guessed)
@@ -539,8 +607,10 @@ class ReportScreen:
             w.set_enabled(self.run_button, False)
             return
 
-        self.states = inspect_sources(self.folder, settings, self.chosen,
-                                      parse_period(self.period_var.get().strip()))
+        self.states = inspect_sources(
+            self.folder, settings, self.chosen,
+            parse_period(self.period_var.get().strip())) + (
+            roster_state(self.roster_dir, self.folder, settings, self.roster_file),)
         self._write_sources(self.states)
         w.set_enabled(self.run_button,
                       all(s.ready for s in self.states) and not self._running)
@@ -640,10 +710,17 @@ class ReportScreen:
         self._render(Result(True, f"{period_label(period)} hesaplanıyor…", (),
                             w.MUTED))
         threading.Thread(target=self._work,
-                         args=(period, self.folder, dict(self.chosen),
+                         args=(period, self.folder, self._run_sources(),
                                self.output_dir),
                          daemon=True).start()
         self.root.after(120, self._poll)
+
+    def _run_sources(self) -> dict[str, Path]:
+        """The hand-picked files this run should use, roster included."""
+        chosen = dict(self.chosen)
+        if self.roster_file is not None:
+            chosen["roster"] = self.roster_file
+        return chosen
 
     def _work(self, period: str, folder: Path | None,
               chosen: dict[str, Path], output_dir: Path) -> None:

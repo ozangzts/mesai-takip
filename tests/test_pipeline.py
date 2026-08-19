@@ -508,3 +508,27 @@ def test_the_check_is_off_when_no_ratio_is_configured(settings):
     _, collector = _summaries(off, [_day(3, key)], employees={key: _employee()})
 
     assert "Ay büyük ölçüde boş" not in [a.label for a in collector.items]
+
+
+def test_a_named_roster_is_used_instead_of_searching(settings, tmp_path):
+    """ADR-035: not month-specific, and a packaged program may have no data/personel/."""
+    from mesai.pipeline import _locate_roster
+    home = tmp_path / "personel"
+    home.mkdir()
+    blank_workbook(home / "calisan_listesi.xlsx")
+    elsewhere = tmp_path / "masaustu"
+    elsewhere.mkdir()
+    named = elsewhere / "IK listesi.xlsx"
+    blank_workbook(named)
+
+    assert _locate_roster(home, tmp_path, settings, named) == named
+
+
+def test_a_named_roster_that_is_gone_fails_rather_than_falling_back(settings, tmp_path):
+    from mesai.pipeline import _locate_roster
+    home = tmp_path / "personel"
+    home.mkdir()
+    blank_workbook(home / "calisan_listesi.xlsx")
+
+    with pytest.raises(InputError, match="seçilen dosya bulunamadı"):
+        _locate_roster(home, tmp_path, settings, tmp_path / "yok.xlsx")

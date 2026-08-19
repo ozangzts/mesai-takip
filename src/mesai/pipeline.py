@@ -44,7 +44,8 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     skips it, which is what the tests do when they only care about figures.
 
     `chosen` names a file for a source outright, bypassing the glob in `input_dir` for
-    that one source. It exists because the three exports do not always arrive in the
+    that one source. The key `"roster"` works too, though the roster is not month
+    specific and is looked up differently (ADR-035). It exists because the three exports do not always arrive in the
     same place — one may be e-mailed while the others sit on the share — and copying
     files around by hand before every run is the kind of step that eventually gets
     done wrong. Everything downstream is unchanged: the period filter still drops
@@ -58,7 +59,8 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     # The roster is not a monthly file — it is a point-in-time snapshot of who
     # works here (ADR-011), so it lives outside the month folder. Still accepted
     # inside `input_dir` for the case where all four files arrive together.
-    roster_path = _locate_roster(roster_dir, input_dir, settings)
+    roster_path = _locate_roster(roster_dir, input_dir, settings,
+                                 (chosen or {}).get("roster"))
     roster_entries, roster_duplicates = roster.read(roster_path)
     stats.files["roster"] = roster_path.name
     stats.rows_read["roster"] = len(roster_entries) + len(roster_duplicates)
@@ -185,13 +187,24 @@ def _coverage(
 
 
 def _locate_roster(roster_dir: Path | None, input_dir: Path,
-                   settings: Settings) -> Path:
+                   settings: Settings, chosen: Path | None = None) -> Path:
     """Find the employee roster, checking its own folder first then the month folder.
 
     Two layouts are supported deliberately: the roster kept once in
     `data/personel/` and shared by every month, or all four files dropped into one
     folder (which is what a Drive upload is likely to look like).
+
+    `chosen` names the file outright, for the same reason the monthly sources can be
+    named (ADR-022) and one more: this file is **not month-specific**, so once the
+    program stopped running from a clone — a packaged executable on somebody's desktop
+    — `data/personel/` beside it may simply not exist. ADR-035.
     """
+    if chosen is not None:
+        if not chosen.is_file():
+            raise InputError(
+                f"Personel listesi için seçilen dosya bulunamadı: {chosen}")
+        return chosen
+
     searched: list[Path] = []
     for candidate_dir in (roster_dir, input_dir):
         if candidate_dir is None or not candidate_dir.is_dir():

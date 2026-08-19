@@ -1859,3 +1859,74 @@ entry nobody could use.
   different question, and it is the only remote note that is not expected behaviour.
 - ADR-027's rule that two kinds may not share a label still holds: rather than sharing
   one, the two kinds became one.
+
+---
+
+## ADR-035 — The window checks the roster too, can be pointed at one, and remembers it
+
+2026-08-19 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+The run needs four files. The window checked three.
+
+`inspect_sources` listed Macunköy, Teknopark and İzin, and the `Rapor Oluştur` button
+went green on those three alone. The employee roster was looked up only when the run
+started, so a missing one surfaced *after* pressing the button — the exact failure the
+pre-flight check exists to prevent, and the thing `inspect_sources`' own docstring
+promises it prevents.
+
+This became more likely, not less, with ADR-024: the program can now write anywhere,
+and a packaged executable sitting on somebody's desktop has no `data/personel/` beside
+it at all.
+
+The project owner asked the fair question: is the roster needed? Measured on June 2026,
+163 people:
+
+| Field | People with it | Another source? |
+| --- | --- | --- |
+| **E-mail** | 154 | **none** — no monthly export carries an address |
+| **Tesis** | 154 | none |
+| **Görev** | 154 | none |
+| Departman | 162 | yes, the attendance files carry one |
+| Sicil no | 126 | yes, the leave export |
+
+And the roster does **not** affect identity at all: `_resolve_employees` looks it up by
+a key already built from the records. Dropping it would leave every hour identical and
+every person present. What it would take away is the e-mail address — and mailing
+people their own figures is the point of Phase 4.
+
+The nine people without an address are exactly the nine absent from the roster:
+leavers. Every person the roster does carry has all four fields.
+
+### Decision
+
+Keep it, and stop it being a surprise.
+
+1. **The window checks it**, as a fourth row beside the three monthly sources, using
+   `pipeline._locate_roster` itself rather than a copy of its rules — the lone-file
+   fallback and the month-folder second chance are subtle and a copy would drift.
+2. **The button is disabled without it**, like any other missing source.
+3. **It can be named outright** with `Seç…`, via `chosen["roster"]` in `run()` — the
+   same escape hatch ADR-022 gave the monthly files, and needed here for a reason of
+   its own: a packaged program may have no `data/personel/`.
+4. **A chosen roster is remembered between sessions**, and this is the same distinction
+   ADR-024 drew for the output folder: it is **not month-specific**, so restoring it is
+   right rather than stale. The input folder is still never restored.
+5. **A remembered path that no longer exists is dropped**, not held onto — the normal
+   lookup takes over and the row reports what it found. A memory that blocks the button
+   forever is worse than no memory.
+6. **It is never cleared when the month folder changes.** The three monthly picks are;
+   this one belongs to the company, not to a month.
+
+### Consequences
+
+- The row's note is deliberately short — `bulunamadı — 'personel' klasörüne konmalı`.
+  The exception's own text names four glob patterns and two paths, and putting it in
+  the row stretched the window half as wide again. A run that gets that far still
+  prints all of it.
+- `arayuz-ayarlari.json` gains `roster_file`. It holds a path, never employee data, and
+  is already git-ignored.
+- Making the roster optional was considered and rejected. A report with no addresses
+  produces a data file with no addresses, and the mail step would then receive a
+  silently empty list — trading a loud failure now for a quiet one later.
