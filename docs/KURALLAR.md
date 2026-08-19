@@ -136,15 +136,22 @@ Her notun bir **ağırlığı** var:
 | 🟡 Sarı | Sayıldı, ama kontrol edilmeli |
 | ⚪ Gri | Sayıldı, **beklenen durum** — kimsenin sorunu değil |
 
+Aşağıdaki liste programın üretebileceği **bütün** notları içerir. Bazıları bugüne kadar
+hiç görülmedi; onlar `—` ile işaretli. Bunlar boşuna durmuyor: her biri programın bir
+şeyi **uydurmak zorunda kalacağı** ya da **okuyamayacağı** durumu karşılıyor, ve o
+durum çıktığında sessizce geçilmesin diye tanımlı.
+
+Sayılar Mayıs, Haziran ve Temmuz 2026'nın toplamıdır (kişi-gün).
+
 ### Eksik kayıt
 
-| Not | Ne demek | Ağırlık |
-| --- | --- | --- |
-| `Giriş yok` | Çıkış basılmış, giriş kaydı yok | 🔴 |
-| `Çıkış yok` | Giriş basılmış, çıkış kaydı yok | 🔴 |
-| `Giriş-çıkış yok` | Satır var ama iki saat de boş | 🔴 |
-| `Mesai verisi yok` | Dönem boyunca hiç kart kaydı yok | 🔴 |
-| `Ay büyük ölçüde boş` | Çalışma + izin, iş günlerinin **yarısından azını** açıklıyor | 🟡 |
+| Not | Ne demek | Ağırlık | 3 ayda |
+| --- | --- | --- | --- |
+| `Giriş yok` | Çıkış basılmış, giriş kaydı yok | 🔴 | 78 |
+| `Çıkış yok` | Giriş basılmış, çıkış kaydı yok | 🔴 | 526 |
+| `Giriş-çıkış yok` | Satır var ama iki saat de boş | 🔴 | 206 |
+| `Mesai verisi yok` | Dönem boyunca hiç kart kaydı yok | 🔴 | 75 |
+| `Ay büyük ölçüde boş` | Çalışma + izin, iş günlerinin **yarısından azını** açıklıyor | 🟡 | 50 |
 
 `Ay büyük ölçüde boş` şunun için var: bir kişinin tek bir normal 9 saatlik günü ve 21
 eksik günü olabiliyor. Günü normal olduğu için günlük kural, kaydı olduğu için
@@ -157,13 +164,13 @@ duruyordu.
 
 ### Süre
 
-| Not | Ne demek | Ağırlık |
-| --- | --- | --- |
-| `Günlük süre çok kısa (<2 saat)` | Günün toplamı 2 saatin altında | 🟡 |
-| `Günlük süre çok uzun (>16 saat)` | Günün toplamı 16 saati aşıyor — **süre sayılır**, sadece kontrol için işaretlenir | 🟡 |
-| `Gece geçişi` | Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi | 🟡 |
-| `Giriş-çıkış tutarsız` | Çıkış girişten önce ve gece geçişi varsayılınca süre 20 saati aşıyor — kayıt kullanılamaz | 🔴 |
-| `Süre uyuşmazlığı` | Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil | 🟡 |
+| Not | Ne demek | Ağırlık | 3 ayda |
+| --- | --- | --- | --- |
+| `Günlük süre çok kısa (<2 saat)` | Günün toplamı 2 saatin altında | 🟡 | 61 |
+| `Günlük süre çok uzun (>16 saat)` | Günün toplamı 16 saati aşıyor — **süre sayılır**, sadece kontrol için işaretlenir | 🟡 | 7 |
+| `Gece geçişi` | Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi | 🟡 | 51 |
+| `Giriş-çıkış tutarsız` | Çıkış girişten önce ve gece geçişi varsayılınca süre 20 saati aşıyor — kayıt kullanılamaz | 🔴 | 5 |
+| `Süre uyuşmazlığı` | Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil | 🟡 | — |
 
 **Uzun gün sayılır, atılmaz.** 16 saati aşan bir gün gerçek olabilir; program onu
 toplamdan çıkarmaz, sadece "buna bakın" der.
@@ -185,11 +192,16 @@ Sınır 20 saat — en uzun gerçek vardiyanın 4,5 saat üstünde, en kısa boz
 
 ### Uzaktan çalışma
 
-| Not | Ne demek | Ağırlık |
-| --- | --- | --- |
-| `Uzaktan + sistem kaydı` | Uzaktan çalışma günü; Teknopark'ta kart okuması yok, sistem varsayılan tam gün yazmış. Çakışan süre bir kez sayıldı | ⚪ |
-| `Uzaktan + kart kaydı` | Uzaktan çalışma beyanı var **ama o gün gerçek kart okuması da var** — kişi binaya girmiş görünüyor | 🟡 |
-| `Çok günlü uzaktan` | Tek izin satırı birden çok güne yayılmış, günlere bölündü | 🟡 |
+| Not | Ne demek | Ağırlık | 3 ayda |
+| --- | --- | --- | --- |
+| `Uzaktan + sistem kaydı` | Uzaktan çalışma günü; Teknopark'ta kart okuması yok, sistem varsayılan tam gün yazmış. Çakışan süre bir kez sayıldı | ⚪ | 110 |
+| `Uzaktan + kart kaydı` | Uzaktan çalışma beyanı var **ama o gün gerçek kart okuması da var** — kişi binaya girmiş görünüyor | 🟡 | 10 |
+| `Çok günlü uzaktan` | Tek uzaktan çalışma satırı birden çok güne yayılmış. Kaynak günlük saati yazmadığı için **program normal vardiya saatini varsayar** — bu yüzden işaretlenir | 🟡 | — |
+
+`Çok günlü uzaktan` bugüne kadar hiç görülmedi ama önemli: izin dosyası tek satırda
+birden çok gün bildirirse, o satırda **günlük saat yazmıyor**. Program normal vardiya
+saatini (07:30–16:30) varsayarak günlere böler — yani bir şey **uydurur**. Böyle bir
+satır çıktığında sessizce geçilmesin diye bu not var.
 
 Uzaktan çalışmayla ilgili tek soru şu: **o gün gerçekten kart basılmış mı?** Basılmamışsa
 beklenen durum (⚪), basılmışsa bakılması gereken bir çelişki (🟡). Programın bu iki
@@ -197,11 +209,11 @@ durumu içeride nasıl işlediği `Şüpheli Kayıtlar` sayfasındaki açıklama
 
 ### Diğer
 
-| Not | Ne demek | Ağırlık |
-| --- | --- | --- |
-| `Tesis birleştirme` | Eksik kayıt, kişinin aynı gün diğer tesisteki kaydıyla tamamlandı | 🟡 |
-| `İsim eşleşmedi` | Personel listesinde bu ismin karşılığı bulunamadı | 🔴 |
-| `Satır okunamadı` | Kaynak dosyadaki satır ayrıştırılamadı | 🔴 |
+| Not | Ne demek | Ağırlık | 3 ayda |
+| --- | --- | --- | --- |
+| `Tesis birleştirme` | Eksik kayıt, kişinin aynı gün diğer tesisteki kaydıyla tamamlandı | 🟡 | 52 |
+| `İsim eşleşmedi` | Personel listesinde bu ismin karşılığı bulunamadı | 🔴 | — |
+| `Satır okunamadı` | Kaynak dosyadaki satır ayrıştırılamadı | 🔴 | — |
 
 ---
 
@@ -258,7 +270,19 @@ Ayrıca seçilen dosyalardan birinin **bütün kayıtları başka bir aya aitse*
 
 ---
 
-## 10. Henüz yapılmayanlar
+## 10. Uzaktan çalışmada açık kalan sorular
+
+Hesap çalışıyor ama üç şey henüz karara bağlanmadı:
+
+| Soru | Durum | Etkisi |
+| --- | --- | --- |
+| `Eğitim İzni` çalışma mı sayılmalı? | Şu an **izin** sayılıyor | Kayıtlarında gerçek saat var; "çalışma" denirse varsayım gerekmeden hesaplanır |
+| Uzaktan beyanı olup **kart da basanlar** | Sayılıyor ve işaretleniyor (3 ayda 10 gün) | Beyan mı geçerli, kart mı? Şu an ikisi birleştiriliyor |
+| Teknopark neden `09:00–18:00` yazıyor? | Çalışma sayılıyor | Raporun yaklaşık **%17'si** bu satırlardan geliyor. "Bordroda ödenmiyor" denirse ciddi düşüş demek |
+
+---
+
+## 11. Henüz yapılmayanlar
 
 Bunlar bilinçli olarak ertelendi; kuralları henüz karara bağlanmadı:
 
@@ -271,7 +295,7 @@ Bunlar bilinçli olarak ertelendi; kuralları henüz karara bağlanmadı:
 
 ---
 
-## 11. Nerede yazılı
+## 12. Nerede yazılı
 
 | Ne | Nerede |
 | --- | --- |
