@@ -288,9 +288,8 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
                                 if w.key in employees else ""), w.date),
     ):
         employee = employees.get(workday.key)
-        label = (settings.calendar.holidays.get(workday.date)
-                 or settings.calendar.admin_holidays.get(workday.date))
-        day_label = "Resmi Tatil" if label else _DAY_NAMES[workday.date.weekday()]
+        label = settings.calendar.holidays.get(workday.date)
+        day_label = "Tatil" if label else _DAY_NAMES[workday.date.weekday()]
 
         if settings.brk.deduct:
             middle_values = [hhmm(workday.gross), hhmm(workday.break_deduction),
@@ -731,16 +730,15 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     # for, so July's report listed May's seven holidays — dates outside the period it
     # reports on, presented as assumptions behind its figures.
     year, month = (int(part) for part in period.split("-"))
-    in_period = {day: entry for day, entry in settings.calendar.non_working().items()
+    in_period = {day: label for day, label in settings.calendar.holidays.items()
                  if (day.year, day.month) == (year, month)}
     if in_period:
-        line("Resmi tatil / idari tatil", f"{len(in_period)} gün",
+        line("Tatil günleri", f"{len(in_period)} gün",
              "Bu aya ait tatiller — İK onaylamadı", styles.AMBER_FILL)
-        for day, (kind, label) in sorted(in_period.items()):
-            line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()],
-                 f"{kind} — {label}")
+        for day, label in sorted(in_period.items()):
+            line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()], label)
     else:
-        line("Resmi tatil / idari tatil", "bu ay için tanımlı değil",
+        line("Tatil günleri", "bu ay için tanımlı değil",
              "Takvimde bu aya ait gün yok — varsa eklenmeli", styles.AMBER_FILL)
     if stats.holiday_candidates:
         line("Tatil olabilecek günler", f"{len(stats.holiday_candidates)} gün",

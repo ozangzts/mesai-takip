@@ -144,7 +144,7 @@ One row per employee-day — 1 823 for May 2026. The audit trail for sheet 1.
 | --- | --- | --- |
 | A | Ad Soyad | |
 | B | Tarih | `21.05.2026` |
-| C | Gün | `Per` / `Cmt` / `Resmi Tatil` |
+| C | Gün | `Per` / `Cmt` / `Tatil` |
 | D | İlk Giriş | earliest entry of the merged union |
 | E | Son Çıkış | latest exit |
 | F | Aralık Sayısı | number of merged intervals — `>1` means a split day |
@@ -279,7 +279,7 @@ Added once the rules in `DOMAIN-RULES.md §7` are confirmed:
 | `Haftalık FM` | one row per employee-week, banded 3–7.5 h / ≥7.5 h | Q6 |
 | `Multinet` | weekly and monthly entitlement per employee | Q6 |
 | `Vardiya` | shift distribution per employee | Q7 |
-| `Resmi Tatil` | holiday work, colour-coded, pay-vs-time-off | Q8 + calendar |
+| `Tatil` | holiday work, colour-coded, pay-vs-time-off | Q8 + calendar |
 | `Hafta Tatili` | rest day work | Q8 + calendar |
 `Kontrol` was built in Phase 1 rather than deferred — it is how a human confirms in
 ten seconds that nothing was lost.

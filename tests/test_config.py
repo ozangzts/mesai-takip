@@ -162,7 +162,7 @@ def test_a_holiday_never_removes_a_working_day_from_somebody_who_worked(real_set
     assert date(2026, 7, 15) not in july, "the holiday must leave the expected list"
     assert len(july) == 22, f"July 2026 has 22 expected working days, not {len(july)}"
     assert real_settings.calendar.is_holiday(date(2026, 7, 15))
-    assert real_settings.calendar.label(date(2026, 7, 15)) == "Resmi Tatil"
+    assert real_settings.calendar.label(date(2026, 7, 15)) == "Tatil"
 
 
 # --- facility labels (ADR-026) ----------------------------------------------

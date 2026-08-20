@@ -1405,26 +1405,22 @@ def test_the_days_already_in_the_file_are_shown_as_marked(calendar_screen):
     from datetime import date
 
     _window, screen = calendar_screen()
-    assert screen.marks == {date(2026, 8, 30): "holidays"}, \
-        "August's statutory holiday, and nothing else"
+    assert screen.marks == {date(2026, 8, 30): "Zafer Bayramı"}, \
+        "August's holiday with the name the file gave it, and nothing else"
 
 
-def test_a_click_cycles_working_day_then_statutory_then_company(calendar_screen):
-    """Three states, because a company closure is not a public holiday.
-
-    Phase 2 pays them differently and HR is asked about them separately, so the
-    distinction has to survive into the file rather than living in a label.
-    """
+def test_a_click_makes_a_day_a_holiday_and_another_click_undoes_it(calendar_screen):
+    """Two states, not three. There were briefly two kinds of holiday and nothing
+    calculated them differently, so the second one cost a decision per click and bought
+    a label (ADR-043)."""
     from datetime import date
 
     _window, screen = calendar_screen()
     day = date(2026, 8, 12)
 
-    screen._cycle(day)
-    assert screen.marks[day] == "holidays"
-    screen._cycle(day)
-    assert screen.marks[day] == "admin_holidays"
-    screen._cycle(day)
+    screen.toggle(day)
+    assert screen.marks[day] == "Tatil"
+    screen.toggle(day)
     assert day not in screen.marks, "and back to an ordinary working day"
 
 
@@ -1447,15 +1443,15 @@ def test_saving_writes_the_file_and_leaves_the_other_months_alone(calendar_scree
 
     _window, screen = calendar_screen()
     for day in (date(2026, 8, 10), date(2026, 8, 11)):
-        screen._cycle(day)
-        screen._cycle(day)                 # two clicks: company closure
+        screen.toggle(day)
     screen._save()
 
-    written = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
-    assert set(written[takvim_file.ADMIN]) == {date(2026, 8, 10), date(2026, 8, 11)}
-    assert date(2026, 5, 1) in written[takvim_file.STATUTORY], \
+    written = takvim_file.read(
+        calendar_screen.config_dir / "takvim-2026.yaml")[takvim_file.HOLIDAYS]
+    assert {date(2026, 8, 10), date(2026, 8, 11)} <= set(written)
+    assert date(2026, 5, 1) in written, \
         "May is not this screen's business and must survive"
-    assert date(2026, 8, 30) in written[takvim_file.STATUTORY]
+    assert date(2026, 8, 30) in written
 
 
 def test_saving_keeps_the_name_a_day_already_had(calendar_screen):
@@ -1465,11 +1461,11 @@ def test_saving_keeps_the_name_a_day_already_had(calendar_screen):
     from mesai import takvim_file
 
     _window, screen = calendar_screen(period="2026-05", candidates=())
-    screen._cycle(date(2026, 5, 20))       # touch a different day
+    screen.toggle(date(2026, 5, 20))       # touch a different day
     screen._save()
 
     written = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
-    assert written[takvim_file.STATUTORY][date(2026, 5, 1)] == \
+    assert written[takvim_file.HOLIDAYS][date(2026, 5, 1)] == \
         "Emek ve Dayanışma Günü"
 
 
@@ -1478,7 +1474,7 @@ def test_the_file_keeps_its_comments_through_a_save(calendar_screen):
     from datetime import date
 
     _window, screen = calendar_screen()
-    screen._cycle(date(2026, 8, 12))
+    screen.toggle(date(2026, 8, 12))
     screen._save()
 
     text = (calendar_screen.config_dir / "takvim-2026.yaml").read_text(
@@ -1493,7 +1489,7 @@ def test_nothing_can_be_saved_until_something_changes(calendar_screen):
     assert str(screen.save_button.cget("state")) == "disabled"
 
     from datetime import date
-    screen._cycle(date(2026, 8, 12))
+    screen.toggle(date(2026, 8, 12))
     assert str(screen.save_button.cget("state")) == "normal"
 
     screen._save()
@@ -1520,7 +1516,7 @@ def test_an_answered_candidate_stops_being_asked_about(calendar_screen):
 
     _window, screen = calendar_screen()
     for day in (date(2026, 8, 10), date(2026, 8, 11)):
-        screen._cycle(day)
+        screen.toggle(day)
 
     text = str(screen.candidate_note.cget("text"))
     assert "hepsi işaretlendi" in text
@@ -1533,11 +1529,13 @@ def test_before_any_run_the_screen_says_where_the_suggestions_will_come_from(
     assert "Rapor üretildikten sonra" in str(screen.candidate_note.cget("text"))
 
 
-def test_the_two_kinds_are_calculated_the_same_way_today(calendar_screen, tmp_path):
-    """Measured, and worth pinning: only the label differs.
+def test_a_marked_day_is_simply_a_holiday(calendar_screen):
+    """One kind. What the day is called stays in the label, not in a second category.
 
-    The split exists to ask HR the right question and to leave the Phase 2 pay rules a
-    seam. Claiming more than that in a doc would be claiming a rule that is not there.
+    The split into `Resmi tatil` and `İdari tatil` lasted one commit: nothing
+    calculated them differently, so it cost a decision at every click and bought a
+    word (ADR-043). The program also has no way of knowing which a day was, so the
+    default name says only what it knows.
     """
     from datetime import date
 
@@ -1545,49 +1543,22 @@ def test_the_two_kinds_are_calculated_the_same_way_today(calendar_screen, tmp_pa
     from mesai import takvim_file
 
     _window, screen = calendar_screen()
-    screen._cycle(date(2026, 8, 12))                      # resmi
-    screen._cycle(date(2026, 8, 13))
-    screen._cycle(date(2026, 8, 13))                      # idari
+    screen.toggle(date(2026, 8, 12))
     screen._save()
 
     # The throwaway config folder has no settings.yaml, so the calendar is read on its
     # own terms rather than through `config.load`.
-    blocks = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
+    entries = takvim_file.read(
+        calendar_screen.config_dir / "takvim-2026.yaml")[takvim_file.HOLIDAYS]
+    assert entries[date(2026, 8, 12)] == "Tatil"
+
     calendar = config_module.Calendar(
-        holidays=blocks[takvim_file.STATUTORY], half_days=frozenset(),
-        rest_weekdays=frozenset({5, 6}),
-        admin_holidays=blocks[takvim_file.ADMIN])
-
-    workdays = calendar.expected_workdays(2026, 8)
-    for day in (date(2026, 8, 12), date(2026, 8, 13)):
-        assert calendar.is_holiday(day), day
-        assert day not in workdays, day
-    assert calendar.label(date(2026, 8, 12)) == "Resmi Tatil"
-    assert calendar.label(date(2026, 8, 13)) == "İdari Tatil"
-
-
-def test_an_administrative_holiday_is_not_called_a_company_closure(calendar_screen):
-    """It was labelled `İdari tatil (şirket kapalı)`, which narrows the term wrongly.
-
-    A non-working day that does not come from the holiday law can be a declared
-    administrative closure, weather, an election. The operator does not have to justify
-    which, and the file should not put words in their mouth.
-    """
-    from datetime import date
-
-    from mesai import takvim_file
-    from mesai.gui import takvim as screen_module
-
-    assert "şirket" not in screen_module._DEFAULT_LABEL[screen_module.ADMIN].lower()
-
-    _window, screen = calendar_screen()
-    day = date(2026, 8, 12)
-    screen._cycle(day)
-    screen._cycle(day)
-    screen._save()
-
-    written = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
-    assert written[takvim_file.ADMIN][day] == "İdari tatil"
+        holidays=entries, half_days=frozenset(), rest_weekdays=frozenset({5, 6}))
+    assert calendar.is_holiday(date(2026, 8, 12))
+    assert date(2026, 8, 12) not in calendar.expected_workdays(2026, 8)
+    # Not "Resmi Tatil": the list holds bridge days and closures too, and calling those
+    # statutory in the sheet HR reads would be a claim about the law.
+    assert calendar.label(date(2026, 8, 12)) == "Tatil"
 
 
 def test_marks_survive_the_window_being_closed_and_reopened(calendar_screen):
@@ -1595,11 +1566,11 @@ def test_marks_survive_the_window_being_closed_and_reopened(calendar_screen):
     from datetime import date
 
     _window, screen = calendar_screen()
-    screen._cycle(date(2026, 8, 12))
+    screen.toggle(date(2026, 8, 12))
     screen._save()
 
     _again, reopened = calendar_screen()          # a fresh window, same config folder
-    assert reopened.marks[date(2026, 8, 12)] == "holidays"
+    assert reopened.marks[date(2026, 8, 12)] == "Tatil"
 
 
 def test_marks_that_were_never_saved_do_not_come_back(calendar_screen):
@@ -1607,7 +1578,7 @@ def test_marks_that_were_never_saved_do_not_come_back(calendar_screen):
     from datetime import date
 
     _window, screen = calendar_screen()
-    screen._cycle(date(2026, 8, 12))              # no save
+    screen.toggle(date(2026, 8, 12))              # no save
 
     _again, reopened = calendar_screen()
     assert date(2026, 8, 12) not in reopened.marks
@@ -1620,7 +1591,7 @@ def test_closing_the_window_with_unsaved_marks_asks_first(calendar_screen,
     from tkinter import messagebox
 
     window, screen = calendar_screen()
-    screen._cycle(date(2026, 8, 12))
+    screen.toggle(date(2026, 8, 12))
     asked: list[str] = []
     monkeypatch.setattr(messagebox, "askokcancel",
                         lambda *a, **k: asked.append(a[1]) or False)

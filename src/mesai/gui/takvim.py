@@ -16,13 +16,11 @@ almost nobody was present are marked with a `?`, with their headcount. That is h
 15 July was found, and it is how a five-day closure will be found without anybody having
 to remember which week it was. The program still marks nothing itself — see ADR-041.
 
-Two kinds. `Resmi tatil` comes from the holiday law and is the same for every employer;
-`İdari tatil` is any other non-working day — a closure, a bridge day, weather, an
-election. **Today they are calculated identically**: both take the day out of the
-expected working days and nothing else. What the split buys now is being able to ask HR
-the right question about the right day, and a seam for the Phase 2 pay rules, which are
-expected to treat them differently. Merging them later is a one-line change; splitting
-them later means re-marking days nobody remembers.
+One state, not two kinds. A day is a holiday or it is not — statutory, a closure, a
+bridge day, all the same to the calculation, which was the argument for merging the two
+categories the day they shipped (ADR-043). A click toggles. Whether a particular day was
+the law's or the company's is still written beside it in the file, as a name, for
+whoever is asked to confirm the list.
 """
 
 from __future__ import annotations
@@ -38,23 +36,15 @@ from ..models import HolidayCandidate
 from . import widgets as w
 from .period import period_label
 
-# What one click cycles through. `None` is an ordinary working day.
-WORKDAY = None
-STATUTORY = takvim_file.STATUTORY
-ADMIN = takvim_file.ADMIN
-_CYCLE = (WORKDAY, STATUTORY, ADMIN)
-
-# "İdari tatil" on its own. It used to read "İdari tatil (şirket kapalı)", which
-# narrows the term wrongly: an administrative holiday is any non-working day that does
-# not come from the holiday law — a declared administrative closure, weather, an
-# election, the site being shut — and the operator does not have to justify which.
-# What matters for the file is only that it is not statutory.
-_DEFAULT_LABEL = {STATUTORY: "Resmi tatil", ADMIN: "İdari tatil"}
-_KIND_NAME = {WORKDAY: "İş günü", STATUTORY: "Resmi tatil", ADMIN: "İdari tatil"}
+HOLIDAY = takvim_file.HOLIDAYS
+# What a day is called when the operator marks one and the file had no name for it.
+# Deliberately plain: the program does not know whether the day was the law's or the
+# company's, and writing a guess into the file would be inventing a fact.
+_DEFAULT_LABEL = "Tatil"
 _DAY_NAMES = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
 
 _CELL_WIDTH = 5
-_MARK = {STATUTORY: w.ACCENT_SOFT, ADMIN: "#fdf0d5"}
+_MARK = w.ACCENT_SOFT
 
 
 class CalendarScreen:
@@ -68,9 +58,10 @@ class CalendarScreen:
         # {date: kind}, only for days in the month on display. The rest of the file is
         # held separately and written back untouched — a year's other months are not
         # this screen's business and must survive a save.
+        # {date: label} for the month on display. Other months are held apart and
+        # written back untouched — a year's other months are not this screen's business.
         self.marks: dict[date, str] = {}
-        self._other: dict[str, dict[date, str]] = {}
-        self._labels: dict[date, str] = {}
+        self._other: dict[date, str] = {}
         self._cells: dict[date, tk.Label] = {}
         self._dirty = False
 
@@ -108,20 +99,17 @@ class CalendarScreen:
 
         legend = tk.Frame(body, background=w.BG)
         legend.grid(row=5, column=0, sticky="nw")
-        for index, (kind, text) in enumerate(
-                ((STATUTORY, "Resmi tatil — kanundan"),
-                 (ADMIN, "İdari tatil — kanundan gelmeyen kapalı gün"))):
-            tk.Label(legend, text="  ", background=_MARK[kind],
-                     highlightthickness=1, highlightbackground=w.LINE).grid(
-                row=index, column=0, sticky="w", pady=1)
-            tk.Label(legend, text=f" {text}", background=w.BG, foreground=w.MUTED,
-                     font=(w.FACE, 9)).grid(row=index, column=1, sticky="w")
+        tk.Label(legend, text="  ", background=_MARK, highlightthickness=1,
+                 highlightbackground=w.LINE).grid(row=0, column=0, sticky="w", pady=1)
+        tk.Label(legend, text=" Tatil — çalışılmayan gün", background=w.BG,
+                 foreground=w.MUTED, font=(w.FACE, 9)).grid(
+            row=0, column=1, sticky="w")
         tk.Label(legend, text="?", background=w.BG, foreground=w.WARN,
-                 font=(w.FACE, 9, "bold")).grid(row=2, column=0, sticky="e")
+                 font=(w.FACE, 9, "bold")).grid(row=1, column=0, sticky="e")
         self.candidate_note = tk.Label(
             legend, background=w.BG, foreground=w.MUTED, font=(w.FACE, 9),
             anchor="w", justify="left")
-        self.candidate_note.grid(row=2, column=1, sticky="w")
+        self.candidate_note.grid(row=1, column=1, sticky="w")
 
         actions = tk.Frame(body, background=w.BG)
         actions.grid(row=6, column=0, sticky="ew", pady=(16, 0))
@@ -142,17 +130,14 @@ class CalendarScreen:
         self.candidates = {c.date: c for c in candidates
                            if (c.date.year, c.date.month) == (year, month)}
 
-        blocks = takvim_file.read(self._path())
+        entries = takvim_file.read(self._path())[HOLIDAY]
         self.marks = {}
-        self._other = {name: {} for name in takvim_file.BLOCKS}
-        self._labels = {}
-        for name, entries in blocks.items():
-            for day, label in entries.items():
-                if (day.year, day.month) == (year, month):
-                    self.marks[day] = name
-                    self._labels[day] = label
-                else:
-                    self._other[name][day] = label
+        self._other = {}
+        for day, label in entries.items():
+            if (day.year, day.month) == (year, month):
+                self.marks[day] = label
+            else:
+                self._other[day] = label
         self._dirty = False
         self._paint()
 
@@ -215,44 +200,40 @@ class CalendarScreen:
 
     def _cell(self, day: date, row: int, column: int) -> tk.Label:
         weekend = day.weekday() >= 5
-        kind = self.marks.get(day)
-        text = str(day.day)
-        if day in self.candidates and kind is None:
-            text += " ?"
+        marked = day in self.marks
+        asked = day in self.candidates and not marked
+        text = f"{day.day} ?" if asked else str(day.day)
         cell = tk.Label(
             self.grid_frame, text=text, width=_CELL_WIDTH,
-            font=(w.FACE, 10, "bold" if kind else "normal"),
-            background=_MARK.get(kind, w.CARD),
-            foreground=w.MUTED if weekend else (
-                w.WARN if day in self.candidates and kind is None else w.INK),
+            font=(w.FACE, 10, "bold" if marked else "normal"),
+            background=_MARK if marked else w.CARD,
+            foreground=w.MUTED if weekend else (w.WARN if asked else w.INK),
             highlightthickness=1,
-            highlightbackground=w.LINE if kind or day in self.candidates else w.CARD,
+            highlightbackground=w.LINE if marked or asked else w.CARD,
             pady=6, cursor="arrow" if weekend else "hand2")
         cell.grid(row=row, column=column, sticky="ew", padx=1, pady=1)
         if not weekend:
             # A weekend is already a rest day; letting it be marked would invite an
             # entry that changes nothing and reads as though it does.
-            cell.bind("<Button-1>", lambda _event, d=day: self._cycle(d))
+            cell.bind("<Button-1>", lambda _event, d=day: self.toggle(d))
         return cell
 
-    def _cycle(self, day: date) -> None:
-        current = self.marks.get(day)
-        nxt = _CYCLE[(_CYCLE.index(current) + 1) % len(_CYCLE)]
-        if nxt is WORKDAY:
-            self.marks.pop(day, None)
+    def toggle(self, day: date) -> None:
+        """Holiday or not. A name the file already had is kept when it comes back."""
+        if day in self.marks:
+            self._forgotten = (day, self.marks.pop(day))
         else:
-            self.marks[day] = nxt
+            previous = getattr(self, "_forgotten", (None, None))
+            self.marks[day] = (previous[1] if previous[0] == day
+                               else _DEFAULT_LABEL)
         self._dirty = True
         self._paint()
 
     def _describe(self) -> None:
-        counts = {kind: sum(1 for k in self.marks.values() if k == kind)
-                  for kind in (STATUTORY, ADMIN)}
-        parts = [f"{counts[STATUTORY]} resmi tatil",
-                 f"{counts[ADMIN]} idari tatil"]
         self.note.configure(
-            text=f"{self._path().name} · " + " · ".join(parts)
-                 + "\nBir güne tıklamak sırayla: iş günü → resmi tatil → idari tatil.",
+            text=f"{self._path().name} · bu ayda {len(self.marks)} tatil günü"
+                 "\nBir güne tıklamak onu tatil yapar, tekrar tıklamak iş gününe "
+                 "döndürür. Hafta sonları zaten tatil.",
             foreground=w.MUTED)
 
         if self.candidates:
@@ -281,13 +262,10 @@ class CalendarScreen:
 
     # --- saving ------------------------------------------------------------
     def _save(self) -> None:
-        blocks = {name: dict(self._other[name]) for name in takvim_file.BLOCKS}
-        for day, kind in self.marks.items():
-            # A label the file already had is kept — "Emek ve Dayanışma Günü" is worth
-            # more than "Resmi tatil", and re-marking a day must not flatten it.
-            previous = self._labels.get(day)
-            keep = previous if previous and self.marks.get(day) == kind else None
-            blocks[kind][day] = keep or _DEFAULT_LABEL[kind]
+        # The month on display, plus every other month exactly as it was read.
+        entries = dict(self._other)
+        entries.update(self.marks)
+        blocks = {HOLIDAY: entries}
         try:
             takvim_file.write(self._path(), blocks)
         except PermissionError:
@@ -303,7 +281,6 @@ class CalendarScreen:
         except (OSError, takvim_file.CalendarFileError, ConfigError) as exc:
             self.status.configure(text=f"Kaydedilemedi: {exc}", foreground=w.BAD)
             return
-        self._labels = {day: blocks[kind][day] for day, kind in self.marks.items()}
         self._dirty = False
         self._describe()
         self.status.configure(

@@ -113,7 +113,7 @@ Mayıs 2026'da ölçülen:
 | **Toplam** | **1 823** | **17 103:58** | |
 
 `Günlük Detay` sayfasında her satır hangi güne ait olduğunu yazar: `Cmt`, `Paz` ya da
-`Resmi Tatil`. Yani hafta sonu çalışması hem sayılır hem de ayırt edilebilir.
+`Tatil`. Yani hafta sonu çalışması hem sayılır hem de ayırt edilebilir.
 
 ### Tatil listesi nereden geliyor
 
@@ -135,21 +135,17 @@ başına gösteriyordu — hafta içi ortanca 130 kişi, o gün 7 kişi.
 ### Tatil günleri programa nasıl giriliyor
 
 Pencerede **Takvim** ekranı var. Ayın günleri ızgara halinde duruyor; bir güne tıklamak
-onu sırayla **iş günü → resmi tatil → idari tatil** yapıyor. Hafta sonlarına
+onu **tatil** yapıyor, tekrar tıklamak iş gününe döndürüyor. Hafta sonlarına
 tıklanamıyor, zaten tatil.
 
-İki tür ayrı tutuluyor, çünkü aynı şey değiller:
+**Tek tür var: tatil.** Bir gün ya çalışılan gündür ya tatildir. Resmi tatil ile
+şirketin kapandığı gün program açısından aynı şey — ikisi de günü beklenen iş
+günlerinden çıkarır — o yüzden ayrı kategori tutulmuyor.
 
-| | Ne demek | Örnek |
-| --- | --- | --- |
-| **Resmi tatil** | Kanunla belli, her işveren için aynı | 15 Temmuz, 1 Mayıs |
-| **İdari tatil** | Kanundan gelmeyen, çalışılmayan gün | Ağustos'ta beş gün kapalı, köprü günü |
-
-**Bugün ikisi tamamen aynı şekilde hesaplanıyor** — ikisi de günü beklenen iş
-günlerinden çıkarır, başka hiçbir farkı yok. Ayrı yazılmalarının tek bugünkü faydası,
-İK'ya "bu gün kanundan mı, sizin kararınız mı" diye doğru soruyu sorabilmek. Fazla
-mesai ve tatil ücreti kuralları geldiğinde (Faz 2) farklılaşmaları beklenir; o zaman
-gelene kadar ayrımı tutmak, sonradan ayırmaya göre çok daha kolay.
+Günün **ne olduğu** yine yazılı: takvimde her tarihin yanında adı duruyor
+(`Emek ve Dayanışma Günü`, `Toplu İzin (köprü)`), ve `Kontrol` sayfasında tarih tarih
+görünüyor. Yani "bu gün kanundan mı geliyor, sizin kararınız mı" sorusu hâlâ
+cevaplanabilir; sadece programın hesabında bir farkı yok.
 
 Kaydetmek, takvim dosyasını günceller. **Kaydettikten sonra raporu yeniden üretmek
 gerekir** — saatler o dosyaya göre hesaplanır. Tıklamak tek başına hiçbir rakamı

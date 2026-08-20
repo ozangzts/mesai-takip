@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (42 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (43 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -157,8 +157,14 @@ taşıyor, ve o son not bir kez zaten yanlış çıktı (ADR-040). En sıkı tes
 takvimi kendi içeriğiyle yeniden yazmak **birebir aynı dosyayı** vermeli; ilk
 uygulamam bütün sentetik testleri geçip bu testte iki kez düştü.
 
-**İki tür ayrı tutuluyor:** `holidays` (kanun) ve `admin_holidays` (şirketin kendi
-kapanması). Faz 2'de farklı ücretlenecekleri için etiket değil ayrı anahtar.
+**Tek tür var: tatil** (ADR-043). Kısa süre iki kategori vardı — resmi ve idari —
+ama ölçüldü: hiçbir hesap ikisini farklı işlemiyordu. Bir gün ya tatildir ya
+değildir; tıklama iki durumlu. Günün ne olduğu takvimdeki adında duruyor.
+`admin_holidays` hâlâ **okunuyor** ve tek bloğa katlanıyor, kaydederken de eski
+blok siliniyor — yoksa aynı gün iki yerde durur ve işaret kaldırılınca bayat
+kopyadan geri gelir. Bunu inceleme değil, göç için yazılan test buldu.
+`Günlük Detay`'daki etiket `Resmi Tatil` yerine **`Tatil`** — listede köprü günleri
+ve kapanmalar da var, onlara kanun demek desteklenmeyen bir iddiaydı.
 
 **Tatil takvimi düzeltildi** (ADR-040). Üç bulgu, tek sorudan çıktı — "tatilleri neye
 göre belirledin":

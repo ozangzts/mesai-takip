@@ -37,33 +37,52 @@ def calendar(tmp_path):
 
 # --- reading ----------------------------------------------------------------
 
-def test_the_two_blocks_are_read_with_their_labels(calendar):
+def test_the_dates_are_read_with_their_labels(calendar):
     blocks = takvim_file.read(calendar)
 
-    assert blocks[takvim_file.STATUTORY] == {
+    assert blocks[takvim_file.HOLIDAYS] == {
         date(2026, 5, 1): "Emek ve Dayanışma Günü",
         date(2026, 7, 15): "Demokrasi ve Millî Birlik Günü",
     }
-    assert blocks[takvim_file.ADMIN] == {}, "an absent block is empty, not an error"
 
 
 def test_a_missing_file_reads_as_empty(tmp_path):
-    assert takvim_file.read(tmp_path / "yok.yaml") == {
-        takvim_file.STATUTORY: {}, takvim_file.ADMIN: {}}
+    assert takvim_file.read(tmp_path / "yok.yaml") == {takvim_file.HOLIDAYS: {}}
 
 
 def test_half_days_are_not_mistaken_for_a_date_block(calendar):
     """`half_days` is a list, not a mapping, and nothing here may touch it."""
-    blocks = takvim_file.read(calendar)
-    assert date(2026, 5, 26) not in blocks[takvim_file.STATUTORY]
-    assert date(2026, 5, 26) not in blocks[takvim_file.ADMIN]
+    assert date(2026, 5, 26) not in takvim_file.read(calendar)[
+        takvim_file.HOLIDAYS]
+
+
+def test_a_retired_block_is_folded_in_rather_than_lost(tmp_path):
+    """`admin_holidays` existed for one day (ADR-042, undone by ADR-043).
+
+    A calendar written while it existed must not quietly lose those days, so the block
+    is still read — and never written back.
+    """
+    path = tmp_path / "takvim-2026.yaml"
+    path.write_text(SAMPLE + '''
+admin_holidays:
+  2026-08-10: "İdari tatil"
+''', encoding="utf-8")
+
+    blocks = takvim_file.read(path)
+    assert date(2026, 8, 10) in blocks[takvim_file.HOLIDAYS]
+    assert blocks[takvim_file.HOLIDAYS][date(2026, 8, 10)] == "İdari tatil"
+
+    takvim_file.write(path, blocks)
+    assert "admin_holidays" not in path.read_text(encoding="utf-8")
+    assert date(2026, 8, 10) in takvim_file.read(path)[takvim_file.HOLIDAYS], \
+        "folded into the one block, not dropped"
 
 
 # --- writing ----------------------------------------------------------------
 
 def test_every_comment_survives_a_round_trip(calendar):
     blocks = takvim_file.read(calendar)
-    blocks[takvim_file.STATUTORY][date(2026, 8, 30)] = "Zafer Bayramı"
+    blocks[takvim_file.HOLIDAYS][date(2026, 8, 30)] = "Zafer Bayramı"
     takvim_file.write(calendar, blocks)
 
     text = calendar.read_text(encoding="utf-8")
@@ -76,28 +95,29 @@ def test_every_comment_survives_a_round_trip(calendar):
 
 def test_what_was_written_is_what_reads_back(calendar):
     blocks = takvim_file.read(calendar)
-    blocks[takvim_file.STATUTORY][date(2026, 8, 30)] = "Zafer Bayramı"
-    blocks[takvim_file.ADMIN] = {date(2026, 8, 10): "Şirket kapalı",
-                                 date(2026, 8, 11): "Şirket kapalı"}
+    blocks[takvim_file.HOLIDAYS][date(2026, 8, 30)] = "Zafer Bayramı"
+    blocks[takvim_file.HOLIDAYS][date(2026, 8, 10)] = "Tatil"
     takvim_file.write(calendar, blocks)
 
     assert takvim_file.read(calendar) == blocks
 
 
-def test_a_new_block_is_appended_with_its_heading(calendar):
-    blocks = takvim_file.read(calendar)
-    blocks[takvim_file.ADMIN] = {date(2026, 8, 10): "Şirket kapalı"}
-    takvim_file.write(calendar, blocks)
+def test_a_block_the_file_lacks_is_appended_with_its_heading(tmp_path):
+    path = tmp_path / "takvim-2026.yaml"
+    path.write_text("weekly_rest_days: [saturday, sunday]\n", encoding="utf-8")
 
-    text = calendar.read_text(encoding="utf-8")
-    assert "admin_holidays:" in text
-    assert takvim_file.read(calendar)[takvim_file.ADMIN] == {
-        date(2026, 8, 10): "Şirket kapalı"}
+    takvim_file.write(path, {takvim_file.HOLIDAYS: {date(2026, 8, 10): "Tatil"}})
+
+    text = path.read_text(encoding="utf-8")
+    assert "holidays:" in text
+    assert "weekly_rest_days: [saturday, sunday]" in text
+    assert takvim_file.read(path)[takvim_file.HOLIDAYS] == {
+        date(2026, 8, 10): "Tatil"}
 
 
 def test_a_removed_day_is_gone_from_the_file(calendar):
     blocks = takvim_file.read(calendar)
-    del blocks[takvim_file.STATUTORY][date(2026, 5, 1)]
+    del blocks[takvim_file.HOLIDAYS][date(2026, 5, 1)]
     takvim_file.write(calendar, blocks)
 
     text = calendar.read_text(encoding="utf-8")
@@ -109,7 +129,7 @@ def test_a_removed_day_is_gone_from_the_file(calendar):
 def test_the_dates_come_out_in_order(calendar):
     blocks = takvim_file.read(calendar)
     for day in (date(2026, 1, 1), date(2026, 10, 29), date(2026, 4, 23)):
-        blocks[takvim_file.STATUTORY][day] = "Tatil"
+        blocks[takvim_file.HOLIDAYS][day] = "Tatil"
     takvim_file.write(calendar, blocks)
 
     written = [line.strip().split(":")[0]
@@ -120,23 +140,23 @@ def test_the_dates_come_out_in_order(calendar):
 
 def test_emptying_a_block_leaves_the_heading_and_the_comments(calendar):
     blocks = takvim_file.read(calendar)
-    blocks[takvim_file.STATUTORY] = {}
+    blocks[takvim_file.HOLIDAYS] = {}
     takvim_file.write(calendar, blocks)
 
     text = calendar.read_text(encoding="utf-8")
     assert "holidays:" in text
     assert "# Fixed-date statutory holidays" in text
     assert "2026-05-01" not in text
-    assert takvim_file.read(calendar)[takvim_file.STATUTORY] == {}
+    assert takvim_file.read(calendar)[takvim_file.HOLIDAYS] == {}
 
 
 def test_a_quote_in_a_label_cannot_break_the_file(calendar):
     blocks = takvim_file.read(calendar)
-    blocks[takvim_file.ADMIN] = {date(2026, 8, 10): 'Şirket "kapalı" haftası'}
+    blocks[takvim_file.HOLIDAYS][date(2026, 8, 10)] = 'Kapalı "hafta"'
     takvim_file.write(calendar, blocks)
 
-    assert takvim_file.read(calendar)[takvim_file.ADMIN] == {
-        date(2026, 8, 10): "Şirket 'kapalı' haftası"}
+    assert takvim_file.read(calendar)[takvim_file.HOLIDAYS][date(2026, 8, 10)] == \
+        "Kapalı 'hafta'"
 
 
 def test_an_unknown_block_is_refused_before_anything_is_written(calendar):

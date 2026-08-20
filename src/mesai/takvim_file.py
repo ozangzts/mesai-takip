@@ -12,11 +12,14 @@ So the two date blocks are edited **as lines**. Everything outside them — comm
 untouched. The blocks themselves are simple enough for this to be safe rather than
 clever: one `  YYYY-MM-DD: "label"` per line, and nothing else is allowed in them.
 
-Two kinds of non-working day, because the operator named them as different things and
-Phase 2 pays them differently:
+**One** kind of non-working day. There were briefly two — statutory and
+administrative — and they were merged again on the day they shipped, for the reason
+that killed the distinction: nothing calculated them differently. Both took the day out
+of the expected working days and nothing else, so the split bought a label and cost the
+operator a decision at every click. A day is a holiday or it is not (ADR-043).
 
-    holidays:         statutory — 15 July, 1 May. Law, the same for every employer.
-    admin_holidays:   the company's own closure — "the site was shut that week".
+`admin_holidays` is still **read** if a file has it, and folded into the one map, so a
+calendar written during the day the split existed does not silently lose days.
 """
 
 from __future__ import annotations
@@ -26,9 +29,10 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-STATUTORY = "holidays"
-ADMIN = "admin_holidays"
-BLOCKS = (STATUTORY, ADMIN)
+HOLIDAYS = "holidays"
+# Read for compatibility, never written. See the module docstring.
+_RETIRED = "admin_holidays"
+BLOCKS = (HOLIDAYS,)
 
 _ENTRY = re.compile(r"^(\s+)(\d{4}-\d{2}-\d{2})\s*:\s*(.*?)\s*$")
 _BLOCK_START = re.compile(r"^([a-z_]+):\s*$")
@@ -52,6 +56,7 @@ def read(path: Path) -> dict[str, dict[date, str]]:
     found: dict[str, dict[date, str]] = {name: {} for name in BLOCKS}
     if not path.is_file():
         return found
+    readable = (*BLOCKS, _RETIRED)
 
     current: str | None = None
     for raw in path.read_text(encoding="utf-8").splitlines():
@@ -60,7 +65,7 @@ def read(path: Path) -> dict[str, dict[date, str]]:
             continue
         start = _BLOCK_START.match(line)
         if start:
-            current = start.group(1) if start.group(1) in BLOCKS else None
+            current = start.group(1) if start.group(1) in readable else None
             continue
         if current is None:
             continue
@@ -70,12 +75,13 @@ def read(path: Path) -> dict[str, dict[date, str]]:
         entry = _ENTRY.match(line)
         if entry:
             day = date.fromisoformat(entry.group(2))
-            found[current][day] = _unquote(entry.group(3).split("#", 1)[0].strip())
+            block = HOLIDAYS if current == _RETIRED else current
+            found[block][day] = _unquote(entry.group(3).split("#", 1)[0].strip())
     return found
 
 
 def write(path: Path, blocks: dict[str, dict[date, str]]) -> None:
-    """Replace the two date blocks in place, leaving every other line alone.
+    """Replace the date block in place, leaving every other line alone.
 
     A block that exists in the file is rewritten where it stands; one that does not is
     appended with its own heading. Written to a temporary file and moved into place, so
@@ -87,6 +93,17 @@ def write(path: Path, blocks: dict[str, dict[date, str]]) -> None:
             raise CalendarFileError(f"bilinmeyen blok: {name!r}")
 
     lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
+    # A retired block is taken over rather than left standing. Leaving it would write
+    # the same day twice — once here, once in a block nothing writes any more — and
+    # un-marking the day later would bring it back from the stale copy.
+    retired = _parse_block(_block_body(lines, _RETIRED)).labels
+    if retired:
+        adopted = dict(blocks.get(HOLIDAYS) or {})
+        for day, label in retired.items():
+            adopted.setdefault(day, label)
+        blocks = {**blocks, HOLIDAYS: adopted}
+        lines = _drop_block(lines, _RETIRED)
+
     for name, entries in blocks.items():
         lines = _replace_block(lines, name, entries)
 
@@ -96,28 +113,48 @@ def write(path: Path, blocks: dict[str, dict[date, str]]) -> None:
     temporary.replace(path)
 
 
-def _replace_block(lines: list[str], name: str,
-                   entries: dict[date, str]) -> list[str]:
+
+def _block_bounds(lines: list[str], name: str) -> tuple[int, int] | None:
     start = next((index for index, line in enumerate(lines)
                   if _BLOCK_START.match(line)
                   and _BLOCK_START.match(line).group(1) == name), None)
     if start is None:
+        return None
+    end = start + 1
+    while end < len(lines):
+        if lines[end].strip() and not lines[end].startswith(" "):
+            break
+        end += 1
+    while end - 1 > start and not lines[end - 1].strip():
+        end -= 1
+    return start, end
+
+
+def _block_body(lines: list[str], name: str) -> list[str]:
+    bounds = _block_bounds(lines, name)
+    return lines[bounds[0] + 1:bounds[1]] if bounds else []
+
+
+def _drop_block(lines: list[str], name: str) -> list[str]:
+    bounds = _block_bounds(lines, name)
+    if bounds is None:
+        return lines
+    start, end = bounds
+    while start > 0 and not lines[start - 1].strip():
+        start -= 1                    # take the blank line that separated it
+    return lines[:start] + lines[end:]
+
+
+def _replace_block(lines: list[str], name: str,
+                   entries: dict[date, str]) -> list[str]:
+    bounds = _block_bounds(lines, name)
+    if bounds is None:
         if not entries:
             return lines
         return lines + ["", f"{name}:"] + [
             f"{_INDENT}{day.isoformat()}: {_quote(label)}"
             for day, label in sorted(entries.items())]
-
-    end = start + 1
-    while end < len(lines):
-        line = lines[end]
-        # Comments and blank lines belong to whatever comes next, so a trailing run of
-        # them is left for the following key rather than swallowed into this block.
-        if line.strip() and not line.startswith(" "):
-            break
-        end += 1
-    while end - 1 > start and not lines[end - 1].strip():
-        end -= 1
+    start, end = bounds
 
     # A comment sitting above an entry explains THAT entry — the shipped file has two
     # lines above 15 July saying why it is not an inference — so it travels with the

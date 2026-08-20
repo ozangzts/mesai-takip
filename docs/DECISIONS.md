@@ -2419,3 +2419,55 @@ is a bad trade.
   payroll input on a mis-click.
 - The screen is registered like any other (`SCREENS`), so the rail grew by one entry and
   nothing else in the shell changed. That is the third time that seam has held (ADR-028).
+
+---
+
+## ADR-043 — One kind of holiday, not two
+
+2026-08-20 · Status: **Accepted** · Supersedes the two-category part of **ADR-042** ·
+Decided by: project owner
+
+### Context
+
+ADR-042 split non-working days into `holidays` (statutory) and `admin_holidays` (the
+company's own closure), on the reasoning that Phase 2 would pay them differently and
+that HR would be asked about them separately.
+
+Asked whether the split was worth it, the honest answer was measured the same day:
+**nothing calculated them differently.** Both took the day out of the expected working
+days, both answered `is_holiday`, and the only difference anywhere in the program was
+the word in a label. So the split cost the operator a decision at every click — three
+states to cycle through instead of two — and bought a word.
+
+The wording made it worse: the second kind was labelled `İdari tatil (şirket kapalı)`,
+which narrows the term wrongly. A non-working day that does not come from the holiday
+law can be an administrative closure, a bridge day, weather, an election. The program
+has no way of knowing which, and the parenthesis put a claim in the operator's mouth.
+
+### Decision
+
+**One kind. A day is a holiday or it is not.** A click on the calendar screen toggles.
+The file has one block, `holidays`, and the **label beside each date** still records what
+the day was — `Emek ve Dayanışma Günü`, `Toplu İzin (köprü)` — for whoever is asked to
+confirm the list. A day the operator marks with no name of its own is written as `Tatil`,
+because that is all the program knows.
+
+The `Gün` column in the daily detail sheet now reads **`Tatil`**, not `Resmi Tatil`. The
+list has always held bridge days and inferred closures; calling those statutory in the
+sheet HR reads was a claim about the law that nothing supported.
+
+### Consequences
+
+- Measured across all three months: **no person's hours changed.** The only visible
+  difference in a workbook is the `Gün` label.
+- `admin_holidays` is still **read** and folded into the one block, and a file
+  containing it has the block **removed** on the next save. Without the removal the
+  same day would sit in two places, and un-marking it later would bring it back from
+  the stale copy — found by the test written for the migration, not by review.
+- When Phase 2 does need the distinction — if holiday work is paid differently from a
+  closure day (ROADMAP Q8) — it comes back as a second field, and the labels already in
+  the file are what it will be reconstructed from. Merging was a small change in one
+  direction; that is the direction this project should default to, since the split was
+  built for a rule that does not exist yet.
+- The screen lost a third of its interaction surface and a colour. The legend is one
+  line, and `Bir güne tıklamak onu tatil yapar` needs no explaining.
