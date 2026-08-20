@@ -21,16 +21,19 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, **345 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **346 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
-| Toplam çalışma süresi | 17 103:58 | 27 166:19 | 16 078:44 ⚠ |
-| Kişi | 171 | 163 | 175 |
-| Şüpheli kayıt | 250 | 427 | 554 |
+| Toplam çalışma süresi | 17 103:58 | 27 166:19 | 26 233:17 |
+| Kişi | 171 | 163 | 176 |
+| Şüpheli kayıt | 250 | 427 | 438 |
 
-⚠ **Temmuz eksik** — Teknopark dosyası ayın 1–19'unu kapsıyor, 20 Temmuz'da alınmış.
-Program bunu kırmızıyla yazıyor ve `5` koduyla çıkıyor. Saatler bordroya uygun değil.
+**Temmuz artık eksik değil.** Teknopark'ın tam ay dosyası geldi
+(`Teknopark - Temmuz.xlsx`, ayın 1–31'i) ve rapor `0` koduyla çıkıyor: iki kaynak da
+23 iş gününün 23'ünü kapsıyor, mutabakat TAMAM (Σ kişi = Σ günlük ölçülen =
+26 233:17), Teknopark'ın 2 394 satırının 2 394'ü kayda dönüşüyor. Eksik hâlinde
+16 078:44 okunuyordu — **fark 10 154:33**, yani ayın yarısı. Q23 kapandı.
 
 Çalıştırma: `arayuz.cmd` (pencere) veya `rapor.cmd --ay 2026-07` (komut satırı).
 
@@ -93,7 +96,7 @@ Proje sahibi soracak. Öncelik sırasıyla:
 
 | # | Soru | Neyi bloke ediyor |
 | --- | --- | --- |
-| 1 | **Temmuz Teknopark dosyası tam ay için yeniden alınabilir mi?** Dosyalar her ay ayın kaçında alınacak? | Temmuz raporu (Q23) |
+| 1 | **Dosyalar her ay ayın kaçında alınacak?** Temmuz'un tam ay dosyası geldi, ama ayın 20'sinde alınan bir dosya yine yarım olur | Bir sonraki ay (Q23) |
 | 2 | **Macunköy dosyası o tesisin bütün turnikelerini kapsıyor mu?** Kart kaydı hiç olmayanların neredeyse hepsi Macunköy | Faz 1 onayı — **en kritik** (Q4) |
 | 3 | Dokuz isim eşleştirmesinin onayı — `Kontrol` sayfası bölüm 7 | Yanlışsa iki kişinin bordro saatleri birleşir (Q4a) |
 | 4 | Mayıs'ın 7 resmi tatili doğru mu (veriden çıkarıldı) | Tatil çalışması ücreti (Q16) |
@@ -111,6 +114,18 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 ---
 
 ## Bu turda ne yapıldı (2026-08-20)
+
+**Temmuz tamamlandı.** Teknopark'ın tam ay dosyası geldi; rapor artık `0` koduyla
+çıkıyor, 26 233:17 / 176 kişi. Eksik hâlinden farkı **10 154:33**. Guard'ın doğru
+davrandığı da böylece ölçüldü: ayı "tam" saymayı reddetti, ama kapsadığı günlerin
+rakamlarını reddetmedi. Dosya adı yine değişmiş (`Teknopark - Temmuz.xlsx`), glob
+sayesinde kod değişmedi.
+
+**`Kontrol` sayfasında iki bölüm de "9." numarasını taşıyordu** — 10. olması gereken
+"Bu raporun kapsamadıkları". AGENTS.md de alias kontrolünü "bölüm 6" diye gösteriyordu,
+doğrusu 7. Numaraların tekrarsız ve sıralı olduğunu doğrulayan bir test eklendi;
+numaralar bu sayfaya yapılan bütün referansların dayanağı ve hiçbir şey onları geri
+okumuyordu.
 
 **Pencerede iki hata düzeltildi** — ikisi de proje sahibinin kullanırken bulduğu,
 ikisi de pencerenin tuttuğu durumla ilgili, o yüzden hiçbiri "geometri test etmeyiz"
@@ -182,6 +197,11 @@ sayısı ve hiç görülmemiş olanlar işaretli.
   `Plausibility`'nin **tamamını** karşılaştırıyor. Yeni bir config anahtarı eklerken
   fixture'a da ekle — yoksa bütün test paketi, kimsenin çalıştırmadığı bir kurala karşı
   geçmeye devam eder.
+- **GUI testleri artık "ekran yok" diye sessizce atlanmıyor.** Her `TclError` ekran
+  yokluğu sayılıyordu; ekranın olup olmadığı bir kez ölçülüyor, sonrasında pencere
+  kurulamazsa test kırmızı düşüyor. Nadiren (2-3 tam koşuda bir) bir pencere testi
+  sessizce atlanıyordu ve her seferinde başka bir test — bu değişiklikten önce de
+  vardı, pytest dışında 280 denemede tekrarlanmıyor.
 - **Etiketler artık filtre anahtarı** (ADR-027). Bir etiketi yeniden adlandırmak
   snapshot için kırıcı değişikliktir, düzeltme değil. İki tür aynı etiketi paylaşamaz.
 - Snapshot `format_version` **3**. Eski dosyalar "yeniden üret" diye reddediliyor.

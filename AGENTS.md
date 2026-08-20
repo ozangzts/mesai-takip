@@ -130,7 +130,7 @@ abbreviated given name) stop resolving and those people appear as two rows each 
 with no warning, because an unresolved variant is indistinguishable from two
 different employees. `config/personel.yaml` has to be copied across by hand.
 
-The check is the report's `Kontrol` sheet, section 6: it lists every alias in effect.
+The check is the report's `Kontrol` sheet, section 7: it lists every alias in effect.
 Empty there means the table did not load.
 
 **Before committing**, re-check that no real name, address, login or number leaked

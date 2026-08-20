@@ -214,6 +214,33 @@ def test_full_coverage_leaves_the_table_where_it_was(tmp_path, settings):
     assert "Dönemin tamamı kapsanıyor" in control
 
 
+def test_the_control_sheet_sections_are_numbered_once_each(tmp_path, settings):
+    """Two sections were both numbered 9, and a doc pointed at the wrong one.
+
+    The numbers are how everything else refers to this sheet — "section 7 lists every
+    alias in effect" is the documented way to check that the alias table loaded at all.
+    A duplicate makes such a reference ambiguous, and it was invisible because nothing
+    read the numbers back.
+    """
+    import re
+
+    path = tmp_path / "numaralar.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "test.xlsx"}), settings=settings,
+        generated_at=datetime(2026, 8, 20, 12, 0),
+    )
+
+    book = openpyxl.load_workbook(path, read_only=True)
+    numbers = [int(m.group(1)) for r in book["Kontrol"].iter_rows(values_only=True)
+               if r and r[0] and (m := re.match(r"^(\d+)\. ", str(r[0])))]
+
+    assert numbers, "the sheet must have numbered sections at all"
+    assert numbers == sorted(set(numbers)), f"repeated or out of order: {numbers}"
+    assert numbers == list(range(1, len(numbers) + 1)), f"a gap: {numbers}"
+
+
 # --- the workbook is for HR, not for developers -----------------------------
 
 _DEVELOPER_JARGON = (

@@ -15,6 +15,7 @@ only true if the constructor really runs. It skips itself when there is no displ
 """
 
 import json
+import time
 from pathlib import Path
 
 import tkinter as tk_module
@@ -28,11 +29,47 @@ from mesai.mail import recipients
 from mesai import gui as _gui_pkg  # noqa: F401  (gui.rapor attribute access)
 
 
+def _tk_root(tk):
+    """A Tk root, skipping only when there is genuinely no display.
+
+    Both window fixtures used to read any `TclError` as "headless" and skip. That is
+    wrong for a *transient* failure, and transient failures happen: a full run
+    occasionally lost one window test this way, at a different test each time, and it
+    did so before any of these tests existed. A test that silently skips has stopped
+    protecting anything, which is the same objection as ADR-020's — a check that
+    quietly does not run is worse than no check.
+
+    So whether a display exists is decided once, by probe. After that, creating a
+    window is retried a couple of times and then allowed to fail: a red run is the
+    correct outcome for something that should have worked.
+    """
+    global _HAS_DISPLAY
+    if _HAS_DISPLAY is None:
+        try:
+            probe = tk.Tk()
+        except tk.TclError:
+            _HAS_DISPLAY = False
+        else:
+            probe.destroy()
+            _HAS_DISPLAY = True
+    if not _HAS_DISPLAY:
+        pytest.skip("no display")
+    for remaining in (2, 1, 0):
+        try:
+            return tk.Tk()
+        except tk.TclError:
+            if not remaining:
+                raise
+            time.sleep(0.2)
+
+
 def _touch(folder: Path, *names: str) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     for name in names:
         (folder / name).write_bytes(b"")
 
+
+_HAS_DISPLAY: bool | None = None
 
 COMPLETE = (
     "Macunköy Temmuz Mesai giriş-çıkış.xls",
@@ -237,11 +274,7 @@ def screen(tmp_path):
     is the thing under test as much as the screen is.
     """
     tk = pytest.importorskip("tkinter")
-
-    try:
-        root = tk.Tk()
-    except tk.TclError:                          # pragma: no cover - headless
-        pytest.skip("no display")
+    root = _tk_root(tk)
 
     def build(settings_payload=None):
         if settings_payload is not None:
@@ -329,11 +362,7 @@ def test_remembering_stores_the_parent_not_the_selection(screen, tmp_path):
 def shell(tmp_path):
     """Builds an `App` on a real Tk, optionally with extra screens registered."""
     tk = pytest.importorskip("tkinter")
-
-    try:
-        root = tk.Tk()
-    except tk.TclError:                          # pragma: no cover - headless
-        pytest.skip("no display")
+    root = _tk_root(tk)
 
     built: list[str] = []
 

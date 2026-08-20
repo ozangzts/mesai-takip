@@ -746,7 +746,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     _roster_age_line(line, stats, period)
     row += 1
 
-    section("9. Bu raporun kapsamadıkları")
+    section("10. Bu raporun kapsamadıkları")
     for text in (
         "Fazla mesai ve eksik çalışma hesabı",
         "Otomatik vardiya tespiti",

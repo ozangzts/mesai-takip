@@ -256,6 +256,22 @@ Do not check "fewer days than the other source" — Teknopark legitimately has n
 on days the office is shut while Macunköy production runs. In May its 21 of 31 days
 were entirely explained by weekends plus the Kurban Bayramı block (Q14).
 
+**Resolved on 2026-08-20: the month was re-exported.** `Teknopark - Temmuz.xlsx`
+covers 1–31 July, 2 394 rows, all 23 expected working days present in both sources;
+the run exits 0. The total went from 16 078:44 to **26 233:17** — the partial file was
+missing 10 154:33, a little under half the month. Two things this measured:
+
+- The guard did its job. It refused to call the month complete, and it did not refuse
+  the *figures*, which were real for the days they covered.
+- **The file name is not stable either.** It arrived as `Teknopark - Temmuz.xlsx`,
+  where June's was `Teknopark - Haziran Mesai Takip Exceli.xlsx`. The glob
+  (`*Teknopark*.xls*`) absorbed that without a change, which is the whole reason
+  sources are matched by pattern (D10).
+
+What is still unanswered is *when* each month's files get exported. A file pulled on
+the 20th will be short again, and nothing about this fix prevents that — only the
+guard catches it (ROADMAP Q23).
+
 ---
 
 ## 3. `HCMT34_MAYIS_IZIN.xlsx`
