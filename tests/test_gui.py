@@ -29,6 +29,15 @@ from mesai.mail import recipients
 from mesai import gui as _gui_pkg  # noqa: F401  (gui.rapor attribute access)
 
 
+# Test windows are parked far off the visible desktop. A full run builds and destroys
+# well over a hundred real windows, and they flashed in front of whatever the developer
+# was doing for the whole thirty seconds. Position only — every geometry assertion here
+# is about size, and `wm geometry WxH` leaves the position alone, so nothing measured
+# changes. Not `withdraw()`: an unmapped window reports a size of 1x1 and the window
+# tests would stop testing anything.
+_OFFSCREEN = "+6000+6000"
+
+
 def _tk_root(tk):
     """A Tk root, skipping only when there is genuinely no display.
 
@@ -56,11 +65,14 @@ def _tk_root(tk):
         pytest.skip("no display")
     for remaining in (2, 1, 0):
         try:
-            return tk.Tk()
+            root = tk.Tk()
         except tk.TclError:
             if not remaining:
                 raise
             time.sleep(0.2)
+        else:
+            root.geometry(_OFFSCREEN)
+            return root
 
 
 def _touch(folder: Path, *names: str) -> None:
@@ -1365,27 +1377,21 @@ def calendar_screen(shell, tmp_path):
     A copy, never `config/`: a test that writes to the repository's own calendar would
     change which days the program treats as working days.
     """
-    from datetime import date
-
-    from mesai.models import HolidayCandidate
-
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     (config_dir / "takvim-2026.yaml").write_text(CALENDAR_FILE, encoding="utf-8")
 
-    def build(period="2026-08", candidates=(
-            HolidayCandidate(date(2026, 8, 10), people=3, median=130),
-            HolidayCandidate(date(2026, 8, 11), people=5, median=130))):
+    def build(period="2026-08"):
         window = shell()
         # Pointed at the copy after construction rather than through the
         # constructor: `config_dir` is also what the report screen validates
         # against, and this test has no business moving that.
         window.config_dir = config_dir
-        window.run_finished(period, candidates)
+        window.run_finished(period)
         window.show("takvim")
         screen = window._screens["takvim"]
         screen.config_dir = config_dir
-        screen.load(period, candidates)
+        screen.load(period)
         window.root.update()
         return window, screen
 
@@ -1460,7 +1466,7 @@ def test_saving_keeps_the_name_a_day_already_had(calendar_screen):
 
     from mesai import takvim_file
 
-    _window, screen = calendar_screen(period="2026-05", candidates=())
+    _window, screen = calendar_screen(period="2026-05")
     screen.toggle(date(2026, 5, 20))       # touch a different day
     screen._save()
 
@@ -1496,37 +1502,7 @@ def test_nothing_can_be_saved_until_something_changes(calendar_screen):
     assert str(screen.save_button.cget("state")) == "disabled", "saved, so nothing to do"
 
 
-def test_the_empty_days_are_offered_but_never_marked(calendar_screen):
-    """The whole point of ADR-041: the program asks, the operator answers.
 
-    A candidate day must arrive unmarked, however obvious it looks.
-    """
-    from datetime import date
-
-    _window, screen = calendar_screen()
-
-    assert set(screen.candidates) == {date(2026, 8, 10), date(2026, 8, 11)}
-    assert date(2026, 8, 10) not in screen.marks, "asked, not answered"
-    assert "3 kişi" in str(screen.candidate_note.cget("text"))
-    assert "130" in str(screen.candidate_note.cget("text")), "with what to judge it by"
-
-
-def test_an_answered_candidate_stops_being_asked_about(calendar_screen):
-    from datetime import date
-
-    _window, screen = calendar_screen()
-    for day in (date(2026, 8, 10), date(2026, 8, 11)):
-        screen.toggle(day)
-
-    text = str(screen.candidate_note.cget("text"))
-    assert "hepsi işaretlendi" in text
-
-
-def test_before_any_run_the_screen_says_where_the_suggestions_will_come_from(
-        calendar_screen):
-    """Opened first, with no run behind it, it must not look broken."""
-    _window, screen = calendar_screen(candidates=())
-    assert "Rapor üretildikten sonra" in str(screen.candidate_note.cget("text"))
 
 
 def test_a_marked_day_is_simply_a_holiday(calendar_screen):
@@ -1559,6 +1535,25 @@ def test_a_marked_day_is_simply_a_holiday(calendar_screen):
     # Not "Resmi Tatil": the list holds bridge days and closures too, and calling those
     # statutory in the sheet HR reads would be a claim about the law.
     assert calendar.label(date(2026, 8, 12)) == "Tatil"
+
+
+def test_the_screen_suggests_nothing_and_marks_nothing(calendar_screen):
+    """It briefly proposed the days almost nobody attended, from the last run.
+
+    Removed on the operator's call, and the reason is worth keeping: the screen had
+    nothing to say until a report had been produced, which is a strange thing for a
+    calendar to depend on. The check lives where the data is — the report's `Kontrol`
+    sheet, for the month it just computed (ADR-044). Marking a day is a click.
+    """
+    from datetime import date
+
+    _window, screen = calendar_screen()
+
+    assert not hasattr(screen, "candidates")
+    assert screen.marks == {date(2026, 8, 30): "Zafer Bayramı"}, \
+        "only what the file says, never a guess"
+    cell_text = {str(screen._cells[day].cget("text")) for day in screen._cells}
+    assert not any("?" in text for text in cell_text), "no day is questioned"
 
 
 def test_marks_survive_the_window_being_closed_and_reopened(calendar_screen):

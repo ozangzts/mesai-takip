@@ -2471,3 +2471,49 @@ sheet HR reads was a claim about the law that nothing supported.
   built for a rule that does not exist yet.
 - The screen lost a third of its interaction surface and a colour. The legend is one
   line, and `Bir güne tıklamak onu tatil yapar` needs no explaining.
+
+---
+
+## ADR-044 — The calendar screen suggests nothing; the check stays in the report
+
+2026-08-20 · Status: **Accepted** · Narrows **ADR-041** · Decided by: project owner
+
+### Context
+
+ADR-041 taught the program to find days on which almost nobody was present, and ADR-042
+showed them on the calendar screen as `?` marks with their headcount. The operator's
+objection, in their words: *on what information are you saying nobody was there, before
+the report is even ready?*
+
+It is a fair description of a real awkwardness. The screen's marks came from the last
+run **in that session** — so a freshly opened window had nothing to say, and the screen
+told the reader to go and produce a report first. A calendar that depends on a report
+having been run is a strange object, and marking five days by hand takes about ten
+seconds.
+
+### Decision
+
+**The screen suggests nothing.** No `?` marks, no headcounts, no plumbing carrying
+candidates from a run into a window. It shows what the file says and lets days be
+clicked.
+
+**The check itself stays, in the report**, where the data is: the `Kontrol` sheet lists
+the days for the month it has just computed, with their numbers. That is not automation
+of a decision — nothing gets marked — it is the audit line that would have caught
+15 July a month before anybody did (ADR-040), and it costs the operator no interaction
+at all. It is also the right place for it: the report knows its own month's records,
+which is exactly what the screen did not.
+
+### Consequences
+
+- `rules/takvim.py`, its threshold in `config/`, and its `Kontrol` section are unchanged
+  and still tested. What went is the GUI half: `HolidayCandidate` no longer travels
+  through the shell, and `Result` no longer carries it.
+- The screen got shorter by a legend row and a paragraph, and the grid lost a colour.
+- The general lesson, worth keeping because it will come up again: **a check belongs
+  where its evidence is.** The same computation was useful in the report and awkward in
+  the window, and the difference was not the computation.
+- If a forgotten holiday ever does need to reach the calendar screen, the honest way is
+  for the screen to read the month's records itself, not to inherit them from whatever
+  ran last. That would mean the screen needing an input folder, which is a bigger claim
+  on the design than it is worth today.

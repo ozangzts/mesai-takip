@@ -72,8 +72,7 @@ def _people(parent: tk.Misc, app: "App") -> PeopleScreen:
 
 def _calendar(parent: tk.Misc, app: "App") -> CalendarScreen:
     return CalendarScreen(parent, root=app.root, config_dir=app.config_dir,
-                          period=app.last_period,
-                          candidates=app.last_candidates)
+                          period=app.last_period)
 
 
 SCREENS: tuple[Screen, ...] = (
@@ -101,11 +100,9 @@ class App:
         # screen writes it. Neither knows the other exists — the shell is the only
         # thing that knows there is more than one screen.
         self.last_snapshot: Path | None = None
-        # The last run's period and the days it found almost empty. Held in memory
-        # rather than put in the data file: they are a question about the calendar, not
-        # part of what the report says, and the calendar screen is the only reader.
+        # The month of the last run, so the calendar screen opens on the month whose
+        # figures are on screen rather than on today's.
         self.last_period: str | None = None
-        self.last_candidates: tuple = ()
 
         root.title(WINDOW_TITLE)
         root.minsize(MIN_WIDTH, MIN_HEIGHT)
@@ -203,13 +200,12 @@ class App:
                 return
         self.root.destroy()
 
-    def run_finished(self, period: str, candidates: tuple) -> None:
-        """A run finished. Hand the calendar screen what it needs to ask about."""
+    def run_finished(self, period: str) -> None:
+        """A run finished. Point the calendar screen at the month it was for."""
         self.last_period = period
-        self.last_candidates = candidates
         screen = self._screens.get("takvim")
         if screen is not None:
-            screen.load(period, candidates)                    # type: ignore[attr-defined]
+            screen.load(period)                                # type: ignore[attr-defined]
 
     # --- layout ------------------------------------------------------------
     def _build(self) -> None:

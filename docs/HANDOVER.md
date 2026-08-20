@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (43 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (44 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **401 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **399 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -283,6 +283,17 @@ sayısı ve hiç görülmemiş olanlar işaretli.
   yazı tipi, yerel onay kutusu.
 - **`unbind_all("<MouseWheel>")`** yalnızca bu pencerede başka hiçbir şey o olayı
   `all` etiketine bağlamadığı için güvenli. Bağlayan bir şey eklenirse bu değişmeli.
+- **Test pencereleri ekranın dışına park ediliyor** (`+6000+6000`). Tam koşu
+  140'tan fazla gerçek pencere açıp kapatıyor ve bunlar otuz saniye boyunca
+  kullanıcının önünde yanıp sönüyordu. Sadece konum — buradaki bütün geometri
+  kontrolleri **boyut** hakkında ve `wm geometry WxH` konuma dokunmuyor, yani
+  ölçülen hiçbir şey değişmedi. `withdraw()` değil: haritalanmamış bir pencere
+  boyutunu 1x1 diye bildirir ve pencere testleri bir şey test etmez olur. Yeni bir
+  pencere fixture'ı eklerken `_tk_root` kullan.
+- **Pencere hiçbir tatil önerisi göstermiyor** (ADR-044). Ekranda `?` işaretleri
+  vardı, kaldırıldı: öneri o oturumdaki son koşudan geliyordu, yani yeni açılmış bir
+  pencerenin söyleyecek sözü yoktu. Kontrol sayfasındaki satır duruyor — orada
+  ayın kayıtları elde. Genel ders: **bir kontrol, kanıtının olduğu yere ait.**
 - **GUI testleri artık "ekran yok" diye sessizce atlanmıyor.** Her `TclError` ekran
   yokluğu sayılıyordu; ekranın olup olmadığı bir kez ölçülüyor, sonrasında pencere
   kurulamazsa test kırmızı düşüyor. Nadiren (2-3 tam koşuda bir) bir pencere testi

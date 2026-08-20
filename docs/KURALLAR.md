@@ -151,10 +151,11 @@ Kaydetmek, takvim dosyasını günceller. **Kaydettikten sonra raporu yeniden ü
 gerekir** — saatler o dosyaya göre hesaplanır. Tıklamak tek başına hiçbir rakamı
 değiştirmez; ekran da bunu söylüyor.
 
-### Program tatil olabilecek günleri kendisi soruyor
+### Rapor, tatil olabilecek günleri sorar
 
-Takvimde olmayan ama **neredeyse kimsenin gelmediği** bir iş günü varsa, rapor bunu
-`Kontrol` sayfasında sayılarıyla sorar:
+Tatil günleri **elle** işaretlenir; program hiçbir günü kendisi işaretlemez ve pencerede
+hiçbir öneri göstermez. Ama takvimde olmayan bir iş gününde **neredeyse kimse yoksa**,
+rapor bunu `Kontrol` sayfasında sayılarıyla sorar:
 
 > `15.07.2026  Çar  —  7 kişi, o ayın normal günü 130 kişi (%5)`
 

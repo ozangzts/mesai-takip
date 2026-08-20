@@ -11,10 +11,12 @@ are in the file already (ADR-040), but the religious ones move every lunar year,
 company closure — the site shut for a week in August — appears in no source file at all.
 Somebody has to say so, and that somebody should not have to open a YAML file.
 
-What makes it usable is the suggestion, not the grid: after a run, the days on which
-almost nobody was present are marked with a `?`, with their headcount. That is how
-15 July was found, and it is how a five-day closure will be found without anybody having
-to remember which week it was. The program still marks nothing itself — see ADR-041.
+The screen suggests nothing. It briefly marked the days on which almost nobody was
+present, taken from the last run in the session — which meant it had nothing to say
+until a report had been produced, and that is a strange thing for a calendar to depend
+on. The check still exists where the data is: the report's `Kontrol` sheet names those
+days for the month it just computed (ADR-041, ADR-044). Marking a day is a click and
+takes no help.
 
 One state, not two kinds. A day is a holiday or it is not — statutory, a closure, a
 bridge day, all the same to the calculation, which was the argument for merging the two
@@ -32,7 +34,6 @@ from pathlib import Path
 
 from .. import takvim_file
 from ..config import ConfigError
-from ..models import HolidayCandidate
 from . import widgets as w
 from .period import period_label
 
@@ -49,12 +50,10 @@ _MARK = w.ACCENT_SOFT
 
 class CalendarScreen:
     def __init__(self, parent: tk.Misc, *, root: tk.Misc, config_dir: Path,
-                 period: str | None = None,
-                 candidates: tuple[HolidayCandidate, ...] = ()) -> None:
+                 period: str | None = None) -> None:
         self.root = root
         self.config_dir = config_dir
         self.period = period or date.today().strftime("%Y-%m")
-        self.candidates: dict[date, HolidayCandidate] = {}
         # {date: kind}, only for days in the month on display. The rest of the file is
         # held separately and written back untouched — a year's other months are not
         # this screen's business and must survive a save.
@@ -66,7 +65,7 @@ class CalendarScreen:
         self._dirty = False
 
         self._build(parent)
-        self.load(self.period, candidates)
+        self.load(self.period)
 
     # --- layout ------------------------------------------------------------
     def _build(self, parent: tk.Misc) -> None:
@@ -104,12 +103,6 @@ class CalendarScreen:
         tk.Label(legend, text=" Tatil — çalışılmayan gün", background=w.BG,
                  foreground=w.MUTED, font=(w.FACE, 9)).grid(
             row=0, column=1, sticky="w")
-        tk.Label(legend, text="?", background=w.BG, foreground=w.WARN,
-                 font=(w.FACE, 9, "bold")).grid(row=1, column=0, sticky="e")
-        self.candidate_note = tk.Label(
-            legend, background=w.BG, foreground=w.MUTED, font=(w.FACE, 9),
-            anchor="w", justify="left")
-        self.candidate_note.grid(row=1, column=1, sticky="w")
 
         actions = tk.Frame(body, background=w.BG)
         actions.grid(row=6, column=0, sticky="ew", pady=(16, 0))
@@ -122,14 +115,10 @@ class CalendarScreen:
         self.status.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
     # --- loading -----------------------------------------------------------
-    def load(self, period: str,
-             candidates: tuple[HolidayCandidate, ...] = ()) -> None:
-        """Show `period`, with the candidate days from the run that produced them."""
+    def load(self, period: str) -> None:
+        """Show `period`, as the calendar file has it."""
         self.period = period
         year, month = self._year_month()
-        self.candidates = {c.date: c for c in candidates
-                           if (c.date.year, c.date.month) == (year, month)}
-
         entries = takvim_file.read(self._path())[HOLIDAY]
         self.marks = {}
         self._other = {}
@@ -201,15 +190,13 @@ class CalendarScreen:
     def _cell(self, day: date, row: int, column: int) -> tk.Label:
         weekend = day.weekday() >= 5
         marked = day in self.marks
-        asked = day in self.candidates and not marked
-        text = f"{day.day} ?" if asked else str(day.day)
         cell = tk.Label(
-            self.grid_frame, text=text, width=_CELL_WIDTH,
+            self.grid_frame, text=str(day.day), width=_CELL_WIDTH,
             font=(w.FACE, 10, "bold" if marked else "normal"),
             background=_MARK if marked else w.CARD,
-            foreground=w.MUTED if weekend else (w.WARN if asked else w.INK),
+            foreground=w.MUTED if weekend else w.INK,
             highlightthickness=1,
-            highlightbackground=w.LINE if marked or asked else w.CARD,
+            highlightbackground=w.LINE if marked else w.CARD,
             pady=6, cursor="arrow" if weekend else "hand2")
         cell.grid(row=row, column=column, sticky="ew", padx=1, pady=1)
         if not weekend:
@@ -235,26 +222,6 @@ class CalendarScreen:
                  "\nBir güne tıklamak onu tatil yapar, tekrar tıklamak iş gününe "
                  "döndürür. Hafta sonları zaten tatil.",
             foreground=w.MUTED)
-
-        if self.candidates:
-            unmarked = [c for day, c in sorted(self.candidates.items())
-                        if day not in self.marks]
-            if unmarked:
-                lines = [f"{c.date.strftime('%d.%m')} — {c.people} kişi "
-                         f"(normal gün {c.median})" for c in unmarked]
-                self.candidate_note.configure(
-                    text="Bu günlerde neredeyse kimse yoktu: "
-                         + ",  ".join(lines) + "\nTatil miydi? İşaretlemek size ait — "
-                         "program hiçbir günü kendisi işaretlemez.",
-                    foreground=w.WARN)
-            else:
-                self.candidate_note.configure(
-                    text="Boş görünen günlerin hepsi işaretlendi.",
-                    foreground=w.MUTED)
-        else:
-            self.candidate_note.configure(
-                text="Rapor üretildikten sonra, neredeyse kimsenin gelmediği günler "
-                     "burada işaretlenir.", foreground=w.MUTED)
         self.status.configure(
             text="Kaydedilmemiş değişiklik var." if self._dirty else "",
             foreground=w.WARN if self._dirty else w.MUTED)
