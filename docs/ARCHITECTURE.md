@@ -195,6 +195,10 @@ Seven presentation rules the window holds itself to, each of them a defect once:
 - **One gesture, one meaning.** The wheel scrolls the list from wherever the focus
   happens to be, and it can no longer step the filter box — ttk's own binding did that,
   silently reselecting who was listed and dropping the removals made by hand (ADR-039).
+- **Nothing is lost by closing the window.** A screen with unsaved work grows an
+  `unsaved()` method; the shell asks before destroying the toplevel and knows nothing
+  else about it. The calendar's month switch already asked, and the X — the route
+  nobody thinks about — did not (ADR-042).
 
 `rapor.py` keeps its Turkish name deliberately: `gui/report.py` would read as a
 sibling of `mesai/report/`, the package that writes the workbook, which it is not.

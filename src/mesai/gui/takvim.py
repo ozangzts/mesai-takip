@@ -16,9 +16,13 @@ almost nobody was present are marked with a `?`, with their headcount. That is h
 15 July was found, and it is how a five-day closure will be found without anybody having
 to remember which week it was. The program still marks nothing itself — see ADR-041.
 
-Two kinds, kept apart because Phase 2 pays them differently and because HR will be
-asked about them separately: `Resmi tatil` is law, `İdari tatil` is this company closing
-its own site.
+Two kinds. `Resmi tatil` comes from the holiday law and is the same for every employer;
+`İdari tatil` is any other non-working day — a closure, a bridge day, weather, an
+election. **Today they are calculated identically**: both take the day out of the
+expected working days and nothing else. What the split buys now is being able to ask HR
+the right question about the right day, and a seam for the Phase 2 pay rules, which are
+expected to treat them differently. Merging them later is a one-line change; splitting
+them later means re-marking days nobody remembers.
 """
 
 from __future__ import annotations
@@ -40,9 +44,13 @@ STATUTORY = takvim_file.STATUTORY
 ADMIN = takvim_file.ADMIN
 _CYCLE = (WORKDAY, STATUTORY, ADMIN)
 
-_DEFAULT_LABEL = {STATUTORY: "Resmi tatil", ADMIN: "İdari tatil — şirket kapalı"}
-_KIND_NAME = {WORKDAY: "İş günü", STATUTORY: "Resmi tatil",
-              ADMIN: "İdari tatil (şirket kapalı)"}
+# "İdari tatil" on its own. It used to read "İdari tatil (şirket kapalı)", which
+# narrows the term wrongly: an administrative holiday is any non-working day that does
+# not come from the holiday law — a declared administrative closure, weather, an
+# election, the site being shut — and the operator does not have to justify which.
+# What matters for the file is only that it is not statutory.
+_DEFAULT_LABEL = {STATUTORY: "Resmi tatil", ADMIN: "İdari tatil"}
+_KIND_NAME = {WORKDAY: "İş günü", STATUTORY: "Resmi tatil", ADMIN: "İdari tatil"}
 _DAY_NAMES = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
 
 _CELL_WIDTH = 5
@@ -101,7 +109,8 @@ class CalendarScreen:
         legend = tk.Frame(body, background=w.BG)
         legend.grid(row=5, column=0, sticky="nw")
         for index, (kind, text) in enumerate(
-                ((STATUTORY, "Resmi tatil"), (ADMIN, "İdari tatil (şirket kapalı)"))):
+                ((STATUTORY, "Resmi tatil — kanundan"),
+                 (ADMIN, "İdari tatil — kanundan gelmeyen kapalı gün"))):
             tk.Label(legend, text="  ", background=_MARK[kind],
                      highlightthickness=1, highlightbackground=w.LINE).grid(
                 row=index, column=0, sticky="w", pady=1)
@@ -146,6 +155,18 @@ class CalendarScreen:
                     self._other[name][day] = label
         self._dirty = False
         self._paint()
+
+    def unsaved(self) -> str | None:
+        """What would be lost by closing now, or None. Read by the shell.
+
+        The month switch already asks, and closing the window is the same loss by a
+        different route — measured: marks that were never saved are simply gone, which
+        is correct behaviour and a bad surprise.
+        """
+        if not self._dirty:
+            return None
+        return (f"{period_label(self.period)} takviminde kaydedilmemiş işaretleme "
+                f"var.")
 
     def _path(self) -> Path:
         return takvim_file.path_for(self.config_dir, self._year_month()[0])
@@ -269,6 +290,16 @@ class CalendarScreen:
             blocks[kind][day] = keep or _DEFAULT_LABEL[kind]
         try:
             takvim_file.write(self._path(), blocks)
+        except PermissionError:
+            # The likely shape of this once the program is a single .exe: the config
+            # folder sitting somewhere the user cannot write to. Naming the folder and
+            # the remedy beats naming the Windows error code.
+            self.status.configure(
+                text=f"Kaydedilemedi — bu klasöre yazma izni yok:\n"
+                     f"{self._path().parent}\nProgramı ve config klasörünü "
+                     f"yazılabilir bir yere (Masaüstü, Belgeler) taşıyın.",
+                foreground=w.BAD)
+            return
         except (OSError, takvim_file.CalendarFileError, ConfigError) as exc:
             self.status.configure(text=f"Kaydedilemedi: {exc}", foreground=w.BAD)
             return

@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **394 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **401 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -71,6 +71,15 @@ Asıl uğraş paketleme değil, **Python'un kurulu olmadığı bir makinede test
 
 - `config/` exe'nin içine gömülmemeli — kural değişikliği YAML düzenlemesi ve
   `personel.yaml` gerçek isim yazımlarını tutuyor.
+- **Yeni kısıt: `config/` artık YAZILABİLİR olmalı.** Takvim ekranı
+  `config/takvim-<yıl>.yaml`'a yazıyor (ADR-042), yani ADR-024'ün "program kendi
+  dizininin yazılabilir olmasını gerektirmiyor" ilkesi config klasörü için artık
+  geçerli değil. Exe `Program Files` gibi bir yere kurulursa takvim kaydedilemez.
+  Ölçüldü: dosya salt-okunur yapıldığında kayıt sessizce başarısız olmuyor —
+  ekranda kırmızıyla "bu klasöre yazma izni yok, programı ve config klasörünü
+  yazılabilir bir yere taşıyın" yazıyor ve dosya bozulmuyor. Yani hata durumu
+  düzgün, ama paketlerken exe + `config/` **Masaüstü ya da Belgeler gibi bir yere**
+  konmalı.
 - İki giriş noktası da kontrol edilmeli: `arayuz.cmd`'nin `-m mesai.gui` çağrısı
   (`gui/__main__.py`) ve `pyproject.toml`'un `mesai.gui:main` girdisi.
 - ADR-024 bunu kolaylaştırdı: koşu artık programın kendi dizininin yazılabilir

@@ -109,6 +109,7 @@ class App:
 
         root.title(WINDOW_TITLE)
         root.minsize(MIN_WIDTH, MIN_HEIGHT)
+        root.protocol("WM_DELETE_WINDOW", self.close)
         self._build()
         self.show(self.screens[0].key)
 
@@ -181,6 +182,26 @@ class App:
         screen = self._screens.get("kisiler")
         if screen is not None:
             screen.load(path)                                  # type: ignore[attr-defined]
+
+    def close(self) -> None:
+        """Shut the window, asking first if a screen has work that would be lost.
+
+        A screen opts in by growing an `unsaved()` method returning what would be lost;
+        the shell knows nothing else about it. Without this, calendar marks that were
+        never saved disappeared on the X with no warning — the month switch asked, and
+        the one route nobody thinks about did not.
+        """
+        pending = [screen.unsaved() for screen in self._screens.values()
+                   if hasattr(screen, "unsaved")]
+        lost = [note for note in pending if note]
+        if lost:
+            from tkinter import messagebox
+            if not messagebox.askokcancel(
+                    "Kaydedilmemiş değişiklik",
+                    "\n".join(lost) + "\n\nKaydetmeden kapatılsın mı?",
+                    parent=self.root):
+                return
+        self.root.destroy()
 
     def run_finished(self, period: str, candidates: tuple) -> None:
         """A run finished. Hand the calendar screen what it needs to ask about."""

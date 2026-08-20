@@ -143,9 +143,13 @@ tıklanamıyor, zaten tatil.
 | | Ne demek | Örnek |
 | --- | --- | --- |
 | **Resmi tatil** | Kanunla belli, her işveren için aynı | 15 Temmuz, 1 Mayıs |
-| **İdari tatil** | Şirketin kendi kararıyla kapanması | Ağustos'ta beş gün kapalı |
+| **İdari tatil** | Kanundan gelmeyen, çalışılmayan gün | Ağustos'ta beş gün kapalı, köprü günü |
 
-Faz 2'de bu ikisi farklı ücretlenecek, o yüzden şimdiden ayrı yazılıyor.
+**Bugün ikisi tamamen aynı şekilde hesaplanıyor** — ikisi de günü beklenen iş
+günlerinden çıkarır, başka hiçbir farkı yok. Ayrı yazılmalarının tek bugünkü faydası,
+İK'ya "bu gün kanundan mı, sizin kararınız mı" diye doğru soruyu sorabilmek. Fazla
+mesai ve tatil ücreti kuralları geldiğinde (Faz 2) farklılaşmaları beklenir; o zaman
+gelene kadar ayrımı tutmak, sonradan ayırmaya göre çok daha kolay.
 
 Kaydetmek, takvim dosyasını günceller. **Kaydettikten sonra raporu yeniden üretmek
 gerekir** — saatler o dosyaya göre hesaplanır. Tıklamak tek başına hiçbir rakamı

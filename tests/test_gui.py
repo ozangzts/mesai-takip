@@ -284,7 +284,10 @@ def screen(tmp_path):
                        roster_dir=Path("data/personel"), base=tmp_path).report
 
     yield build
-    root.destroy()
+    try:
+        root.destroy()
+    except tk_module.TclError:   # a test closed the window itself
+        pass
 
 
 def test_a_fresh_window_selects_nothing(screen):
@@ -380,7 +383,10 @@ def shell(tmp_path):
     build.fake = fake
     build.built = built
     yield build
-    root.destroy()
+    try:
+        root.destroy()
+    except tk_module.TclError:   # a test closed the window itself
+        pass
 
 
 def test_the_registered_screen_keys_are_unique():
@@ -1525,3 +1531,126 @@ def test_before_any_run_the_screen_says_where_the_suggestions_will_come_from(
     """Opened first, with no run behind it, it must not look broken."""
     _window, screen = calendar_screen(candidates=())
     assert "Rapor üretildikten sonra" in str(screen.candidate_note.cget("text"))
+
+
+def test_the_two_kinds_are_calculated_the_same_way_today(calendar_screen, tmp_path):
+    """Measured, and worth pinning: only the label differs.
+
+    The split exists to ask HR the right question and to leave the Phase 2 pay rules a
+    seam. Claiming more than that in a doc would be claiming a rule that is not there.
+    """
+    from datetime import date
+
+    from mesai import config as config_module
+    from mesai import takvim_file
+
+    _window, screen = calendar_screen()
+    screen._cycle(date(2026, 8, 12))                      # resmi
+    screen._cycle(date(2026, 8, 13))
+    screen._cycle(date(2026, 8, 13))                      # idari
+    screen._save()
+
+    # The throwaway config folder has no settings.yaml, so the calendar is read on its
+    # own terms rather than through `config.load`.
+    blocks = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
+    calendar = config_module.Calendar(
+        holidays=blocks[takvim_file.STATUTORY], half_days=frozenset(),
+        rest_weekdays=frozenset({5, 6}),
+        admin_holidays=blocks[takvim_file.ADMIN])
+
+    workdays = calendar.expected_workdays(2026, 8)
+    for day in (date(2026, 8, 12), date(2026, 8, 13)):
+        assert calendar.is_holiday(day), day
+        assert day not in workdays, day
+    assert calendar.label(date(2026, 8, 12)) == "Resmi Tatil"
+    assert calendar.label(date(2026, 8, 13)) == "İdari Tatil"
+
+
+def test_an_administrative_holiday_is_not_called_a_company_closure(calendar_screen):
+    """It was labelled `İdari tatil (şirket kapalı)`, which narrows the term wrongly.
+
+    A non-working day that does not come from the holiday law can be a declared
+    administrative closure, weather, an election. The operator does not have to justify
+    which, and the file should not put words in their mouth.
+    """
+    from datetime import date
+
+    from mesai import takvim_file
+    from mesai.gui import takvim as screen_module
+
+    assert "şirket" not in screen_module._DEFAULT_LABEL[screen_module.ADMIN].lower()
+
+    _window, screen = calendar_screen()
+    day = date(2026, 8, 12)
+    screen._cycle(day)
+    screen._cycle(day)
+    screen._save()
+
+    written = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
+    assert written[takvim_file.ADMIN][day] == "İdari tatil"
+
+
+def test_marks_survive_the_window_being_closed_and_reopened(calendar_screen):
+    """They are in a file, so they must. Asked directly, so it is checked directly."""
+    from datetime import date
+
+    _window, screen = calendar_screen()
+    screen._cycle(date(2026, 8, 12))
+    screen._save()
+
+    _again, reopened = calendar_screen()          # a fresh window, same config folder
+    assert reopened.marks[date(2026, 8, 12)] == "holidays"
+
+
+def test_marks_that_were_never_saved_do_not_come_back(calendar_screen):
+    """The other half of the same answer: unsaved is unsaved."""
+    from datetime import date
+
+    _window, screen = calendar_screen()
+    screen._cycle(date(2026, 8, 12))              # no save
+
+    _again, reopened = calendar_screen()
+    assert date(2026, 8, 12) not in reopened.marks
+
+
+def test_closing_the_window_with_unsaved_marks_asks_first(calendar_screen,
+                                                          monkeypatch):
+    """The month switch asked and the X did not — the same loss by a quieter route."""
+    from datetime import date
+    from tkinter import messagebox
+
+    window, screen = calendar_screen()
+    screen._cycle(date(2026, 8, 12))
+    asked: list[str] = []
+    monkeypatch.setattr(messagebox, "askokcancel",
+                        lambda *a, **k: asked.append(a[1]) or False)
+
+    window.close()
+
+    assert asked, "closing must ask"
+    assert "kaydedilmemiş" in asked[0].lower()
+    assert window.root.winfo_exists(), "and cancelling must keep the window"
+
+
+def test_closing_with_nothing_pending_does_not_ask(calendar_screen, monkeypatch):
+    from tkinter import messagebox
+
+    window, _screen = calendar_screen()
+    asked: list[object] = []
+    monkeypatch.setattr(messagebox, "askokcancel",
+                        lambda *a, **k: asked.append(a) or False)
+
+    window.close()
+    assert not asked, "nothing to lose, nothing to ask"
+
+
+def test_a_screen_without_unsaved_work_is_not_consulted(shell, monkeypatch):
+    """The shell knows nothing about screens beyond the optional `unsaved()` hook."""
+    from tkinter import messagebox
+
+    window = shell(extra=[shell.fake("sahte")])
+    window.show("sahte")
+    monkeypatch.setattr(messagebox, "askokcancel",
+                        lambda *a, **k: pytest.fail("asked about a screen with no hook"))
+
+    window.close()
