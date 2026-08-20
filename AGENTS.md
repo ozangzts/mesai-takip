@@ -360,7 +360,9 @@ Headline defects (all verified, not assumed):
   it equals the sum of the person's real rows in 162 of 162 cases.
 - `Uzaktan Çalışma` rows in the leave export are **worked time**, not leave
   (ADR-007). They carry start/end times and become intervals in the same union as
-  badge records.
+  badge records. It is the **only** such type — the list is closed and HR confirmed it,
+  `Eğitim İzni` included (ADR-037). Every leave type's rows carry clock times, so that
+  is never a reason to add one.
 - **319 of 1 607 Teknopark rows are a nominal `09:00–18:00` placeholder**, not a badge
   reading — written when an expected workday has no turnstile data. They are counted
   as worked time (ADR-017) and are ~17 % of reported hours. Declared in

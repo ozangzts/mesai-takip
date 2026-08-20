@@ -100,7 +100,14 @@ sources:
     - "*Teknopark*.xls*"
 
 # Leave types from the HCM export that are actually worked time, not absence.
-# See ADR-007.
+#
+# CLOSED LIST — exactly one entry, confirmed by HR (ADR-007, ADR-037). Everything
+# else the HCM writes is absence, `Eğitim İzni` included.
+#
+# Do not add a type because its rows carry clock times: EVERY leave type's rows do,
+# annual leave included. The time is when the leave began, not evidence anybody was
+# present. That reasoning kept training open as a question for seventeen days and was
+# wrong. A second entry needs a new ADR, and a test asserts this list.
 worked_leave_types:
   - "Uzaktan Çalışma"
 

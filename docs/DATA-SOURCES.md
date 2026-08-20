@@ -303,7 +303,7 @@ Rule: skip any row where `İzin Tipi` is empty.
 | `Yıllık İzin` (annual) | 378 | No |
 | `Uzaktan Çalışma` (remote work) | 56 | **Yes — see below** |
 | `Mazeret` (excused absence) | 41 | No |
-| `Eğitim İzni` (training) | 25 | Open question Q13 |
+| `Eğitim İzni` (training) | 25 | No — decided, ADR-037 |
 | `Doğum Günü İzni` (birthday) | 10 | No |
 | `İstirahat (Raporlu)` (medical) | 8 | No |
 | `Doğum İzni (Tam Ödeme)` (parental, paid) | 2 | No |

@@ -47,11 +47,29 @@ def test_the_fixture_mirrors_the_shipped_rules(settings, real_settings):
     assert settings.brk.deduct == real_settings.brk.deduct
     assert settings.brk.minutes == real_settings.brk.minutes
     assert settings.remote_replaces == real_settings.remote_replaces
+    assert settings.worked_leave_types == real_settings.worked_leave_types
     assert settings.plausibility.short_day == real_settings.plausibility.short_day
     assert settings.plausibility.max_duration == real_settings.plausibility.max_duration
     assert settings.nominal_day == real_settings.nominal_day
     assert settings.shift_start == real_settings.shift_start
     assert settings.shift_end == real_settings.shift_end
+
+
+@REAL
+def test_only_remote_work_counts_as_worked_time(real_settings):
+    """The worked-leave list is closed at one entry — ADR-037.
+
+    Training was the open case for seventeen days, on the reasoning that its rows carry
+    real clock times. So does every other leave type, annual leave included: the time is
+    when the leave began, not evidence anybody was present. HR confirmed training is
+    leave, so this list is now a decision and a second entry has to be argued for in a
+    new ADR rather than added.
+
+    Measured cost of the alternative, in case it is ever revisited: adding `Eğitim
+    İzni` moved May by +18:26 over 17 103:58 and June by +4:53, because most training
+    hours already fell inside a badged day and the interval union had counted them.
+    """
+    assert real_settings.worked_leave_types == frozenset({"Uzaktan Çalışma"})
 
 
 @REAL

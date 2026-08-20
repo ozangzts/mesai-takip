@@ -72,15 +72,24 @@ Sonuç: 12 saat 36 dakika — 50 dakika ikinci kez sayılmaz
 | `Uzaktan Çalışma` izni | ✅ | Uzaktan çalışma izin değil, çalışmadır. Kaydında gerçek saat var |
 | Diğer bütün izin türleri | ❌ | İzin, çalışma değil |
 
-İzin dosyasında görülen türler: `Yıllık İzin`, `Mazeret`, `Eğitim İzni`,
-`Doğum Günü İzni`, `İstirahat (Raporlu)`, `Doğum İzni (Tam Ödeme)`, `Ücretsiz İzin`,
-`Babalık İzni`. **`Uzaktan Çalışma` dışında hepsi izin sayılır.**
+Üç ayda (Mayıs–Temmuz 2026) izin dosyasında görülen **on iki** tür:
+`Yıllık İzin`, `Uzaktan Çalışma`, `Mazeret`, `Eğitim İzni`, `Doğum Günü İzni`,
+`İstirahat (Raporlu)`, `Doğum İzni (Tam Ödeme)`, `Babalık İzni`, `Ücretsiz İzin`,
+`Ücretli İzin`, `Evlilik İzni`, `Cenaze İzni`.
+
+**`Uzaktan Çalışma` dışında hepsi izin sayılır — `Eğitim İzni` dahil. İK bunu
+onayladı.** Liste kapalıdır: yeni bir türün çalışma sayılması ayrı bir karar gerektirir.
+
+Bir izin türü "çalışma" olabilir diye düşündürten şey, kayıtlarında saat bulunması
+olmuştu. Ama **her izin türünün her satırında saat var** — yıllık izin dahil. O saat
+iznin başlangıç/bitiş saati, kişinin işte olduğunun kanıtı değil.
+
+Türler ay ay değişiyor: Temmuz'da `Ücretli İzin`, `Evlilik İzni` ve `Cenaze İzni` ilk
+kez göründü. Karara bağlanmamış bir tür izin sayılır; kişinin ayı kısa görünür ve not
+alır, sessizce saat kazanmaz.
 
 `Uzaktan Çalışma` çift sayılmaz: saat olarak çalışmaya, gün olarak
 `Uzaktan Çalışma (Gün)` kolonuna girer — `İzin Günü` kolonuna girmez.
-
-> `Eğitim İzni` şu an izin sayılıyor ama bu henüz karara bağlanmadı. Kayıtlarında
-> gerçek saat var, yani "çalışma" denirse varsayım gerekmeden hesaplanabilir.
 
 **Uzaktan çalışma günü, sistemin varsayılan gününün yerine geçer.** Aynı gün için hem
 uzaktan çalışma beyanı hem sistemin `09:00–18:00`'i varsa, uzaktan çalışmanın gerçek
@@ -293,11 +302,10 @@ Ayrıca seçilen dosyalardan birinin **bütün kayıtları başka bir aya aitse*
 
 ## 10. Uzaktan çalışmada açık kalan sorular
 
-Hesap çalışıyor ama üç şey henüz karara bağlanmadı:
+Hesap çalışıyor ama iki şey henüz karara bağlanmadı:
 
 | Soru | Durum | Etkisi |
 | --- | --- | --- |
-| `Eğitim İzni` çalışma mı sayılmalı? | Şu an **izin** sayılıyor | Kayıtlarında gerçek saat var; "çalışma" denirse varsayım gerekmeden hesaplanır |
 | Uzaktan beyanı olup **kart da basanlar** | Sayılıyor ve işaretleniyor (3 ayda 10 gün) | Beyan mı geçerli, kart mı? Şu an ikisi birleştiriliyor |
 | Teknopark neden `09:00–18:00` yazıyor? | Çalışma sayılıyor | Raporun yaklaşık **%17'si** bu satırlardan geliyor. "Bordroda ödenmiyor" denirse ciddi düşüş demek |
 

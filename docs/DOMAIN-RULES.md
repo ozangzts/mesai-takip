@@ -393,8 +393,15 @@ Remote intervals are tagged `uzaktan` and their source is `izin`, so the
 `Günlük Detay` sheet always shows which hours came from a badge and which from a
 declared remote day. They must never be silently indistinguishable.
 
-Only `Uzaktan Çalışma` is treated this way. Every other leave type remains
-non-worked time.
+Only `Uzaktan Çalışma` is treated this way, and **the list is closed at that one
+entry** — HR confirmed it, `Eğitim İzni` included (ADR-037). Every other leave type is
+non-worked time, including the three that first appeared in July
+(`Ücretli İzin`, `Evlilik İzni`, `Cenaze İzni`).
+
+Do not widen the list because a type's rows carry clock times. Every leave type's rows
+do — all twelve seen across May–July, annual leave among them. The time is when the
+leave began, not evidence of presence. `worked_leave_types` in `config/settings.yaml`
+is the whole rule, and a test asserts its contents.
 
 ---
 

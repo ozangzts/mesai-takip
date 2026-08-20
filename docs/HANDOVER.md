@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (36 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (37 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, **339 test geçiyor**.
+Faz 1 çalışıyor, üç ay üretiliyor, **340 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -103,8 +103,6 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 
 ### Bloke etmeyen ama cevaplanmalı
 
-- **`Eğitim İzni` çalışma mı sayılmalı?** Şu an izin. Kayıtlarında gerçek saat var,
-  yani "evet" ise varsayım gerekmeden hesaplanır. (Mayıs 25, Haziran 14 kayıt)
 - **Uzaktan beyanı olup kart da basanlar** — 3 ayda 10 gün. Beyan mı geçerli, kart mı?
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
@@ -112,7 +110,20 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 
 ---
 
-## Bu turda ne yapıldı (2026-08-19)
+## Bu turda ne yapıldı (2026-08-20)
+
+**Bir açık soru kapandı: `Eğitim İzni` izin sayılıyor, İK onayladı.** Çalışma sayılan
+izin türü listesi tek girdiyle **kapalı** (ADR-037). Program zaten böyle davranıyordu,
+yani kod/config değişmedi — değişen şey, bunun artık gözden geçirilmemiş bir varsayılan
+değil karar olması. Bir test listeyi sabitliyor, ikinci bir girdi eklemek yeni bir ADR
+gerektiriyor. Yol boyunca ölçülen iki şey: her izin türünün her satırında saat var
+(yıllık izin dahil), yani "saati var, çalışma olabilir" gerekçesi eğitime özgü değildi;
+ve alternatifin maliyeti küçük — Mayıs +18:26, Haziran +4:53, çünkü eğitim saatlerinin
+çoğu zaten kart basılan günün içinde.
+
+---
+
+## Geçen turda ne yapıldı (2026-08-19)
 
 Kararların tamamı ADR olarak yazıldı; burası yalnızca harita.
 

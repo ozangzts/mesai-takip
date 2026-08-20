@@ -1987,3 +1987,73 @@ program, which is exactly how a user would meet it.
   printed its `pip install xlrd` line twice.
 - `UnsupportedFormat` still handles a suffix we do not read at all (`.xlsb`), which is
   a different question from a file we cannot open.
+
+---
+
+## ADR-037 — The worked-leave list is closed, and training is leave
+
+2026-08-20 · Status: **Accepted** · Decided by: project owner (asked HR), confirmed
+against the data by implementation
+
+### Context
+
+ADR-007 made `Uzaktan Çalışma` worked time and left one loose end: "`Eğitim İzni`
+(training, 25 rows) is arguably the same situation. Not decided — open question Q13."
+It stayed open for seventeen days and was the only Phase 1 rule question that could
+still move a payroll figure.
+
+The argument for reopening it was that training rows *carry real clock times*
+(`07:30–11:30`, `12:15–16:30`), so counting them as work would need no assumption —
+exactly the property that made remote work countable.
+
+Measured across May, June and July, that argument does not hold. **Every leave row
+carries a clock time, in all twelve types:**
+
+| Type | May | June | July | rows with a clock time |
+| --- | --- | --- | --- | --- |
+| `Yıllık İzin` | 378 | 48 | 81 | all |
+| `Uzaktan Çalışma` | 56 | 106 | 106 | all |
+| `Mazeret` | 41 | 89 | 138 | all |
+| `Eğitim İzni` | 25 | 14 | 2 | all |
+| the other eight types | 22 | 20 | 45 | all |
+
+The time is when the leave started and ended, not evidence that anybody was present.
+Annual leave has one too. So "it carries a time" never distinguished training from
+any other absence, and the case for treating it as work rested on a property shared
+by the thing it was being contrasted with.
+
+What the alternative would have cost, measured by running the real months with
+`Eğitim İzni` added to `worked_leave_types`:
+
+| | Reported total | With training as work | Difference | People affected |
+| --- | --- | --- | --- | --- |
+| May | 17 103:58 | 17 122:24 | **+18:26** | 5 of the 7 with training |
+| June | 27 166:19 | 27 171:12 | **+4:53** | 6 of the 8 |
+
+Smaller than the row counts suggest, and for a reason worth recording: most training
+hours fall inside a day the person also badged, so the interval union (ADR-001) had
+already counted them. Two of May's seven people gained nothing at all — their training
+sat entirely inside a badged day.
+
+### Decision
+
+**The list of leave types counted as worked time is closed at exactly one entry:
+`Uzaktan Çalışma`.** Every other type in the HCM export is absence — training
+included. HR confirmed this.
+
+### Consequences
+
+- **No code or config change.** This is what the program already did; ADR-007's
+  default was right. What changes is that it is now a decision rather than an
+  unexamined default, which is the difference between a rule that survives the next
+  agent and one that gets "fixed".
+- A test asserts `worked_leave_types == {"Uzaktan Çalışma"}` against the real config,
+  so adding a second entry now fails loudly and has to be argued for in a new ADR.
+  Without it, the closed list is a comment.
+- **A leave type nobody has decided about is absence.** New types keep appearing —
+  July brought `Ücretli İzin`, `Evlilik İzni` and `Cenaze İzni`, none of which existed
+  in May. They need no decision to be handled correctly, and the direction of the
+  error if one is eventually wanted is visible: the person's month looks short and
+  earns a note, rather than silently gaining hours nobody can trace.
+- Q13 is closed. Q20a (the nominal `09:00–18:00` rows, ~17 % of reported hours) is now
+  the only open question that can still move a Phase 1 total.
