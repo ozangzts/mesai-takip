@@ -726,10 +726,20 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     row += 1
 
     section("9. Doğrulanmamış varsayımlar")
-    line("Resmi tatil takvimi", f"{len(settings.calendar.holidays)} gün",
-         "Veriden çıkarıldı, İK onaylamadı", styles.AMBER_FILL)
-    for day, label in sorted(settings.calendar.holidays.items()):
-        line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()], label)
+    # Only this month's. The calendar file holds every year the program has been run
+    # for, so July's report listed May's seven holidays — dates outside the period it
+    # reports on, presented as assumptions behind its figures.
+    year, month = (int(part) for part in period.split("-"))
+    in_period = {day: label for day, label in settings.calendar.holidays.items()
+                 if (day.year, day.month) == (year, month)}
+    if in_period:
+        line("Resmi tatil / idari tatil", f"{len(in_period)} gün",
+             "Bu aya ait tatiller — İK onaylamadı", styles.AMBER_FILL)
+        for day, label in sorted(in_period.items()):
+            line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()], label)
+    else:
+        line("Resmi tatil / idari tatil", "bu ay için tanımlı değil",
+             "Takvimde bu aya ait gün yok — varsa eklenmeli", styles.AMBER_FILL)
     if settings.brk.deduct:
         line("Öğle arası", f"{settings.brk.minutes} dk",
              f"kalan mola kuralı, pencere {settings.brk.window_from:%H:%M}-"

@@ -214,6 +214,62 @@ def test_full_coverage_leaves_the_table_where_it_was(tmp_path, settings):
     assert "Dönemin tamamı kapsanıyor" in control
 
 
+def test_the_control_sheet_lists_only_this_month_s_holidays(tmp_path, settings):
+    """July's report listed May's seven holidays under "assumptions behind the figures".
+
+    The calendar file holds the whole year, so every month's report showed every
+    month's holidays. Dates outside the period being reported on are not assumptions
+    behind its figures; they are noise on the one sheet whose job is to be checkable.
+    """
+    from dataclasses import replace
+    from datetime import date
+
+    calendar = replace(
+        settings.calendar,
+        holidays={date(2026, 5, 1): "Emek ve Dayanışma Günü",
+                  date(2026, 7, 15): "Demokrasi ve Millî Birlik Günü"})
+    path = tmp_path / "tatil.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "test.xlsx"}),
+        settings=replace(settings, calendar=calendar),
+        generated_at=datetime(2026, 8, 20, 12, 0),
+    )
+
+    control = "\n".join(
+        " ".join(str(c) for c in r if c is not None)
+        for r in openpyxl.load_workbook(path, read_only=True)["Kontrol"].iter_rows(
+            values_only=True))
+    assert "15.07.2026" in control, "the month's own holiday must be listed"
+    assert "01.05.2026" not in control, "another month's must not"
+    assert "Emek ve Dayanışma" not in control
+
+
+def test_a_month_with_no_holiday_defined_says_so(tmp_path, settings):
+    """Silence would read as "there were none", which is the mistake to avoid.
+
+    Ramazan and Kurban Bayramı move every year and are entered by hand, so a month
+    that has nothing in the calendar is exactly the case worth naming out loud.
+    """
+    from dataclasses import replace
+
+    path = tmp_path / "tatilsiz.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "test.xlsx"}),
+        settings=replace(settings, calendar=replace(settings.calendar, holidays={})),
+        generated_at=datetime(2026, 8, 20, 12, 0),
+    )
+
+    control = "\n".join(
+        " ".join(str(c) for c in r if c is not None)
+        for r in openpyxl.load_workbook(path, read_only=True)["Kontrol"].iter_rows(
+            values_only=True))
+    assert "bu ay için tanımlı değil" in control
+
+
 def test_the_control_sheet_sections_are_numbered_once_each(tmp_path, settings):
     """Two sections were both numbered 9, and a doc pointed at the wrong one.
 

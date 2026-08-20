@@ -2204,3 +2204,73 @@ scrolled twice at two speeds when the tree itself holds focus.
   which is the better assertion anyway: `tree.set(row, "eposta") == "e-posta yok"` says
   what the reader sees, where walking `list_frame.winfo_children()` said how it was
   built. Each new guard was checked by removing it and watching the test fail.
+
+---
+
+## ADR-040 — The calendar covers the whole year, and only the month's holidays are reported
+
+2026-08-20 · Status: **Accepted** · Decided by: project owner (both defects reported),
+implementation
+
+### Context
+
+Three findings, from one question: *where did the holidays come from, and why does
+July's report list May's?*
+
+**1. July's report listed May's seven holidays** under "unverified assumptions". The
+Kontrol sheet printed `settings.calendar.holidays` unfiltered, and that file holds every
+month the program has ever been run for. Dates outside the period a report covers are
+not assumptions behind its figures.
+
+**2. 15 July was missing from the calendar** — a fixed-date statutory holiday, in a
+month that had already been reported on twice. The data says so unambiguously: **7
+people badged in that Wednesday against a weekday median of 130 (5 %)**. Nothing
+failed. Two people were flagged `Ay büyük ölçüde boş` against a denominator of 23
+expected working days instead of 22, and nobody's hours were wrong, so there was no
+symptom to notice.
+
+The reason it was missing is that the calendar had only ever been filled in for months
+that had been run — May. The fixed-date holidays are law and identical every year;
+entering them a month at a time is a process that guarantees this recurs.
+
+**3. The file's own comment was stale, in the direction that matters.** It said the
+dates are used "ONLY to label the `Gün` column… No hours calculation depends on them."
+Since then they became the denominator of the coverage guard (ADR-020) and of the sparse
+-month note (ADR-030), and they decide which days a **multi-day** `Uzaktan Çalışma` row
+is split across — which is a paid-hours path. A future agent reading that comment would
+have concluded the file was cosmetic.
+
+### Decision
+
+**The calendar lists every fixed-date statutory holiday for the whole year**, not just
+the months reported on so far, and a test asserts all seven of them. The ones that move
+with the lunar year — Ramazan and Kurban Bayramı — cannot be asserted and are entered by
+hand.
+
+**The Kontrol sheet lists only the reported month's holidays**, and a month with none
+defined says so in amber rather than silently showing an empty section. Silence would
+read as "there were none", which for a month containing an unentered religious holiday
+is the wrong answer.
+
+**A holiday never removes hours from somebody who worked.** This was already true and is
+now asserted: the calendar is consulted for what was *expected*, while hours come from
+records. Adding 15 July changed the reported total by nothing — the seven who worked
+kept every minute.
+
+### Consequences
+
+- Measured across all three months: **no person's hours changed**, in any month. Two
+  false `Ay büyük ölçüde boş` notes disappeared in July. May and June are byte-identical.
+- July's expected working days are 22, not 23. Any figure derived from that denominator
+  changes; none of them is a payroll figure today.
+- The file comment now lists what actually depends on it. The next rule that consumes
+  the calendar has to be added to that list — this is the second time the list has been
+  wrong, and the first time it was wrong in the safe direction.
+- **How holidays get entered is not decided here.** Fixed dates are now in the file, but
+  company closures (an August week when the site is shut) and the moving religious
+  holidays still have to reach the file somehow, and a text editor is not an answer for
+  the person who runs this. That is a separate decision — the constraint any answer has
+  to meet is that the run reads the dates from a **file**, not from whatever was clicked
+  in a dialog, because two runs of one month must produce the same workbook (AGENTS
+  §2.1). A window that edits the file satisfies that; a window that holds the answer in
+  memory for one run does not.

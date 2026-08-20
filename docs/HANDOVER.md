@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (39 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (40 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **355 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **359 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -114,6 +114,20 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 ---
 
 ## Bu turda ne yapıldı (2026-08-20)
+
+**Tatil takvimi düzeltildi** (ADR-040). Üç bulgu, tek sorudan çıktı — "tatilleri neye
+göre belirledin":
+
+| Ne | Ölçülen |
+| --- | --- |
+| Temmuz raporu Mayıs'ın tatillerini listeliyordu | `Kontrol` sayfası takvimin tamamını yazıyordu; artık sadece o ayı |
+| **15 Temmuz takvimde yoktu** | Sabit tarihli resmi tatil. Veri tek başına gösteriyor: hafta içi ortanca 130 kişi, o gün **7 kişi (%5)** |
+| Takvim dosyasının kendi yorumu bayattı | "Hiçbir saat hesabı buna dayanmıyor" yazıyordu; oysa kapsama guard'ının ve `Ay büyük ölçüde boş` notunun paydası, ve çok günlü uzaktan çalışma bölmesi buna dayanıyor |
+
+Sabit tarihli resmi tatillerin **yılın tamamı** yazıldı ve yedisi testle sabitlendi —
+15 Temmuz'un unutulma sebebi, takvimin sadece çalıştırılmış aylar için doldurulmasıydı.
+Üç ayda **kimsenin saati değişmedi**; Temmuz'da iki yanlış "ay boş" notu kalktı ve
+beklenen iş günü 23 → 22 oldu. O gün çalışan 7 kişi her dakikasını korudu.
 
 **Kişiler listesi `ttk.Treeview` oldu ve teker düzeldi** (ADR-039). İki şikâyet,
 aynı jestin iki ucu:

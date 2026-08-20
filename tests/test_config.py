@@ -121,6 +121,50 @@ def test_an_unknown_daily_hours_value_fails_loudly(tmp_path):
         config.load(tmp_path, "2026-07")
 
 
+# --- the calendar (ADR-040) -------------------------------------------------
+
+# Turkey's fixed-date statutory holidays. Law, identical every year, and therefore the
+# one part of the calendar that can be asserted rather than entered. Ramazan and Kurban
+# Bayramı move with the lunar year and cannot go in this list — they are entered by
+# hand, and a month with no holiday at all is flagged on the report instead.
+_FIXED_HOLIDAYS_2026 = [
+    (1, 1), (4, 23), (5, 1), (5, 19), (7, 15), (8, 30), (10, 29),
+]
+
+
+@REAL
+def test_no_fixed_date_statutory_holiday_is_missing(real_settings):
+    """15 July was absent, so July's report expected 23 working days instead of 22.
+
+    Nothing failed: two people were flagged `Ay büyük ölçüde boş` against the wrong
+    denominator, and the seven who badged in that day looked like ordinary attendance.
+    Listing the whole year up front is what stops the next one being noticed a month
+    late.
+    """
+    from datetime import date
+
+    missing = [date(2026, m, d) for m, d in _FIXED_HOLIDAYS_2026
+               if date(2026, m, d) not in real_settings.calendar.holidays]
+    assert not missing, f"takvimde yok: {[str(d) for d in missing]}"
+
+
+@REAL
+def test_a_holiday_never_removes_a_working_day_from_somebody_who_worked(real_settings):
+    """A holiday shortens the *expected* days, never the measured ones.
+
+    Seven people badged in on 15 July 2026 and adding the holiday changed the reported
+    total by nothing at all — this asserts the mechanism that makes that true: the
+    calendar is consulted for what was expected, and hours come from records.
+    """
+    from datetime import date
+
+    july = real_settings.calendar.expected_workdays(2026, 7)
+    assert date(2026, 7, 15) not in july, "the holiday must leave the expected list"
+    assert len(july) == 22, f"July 2026 has 22 expected working days, not {len(july)}"
+    assert real_settings.calendar.is_holiday(date(2026, 7, 15))
+    assert real_settings.calendar.label(date(2026, 7, 15)) == "Resmi Tatil"
+
+
 # --- facility labels (ADR-026) ----------------------------------------------
 #
 # The roster writes MACUNKÖY TESİSİ and DEICO TESİS. The second names the company, not

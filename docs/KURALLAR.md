@@ -115,6 +115,23 @@ Mayıs 2026'da ölçülen:
 `Günlük Detay` sayfasında her satır hangi güne ait olduğunu yazar: `Cmt`, `Paz` ya da
 `Resmi Tatil`. Yani hafta sonu çalışması hem sayılır hem de ayırt edilebilir.
 
+### Tatil listesi nereden geliyor
+
+**İK vermedi.** Şu an iki kaynağı var:
+
+| Tür | Nereden | Örnek |
+| --- | --- | --- |
+| Sabit tarihli resmi tatiller | **Kanun** — her yıl aynı, yılın tamamı yazılı | 1 Ocak, 23 Nisan, 1 Mayıs, 19 Mayıs, 15 Temmuz, 30 Ağustos, 29 Ekim |
+| Dini bayramlar ve köprü günleri | **Veriden çıkarıldı**, onay bekliyor | Kurban Bayramı bloğu (25–29 Mayıs 2026) |
+
+Dini bayramlar her yıl kayar, yani kanundan hesaplanamaz; o ayı çalıştırmadan önce
+elle girilmesi gerekir. Bir ayda hiç tatil tanımlı değilse rapor bunu `Kontrol`
+sayfasında turuncuyla yazar — sessiz kalmaz, çünkü sessizlik "tatil yoktu" gibi okunur.
+
+15 Temmuz 2026 bir süre listede yoktu ve kimse fark etmedi: kimsenin saati yanlış
+değildi, sadece iki kişi haksız yere "ayı boş" diye işaretlenmişti. Veri o günü tek
+başına gösteriyordu — hafta içi ortanca 130 kişi, o gün 7 kişi.
+
 ### "İş günü" kavramı nerede kullanılıyor
 
 Program bir de "beklenen iş günü" sayısı tutar — hafta içi günler, resmi tatiller
@@ -125,6 +142,10 @@ Program bir de "beklenen iş günü" sayısı tutar — hafta içi günler, resm
 
 Hafta sonu çalışması bu paydayı büyütmez, yani hafta sonu çalışan biri bu yüzden
 haksız yere işaretlenmez.
+
+Tatil listesinin saatlere dokunduğu **tek** yer var: **birden fazla günü kapsayan**
+bir uzaktan çalışma beyanı güne bölünürken tatiller atlanır. Kart basan kimsenin
+saatine hiçbir tatil dokunmaz.
 
 ### Henüz yapılmayan
 
