@@ -132,6 +132,25 @@ sayfasında turuncuyla yazar — sessiz kalmaz, çünkü sessizlik "tatil yoktu"
 değildi, sadece iki kişi haksız yere "ayı boş" diye işaretlenmişti. Veri o günü tek
 başına gösteriyordu — hafta içi ortanca 130 kişi, o gün 7 kişi.
 
+### Tatil günleri programa nasıl giriliyor
+
+Pencerede **Takvim** ekranı var. Ayın günleri ızgara halinde duruyor; bir güne tıklamak
+onu sırayla **iş günü → resmi tatil → idari tatil** yapıyor. Hafta sonlarına
+tıklanamıyor, zaten tatil.
+
+İki tür ayrı tutuluyor, çünkü aynı şey değiller:
+
+| | Ne demek | Örnek |
+| --- | --- | --- |
+| **Resmi tatil** | Kanunla belli, her işveren için aynı | 15 Temmuz, 1 Mayıs |
+| **İdari tatil** | Şirketin kendi kararıyla kapanması | Ağustos'ta beş gün kapalı |
+
+Faz 2'de bu ikisi farklı ücretlenecek, o yüzden şimdiden ayrı yazılıyor.
+
+Kaydetmek, takvim dosyasını günceller. **Kaydettikten sonra raporu yeniden üretmek
+gerekir** — saatler o dosyaya göre hesaplanır. Tıklamak tek başına hiçbir rakamı
+değiştirmez; ekran da bunu söylüyor.
+
 ### Program tatil olabilecek günleri kendisi soruyor
 
 Takvimde olmayan ama **neredeyse kimsenin gelmediği** bir iş günü varsa, rapor bunu

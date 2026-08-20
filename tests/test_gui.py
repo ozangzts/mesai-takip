@@ -1328,3 +1328,200 @@ def test_clicking_below_the_last_row_changes_nothing(people):
 
     screen._clicked(type("Click", (), {"y": screen.tree.winfo_height() - 4})())
     assert screen.excluded == set()
+
+
+# --- the calendar screen (ADR-041) ------------------------------------------
+#
+# The screen is an editor for `config/takvim-<yıl>.yaml` and nothing else. That is the
+# load-bearing part: a report whose figures depend on what was clicked in a dialog is
+# not reproducible, so the answer has to reach a file before it reaches a calculation
+# (AGENTS §2.1). Everything below is about the file, or about not marking a day nobody
+# asked to mark.
+
+CALENDAR_FILE = '''# Bir yorum, dosyanın kendisi hakkında.
+
+weekly_rest_days: [saturday, sunday]
+
+holidays:
+  # Blok hakkında bir yorum.
+  2026-05-01: "Emek ve Dayanışma Günü"
+  2026-08-30: "Zafer Bayramı"
+
+half_days:
+  - 2026-05-26
+'''
+
+
+@pytest.fixture
+def calendar_screen(shell, tmp_path):
+    """The calendar screen, pointed at a throwaway config folder.
+
+    A copy, never `config/`: a test that writes to the repository's own calendar would
+    change which days the program treats as working days.
+    """
+    from datetime import date
+
+    from mesai.models import HolidayCandidate
+
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / "takvim-2026.yaml").write_text(CALENDAR_FILE, encoding="utf-8")
+
+    def build(period="2026-08", candidates=(
+            HolidayCandidate(date(2026, 8, 10), people=3, median=130),
+            HolidayCandidate(date(2026, 8, 11), people=5, median=130))):
+        window = shell()
+        # Pointed at the copy after construction rather than through the
+        # constructor: `config_dir` is also what the report screen validates
+        # against, and this test has no business moving that.
+        window.config_dir = config_dir
+        window.run_finished(period, candidates)
+        window.show("takvim")
+        screen = window._screens["takvim"]
+        screen.config_dir = config_dir
+        screen.load(period, candidates)
+        window.root.update()
+        return window, screen
+
+    build.config_dir = config_dir
+    return build
+
+
+def test_the_calendar_screen_opens_on_the_month_that_was_just_reported(
+        calendar_screen):
+    """Not today's month: the month whose figures the operator is looking at."""
+    _window, screen = calendar_screen(period="2026-05")
+    assert screen.period == "2026-05"
+    assert "Mayıs 2026" in str(screen.month_label.cget("text"))
+
+
+def test_the_days_already_in_the_file_are_shown_as_marked(calendar_screen):
+    from datetime import date
+
+    _window, screen = calendar_screen()
+    assert screen.marks == {date(2026, 8, 30): "holidays"}, \
+        "August's statutory holiday, and nothing else"
+
+
+def test_a_click_cycles_working_day_then_statutory_then_company(calendar_screen):
+    """Three states, because a company closure is not a public holiday.
+
+    Phase 2 pays them differently and HR is asked about them separately, so the
+    distinction has to survive into the file rather than living in a label.
+    """
+    from datetime import date
+
+    _window, screen = calendar_screen()
+    day = date(2026, 8, 12)
+
+    screen._cycle(day)
+    assert screen.marks[day] == "holidays"
+    screen._cycle(day)
+    assert screen.marks[day] == "admin_holidays"
+    screen._cycle(day)
+    assert day not in screen.marks, "and back to an ordinary working day"
+
+
+def test_a_weekend_cannot_be_marked(calendar_screen):
+    """It is already a rest day. An entry that changes nothing reads as though it does."""
+    from datetime import date
+
+    _window, screen = calendar_screen()
+    saturday = date(2026, 8, 8)
+    assert saturday.weekday() == 5
+
+    assert saturday in screen._cells
+    assert not screen._cells[saturday].bind("<Button-1>"), "no click handler"
+
+
+def test_saving_writes_the_file_and_leaves_the_other_months_alone(calendar_screen):
+    from datetime import date
+
+    from mesai import takvim_file
+
+    _window, screen = calendar_screen()
+    for day in (date(2026, 8, 10), date(2026, 8, 11)):
+        screen._cycle(day)
+        screen._cycle(day)                 # two clicks: company closure
+    screen._save()
+
+    written = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
+    assert set(written[takvim_file.ADMIN]) == {date(2026, 8, 10), date(2026, 8, 11)}
+    assert date(2026, 5, 1) in written[takvim_file.STATUTORY], \
+        "May is not this screen's business and must survive"
+    assert date(2026, 8, 30) in written[takvim_file.STATUTORY]
+
+
+def test_saving_keeps_the_name_a_day_already_had(calendar_screen):
+    """`Emek ve Dayanışma Günü` is worth more than `Resmi tatil`."""
+    from datetime import date
+
+    from mesai import takvim_file
+
+    _window, screen = calendar_screen(period="2026-05", candidates=())
+    screen._cycle(date(2026, 5, 20))       # touch a different day
+    screen._save()
+
+    written = takvim_file.read(calendar_screen.config_dir / "takvim-2026.yaml")
+    assert written[takvim_file.STATUTORY][date(2026, 5, 1)] == \
+        "Emek ve Dayanışma Günü"
+
+
+def test_the_file_keeps_its_comments_through_a_save(calendar_screen):
+    """The notes saying which dates were inferred are the point of the file."""
+    from datetime import date
+
+    _window, screen = calendar_screen()
+    screen._cycle(date(2026, 8, 12))
+    screen._save()
+
+    text = (calendar_screen.config_dir / "takvim-2026.yaml").read_text(
+        encoding="utf-8")
+    assert "# Bir yorum, dosyanın kendisi hakkında." in text
+    assert "# Blok hakkında bir yorum." in text
+    assert "half_days:" in text and "- 2026-05-26" in text
+
+
+def test_nothing_can_be_saved_until_something_changes(calendar_screen):
+    _window, screen = calendar_screen()
+    assert str(screen.save_button.cget("state")) == "disabled"
+
+    from datetime import date
+    screen._cycle(date(2026, 8, 12))
+    assert str(screen.save_button.cget("state")) == "normal"
+
+    screen._save()
+    assert str(screen.save_button.cget("state")) == "disabled", "saved, so nothing to do"
+
+
+def test_the_empty_days_are_offered_but_never_marked(calendar_screen):
+    """The whole point of ADR-041: the program asks, the operator answers.
+
+    A candidate day must arrive unmarked, however obvious it looks.
+    """
+    from datetime import date
+
+    _window, screen = calendar_screen()
+
+    assert set(screen.candidates) == {date(2026, 8, 10), date(2026, 8, 11)}
+    assert date(2026, 8, 10) not in screen.marks, "asked, not answered"
+    assert "3 kişi" in str(screen.candidate_note.cget("text"))
+    assert "130" in str(screen.candidate_note.cget("text")), "with what to judge it by"
+
+
+def test_an_answered_candidate_stops_being_asked_about(calendar_screen):
+    from datetime import date
+
+    _window, screen = calendar_screen()
+    for day in (date(2026, 8, 10), date(2026, 8, 11)):
+        screen._cycle(day)
+
+    text = str(screen.candidate_note.cget("text"))
+    assert "hepsi işaretlendi" in text
+
+
+def test_before_any_run_the_screen_says_where_the_suggestions_will_come_from(
+        calendar_screen):
+    """Opened first, with no run behind it, it must not look broken."""
+    _window, screen = calendar_screen(candidates=())
+    assert "Rapor üretildikten sonra" in str(screen.candidate_note.cget("text"))

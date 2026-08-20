@@ -77,6 +77,10 @@ class Result:
     output: Path | None = None
     snapshot: Path | None = None
     figures: tuple[str, ...] = ()
+    period: str | None = None
+    # Days the run found almost empty — a question for the calendar screen, never an
+    # answer. See rules/takvim.py and ADR-041.
+    candidates: tuple = ()
 
 
 # The result card is the largest thing on the screen and it is empty until a run
@@ -229,11 +233,13 @@ class ReportScreen:
 
     def __init__(self, parent: tk.Misc, *, root: tk.Misc, base: Path,
                  config_dir: Path, roster_dir: Path,
-                 on_snapshot: Callable[[Path], None] | None = None) -> None:
+                 on_snapshot: Callable[[Path], None] | None = None,
+                 on_finished: Callable[[str, tuple], None] | None = None) -> None:
         self.root = root
         # Called with the data file after a successful run. The shell passes the path
         # on to the people screen; this screen does not know that screen exists.
         self.on_snapshot = on_snapshot
+        self.on_finished = on_finished
         self.base = base
         self.config_dir = config_dir
         self.roster_dir = roster_dir
@@ -812,11 +818,15 @@ class ReportScreen:
                 "   Bu rapordaki saatler bordro için kullanılamaz.",
             ]
         heading = f"{period_label(period)} raporu yazıldı"
+        stats = result.get("stats")
+        candidates = tuple(getattr(stats, "holiday_candidates", ()) or ())
         if partial:
             return Result(True, f"{heading} — EKSİK", tuple(lines), w.WARN,
-                          result["output"], result.get("snapshot"), figures)
+                          result["output"], result.get("snapshot"), figures,
+                          period=period, candidates=candidates)
         return Result(True, heading, (), w.OK, result["output"],
-                      result.get("snapshot"), figures)
+                      result.get("snapshot"), figures, period=period,
+                      candidates=candidates)
 
     def _poll(self) -> None:
         try:
@@ -830,6 +840,8 @@ class ReportScreen:
         self._last_output = result.output
         if result.snapshot is not None and self.on_snapshot is not None:
             self.on_snapshot(result.snapshot)
+        if result.period is not None and self.on_finished is not None:
+            self.on_finished(result.period, result.candidates)
         have_file = bool(result.output and result.output.exists())
         w.set_enabled(self.open_report, have_file)
         w.set_enabled(self.open_folder, have_file)

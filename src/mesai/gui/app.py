@@ -28,6 +28,7 @@ from . import widgets as w
 from .nav import NavPanel
 from .people import PeopleScreen
 from .rapor import ReportScreen
+from .takvim import CalendarScreen
 
 WINDOW_TITLE = "Mesai Raporu"
 WINDOW_SUBTITLE = "Aylık çalışma süresi raporu"
@@ -56,7 +57,8 @@ class Screen:
 def _report(parent: tk.Misc, app: "App") -> ReportScreen:
     return ReportScreen(parent, root=app.root, base=app.base,
                         config_dir=app.config_dir, roster_dir=app.roster_dir,
-                        on_snapshot=app.snapshot_ready)
+                        on_snapshot=app.snapshot_ready,
+                        on_finished=app.run_finished)
 
 
 def _people(parent: tk.Misc, app: "App") -> PeopleScreen:
@@ -68,9 +70,16 @@ def _people(parent: tk.Misc, app: "App") -> PeopleScreen:
     return screen
 
 
+def _calendar(parent: tk.Misc, app: "App") -> CalendarScreen:
+    return CalendarScreen(parent, root=app.root, config_dir=app.config_dir,
+                          period=app.last_period,
+                          candidates=app.last_candidates)
+
+
 SCREENS: tuple[Screen, ...] = (
     Screen("rapor", "Rapor", _report),
     Screen("kisiler", "Kişiler", _people),
+    Screen("takvim", "Takvim", _calendar),
 )
 
 
@@ -92,6 +101,11 @@ class App:
         # screen writes it. Neither knows the other exists — the shell is the only
         # thing that knows there is more than one screen.
         self.last_snapshot: Path | None = None
+        # The last run's period and the days it found almost empty. Held in memory
+        # rather than put in the data file: they are a question about the calendar, not
+        # part of what the report says, and the calendar screen is the only reader.
+        self.last_period: str | None = None
+        self.last_candidates: tuple = ()
 
         root.title(WINDOW_TITLE)
         root.minsize(MIN_WIDTH, MIN_HEIGHT)
@@ -167,6 +181,14 @@ class App:
         screen = self._screens.get("kisiler")
         if screen is not None:
             screen.load(path)                                  # type: ignore[attr-defined]
+
+    def run_finished(self, period: str, candidates: tuple) -> None:
+        """A run finished. Hand the calendar screen what it needs to ask about."""
+        self.last_period = period
+        self.last_candidates = candidates
+        screen = self._screens.get("takvim")
+        if screen is not None:
+            screen.load(period, candidates)                    # type: ignore[attr-defined]
 
     # --- layout ------------------------------------------------------------
     def _build(self) -> None:

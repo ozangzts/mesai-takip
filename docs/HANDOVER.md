@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (41 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (42 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **371 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **394 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -134,8 +134,22 @@ sayılarıyla soruyor. Bir günün neden boş olduğunu ve resmi tatil mi şirke
 yalnızca insan bilir; ikisi Faz 2'de farklı ücretlenecek. Aday bir **gün** hakkında,
 kişi hakkında değil — kimsenin satırına not düşmüyor.
 
-Sıradaki adım pencere tarafı: ay ızgarası, adayların vurgulanması, ve işaretlenenin
-**takvim dosyasına yazılması** — koşu tarihleri dosyadan okumak zorunda.
+**Üçüncü ekran geldi: Takvim** (ADR-042). Ayın günleri ızgara halinde; bir tıklama
+günü sırayla **iş günü → resmi tatil → idari tatil** yapıyor, hafta sonuna
+tıklanamıyor. Koşulan ayla açılıyor, adaylar `?` ve sayılarıyla işaretli ama **hiçbiri
+önceden seçili değil**. Kaydetmek `config/takvim-<yıl>.yaml`'ı güncelliyor.
+
+Mimarideki kilit nokta: ekran bir **dosya düzenleyicisi**, hafızada cevap tutan bir
+diyalog değil. Aynı ayın iki koşusu aynı workbook'u üretmek zorunda (AGENTS §2.1).
+
+`takvim_file.py` dosyayı **satır satır** düzenliyor, `yaml.safe_dump` ile değil: dosya
+hangi tarihin nereden geldiğini ve nelerin ona dayandığını anlatan otuz satır yorum
+taşıyor, ve o son not bir kez zaten yanlış çıktı (ADR-040). En sıkı test şu — gerçek
+takvimi kendi içeriğiyle yeniden yazmak **birebir aynı dosyayı** vermeli; ilk
+uygulamam bütün sentetik testleri geçip bu testte iki kez düştü.
+
+**İki tür ayrı tutuluyor:** `holidays` (kanun) ve `admin_holidays` (şirketin kendi
+kapanması). Faz 2'de farklı ücretlenecekleri için etiket değil ayrı anahtar.
 
 **Tatil takvimi düzeltildi** (ADR-040). Üç bulgu, tek sorudan çıktı — "tatilleri neye
 göre belirledin":

@@ -80,19 +80,36 @@ class NominalDay:
 
 @dataclass(frozen=True)
 class Calendar:
+    """Which days are not working days, and why they are not.
+
+    Two kinds, kept apart because they are different facts about a day and Phase 2 pays
+    them differently: `holidays` is statutory — 1 May, 15 July, the same for every
+    employer in the country — while `admin_holidays` is this company shutting its own
+    site, the August week the operator described. Both stop a day being an expected
+    working day; only the reason differs, and the reason is what HR will be asked about.
+    """
     holidays: dict[date, str]
     half_days: frozenset[date]
     rest_weekdays: frozenset[int]     # 0 = Monday
+    admin_holidays: dict[date, str] = field(default_factory=dict)
 
     def label(self, day: date) -> str:
         if day in self.holidays:
             return "Resmi Tatil"
-        if day.weekday() in self.rest_weekdays:
-            return ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")[day.weekday()]
+        if day in self.admin_holidays:
+            return "İdari Tatil"
         return ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")[day.weekday()]
 
     def is_holiday(self, day: date) -> bool:
-        return day in self.holidays
+        return day in self.holidays or day in self.admin_holidays
+
+    def non_working(self) -> dict[date, tuple[str, str]]:
+        """Every non-working day as `{date: (kind, label)}`, for the report."""
+        days = {day: ("Resmi tatil", label)
+                for day, label in self.holidays.items()}
+        days.update({day: ("İdari tatil", label)
+                     for day, label in self.admin_holidays.items()})
+        return days
 
     def is_rest_day(self, day: date) -> bool:
         return day.weekday() in self.rest_weekdays
@@ -281,6 +298,16 @@ def load(config_dir: Path, period: str) -> Settings:
     cal_raw = _load_yaml(cal_path)
     holidays = {_as_date(k, str(cal_path)): str(v)
                 for k, v in (cal_raw.get("holidays") or {}).items()}
+    # The company's own closures. A separate key rather than a label convention: the
+    # window writes these, and a Phase 2 pay rule has to be able to tell them from a
+    # statutory holiday without parsing Turkish out of a string.
+    admin = {_as_date(k, str(cal_path)): str(v)
+             for k, v in (cal_raw.get("admin_holidays") or {}).items()}
+    both = set(holidays) & set(admin)
+    if both:
+        raise ConfigError(
+            f"{cal_path}: aynı gün hem resmi hem idari tatil olarak yazılmış: "
+            f"{', '.join(str(day) for day in sorted(both))}")
     half_days = frozenset(_as_date(d, str(cal_path))
                           for d in (cal_raw.get("half_days") or []))
     rest_names = cal_raw.get("weekly_rest_days") or ["saturday", "sunday"]
@@ -288,7 +315,8 @@ def load(config_dir: Path, period: str) -> Settings:
         rest = frozenset(_WEEKDAYS[str(n).lower()] for n in rest_names)
     except KeyError as exc:
         raise ConfigError(f"{cal_path}: bilinmeyen gün adı {exc}") from exc
-    calendar = Calendar(holidays=holidays, half_days=half_days, rest_weekdays=rest)
+    calendar = Calendar(holidays=holidays, half_days=half_days, rest_weekdays=rest,
+                        admin_holidays=admin)
 
     per_raw = _load_yaml(config_dir / "personel.yaml")
     prefixes = tuple(str(p).upper() for p in (per_raw.get("exclude_prefixes") or []))

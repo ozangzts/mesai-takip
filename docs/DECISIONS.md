@@ -2345,3 +2345,77 @@ a normal day at a ten-person site and a closed day at a hundred-person one.
 - **How a marked day gets back into the calendar file is still not built.** The
   constraint from ADR-040 stands: the run reads the dates from a file, so the window
   must edit the file rather than hold an answer for one run.
+
+---
+
+## ADR-042 — The window edits the calendar file; a company closure is its own kind of day
+
+2026-08-20 · Status: **Accepted** · Decided by: project owner (chose the shape),
+implementation
+
+### Context
+
+ADR-040 put the fixed-date statutory holidays in the calendar and ADR-041 taught the
+program to point at days the site looked shut. What was left was the operator's actual
+question: *how do those days get in?* Nobody is going to edit YAML every month, and the
+two hardest cases cannot be computed at all — the religious holidays move with the lunar
+year, and a company closure ("the site was shut for five days in August") appears in no
+source file.
+
+The shape was chosen from three: a month grid with data-driven suggestions, a bare
+suggestion checklist, or leaving the file to a text editor and only warning in the
+report. The grid was chosen.
+
+One constraint decided the architecture rather than the design: **two runs of one month
+must produce the same workbook** (AGENTS §2.1). A report whose figures depend on what was
+clicked in a dialog is neither reproducible nor auditable. So whatever the window offers,
+the answer has to reach a **file** before it reaches a calculation.
+
+### Decision
+
+**A third screen, `Takvim`, which is an editor for `config/takvim-<yıl>.yaml`.** The
+month's days in a grid, weekends inert, one click cycling a day through
+*working day → resmi tatil → idari tatil*. It opens on the month that was just reported
+on, not on today. Saving writes the file; the run reads the file, exactly as before.
+
+**Two kinds of non-working day, kept apart in the file** — `holidays` for statutory and
+`admin_holidays` for the company's own closure. A separate key rather than a naming
+convention, because a Phase 2 pay rule has to tell them apart without parsing Turkish out
+of a label, and because HR will be asked about them separately. The same day in both
+fails the run.
+
+**The candidate days from the last run are marked `?` with their headcount** — `3 kişi
+(normal gün 130)`. They arrive **unmarked**, however obvious they look, which is ADR-041
+restated where it is easiest to break.
+
+**`takvim_file.py` edits the two date blocks as lines, not as YAML.** `yaml.safe_dump`
+would delete thirty lines of comments recording which dates were inferred, which came
+from law, and what depends on the file — and the last of those has already been wrong
+once (ADR-040). Deleting the only warning a future reader gets, in order to save a date,
+is a bad trade.
+
+### Consequences
+
+- A comment above an entry travels with that entry and is dropped with it; a comment run
+  before the block's first entry is treated as introducing the block. Both shapes are in
+  the shipped file, and the test that pins this down is
+  `test_the_real_config_survives_a_round_trip_unchanged`: rewriting the real calendar
+  with its own contents must produce a byte-identical file. The first implementation
+  passed every synthetic test and failed that one, twice — first by hoisting comments to
+  the top of the block, then by dropping the trailing `# INFERRED` notes.
+- A trailing note is kept only while the label beside it is unchanged. Carrying
+  `# INFERRED` onto a date somebody has just relabelled would turn a preserved comment
+  into a false one.
+- The save is written to a temporary file and moved into place. This file decides which
+  days are working days; a half-written one is worse than an unwritten one.
+- The candidates are held **in memory** by the shell and handed to the screen, not put
+  in the data file. They are a question about the calendar rather than part of what the
+  report says, so `format_version` stays at 3 and existing data files keep working.
+- **Marking a day still changes no hours**, and the screen says so: it tells the operator
+  to re-run the report. A closure removes expected working days, which moves the coverage
+  denominator and the `Ay büyük ölçüde boş` note — not anybody's measured time.
+- A month can be stepped through with `‹ Önceki` / `Sonraki ›`, and leaving one with
+  unsaved marks asks first. The alternative — saving on every click — would write to a
+  payroll input on a mis-click.
+- The screen is registered like any other (`SCREENS`), so the rail grew by one entry and
+  nothing else in the shell changed. That is the third time that seam has held (ADR-028).

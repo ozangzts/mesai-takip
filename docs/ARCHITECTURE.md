@@ -84,6 +84,7 @@ src/mesai/
 │   ├── nav.py         ✅  the left rail — one item per registered screen
 │   ├── rapor.py       ✅  the report screen: folder, period, run, result card
 │   ├── people.py      ✅  the people screen: load a data file, filter, select
+│   ├── takvim.py      ✅  the calendar screen: mark a month's non-working days
 │   ├── period.py      ✅  `07-2026` -> `2026-07` -> `Temmuz 2026`; pure, tested
 │   └── widgets.py     ✅  palette, buttons, and the hand-drawn activity bar
 ├── snapshot.py        ✅  machine-readable companion to the workbook
@@ -228,6 +229,7 @@ and Windows will label a blocked window "not responding".
 | `test_merge.py` | cross-site union, repair, remote precedence, short days |
 | `test_snapshot.py` | the round trip the mail step depends on |
 | `test_report.py` | that a workbook can actually be written, for every severity |
+| `test_takvim_file.py` | editing the calendar file without losing its comments |
 | `test_takvim.py` | which days get offered as “was the site shut?” — the rule, without a window |
 | `test_gui.py` | the window's period parsing, folder check, what it remembers, screen navigation, and the people screen's wiring |
 | `test_recipients.py` | who a filter admits, minus who was removed — the rule, without a window |
