@@ -167,7 +167,7 @@ Two behaviours the tests pin down, both of which are bugs if they regress:
 `nav.py` is handed labels and hands back the key that was clicked. It knows nothing
 about what a screen does, which is what keeps the registry the only thing to edit.
 
-Three presentation rules the window holds itself to, each of them a defect once:
+Five presentation rules the window holds itself to, each of them a defect once:
 
 - **Red means a problem.** "You have not picked a folder yet" is where every run
   starts, so it is not red; and when two of three exports are found, the two that were
@@ -179,6 +179,14 @@ Three presentation rules the window holds itself to, each of them a defect once:
 - **Anything written must be reachable.** The result card scrolls, because a run
   against a partial source writes four extra lines per source and the snapshot path is
   last. It used to be printed in full and then clipped off the bottom.
+- **Switching screens must not resize the window.** Tk shrink-wraps a toplevel to the
+  requested size of whatever it is showing, and the two screens do not ask for the
+  same height — so opening `Kişiler` used to snap the window down and going back threw
+  it up again. `App._fit` grows the window to fit and never shrinks it (ADR-038).
+- **A list that was replaced starts at its top.** A canvas keeps its scroll offset when
+  its rows are destroyed and rebuilt, so a 2-person filter inherited a 60-person
+  filter's position and showed an empty box. Reset is tied to the set of names shown,
+  not to repainting: re-ticking the same people keeps its place (ADR-038).
 
 `rapor.py` keeps its Turkish name deliberately: `gui/report.py` would read as a
 sibling of `mesai/report/`, the package that writes the workbook, which it is not.

@@ -117,6 +117,16 @@ class PeopleScreen:
         self.copy_button.grid(row=0, column=2, sticky="e")
 
     # --- scrolling ---------------------------------------------------------
+    #
+    # A canvas keeps its scroll offset when its contents are replaced, and tk does not
+    # re-clamp that offset against the new, shorter scrollregion. Going from a filter
+    # with 60 people to one with 2 therefore left the view 972 px below the only two
+    # rows: an apparently empty list that had to be dragged back up by hand, with the
+    # scrollbar already hidden because the content now fits. So every repaint has to
+    # put the view back inside the content, and every clamp is done in pixels rather
+    # than in yview fractions — the fractions are relative to the scrollregion being
+    # replaced, which is the thing that cannot be trusted here.
+
     def _scrolled(self, first: str, last: str) -> None:
         if float(first) <= 0.0 and float(last) >= 1.0:
             self._scroll.grid_remove()
@@ -126,13 +136,47 @@ class PeopleScreen:
 
     def _wheel(self, event: tk.Event) -> str:
         self.canvas.yview_scroll(-event.delta // 120, "units")
+        self._clamp_scroll()
         return "break"
 
     def _resized(self, _event: object) -> None:
-        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        self._clamp_scroll()
 
     def _canvas_resized(self, event: tk.Event) -> None:
         self.canvas.itemconfigure(self._window, width=event.width)
+        self._clamp_scroll()
+
+    def _clamp_scroll(self, *, to_top: bool = False) -> None:
+        """Re-measure the list and keep the view inside it.
+
+        `to_top` is for a repaint that changed *which* people are listed: a new list
+        starts at its first row. A repaint that only re-ticked boxes keeps its place,
+        because jumping to the top under somebody who just pressed `Temizle` halfway
+        down a long list loses where they were.
+        """
+        box = self.canvas.bbox("all")
+        self.canvas.configure(scrollregion=box or (0, 0, 0, 0))
+        if box is None:
+            return
+        top, bottom = box[1], box[3]
+        visible = self.canvas.winfo_height()
+        offset = self.canvas.canvasy(0)
+        if to_top or (bottom - top) <= visible:
+            wanted = float(top)
+        else:
+            wanted = min(max(offset, top), bottom - visible)
+        if wanted != offset:
+            self.canvas.yview_moveto((wanted - top) / max(bottom - top, 1))
+
+    def _rescroll_when_idle(self, *, to_top: bool) -> None:
+        """Clamp once tk has laid the new rows out.
+
+        Deferred on purpose: a row's height is not known until the layout it was just
+        given has been processed, so measuring here would measure the previous list —
+        which is exactly how the offset came to survive a repaint in the first place.
+        """
+        self.canvas.after_idle(lambda: (self.canvas.winfo_exists()
+                                        and self._clamp_scroll(to_top=to_top)))
 
     # --- loading -----------------------------------------------------------
     def load(self, path: Path) -> None:
@@ -224,6 +268,7 @@ class PeopleScreen:
 
     # --- painting ----------------------------------------------------------
     def _repaint(self) -> None:
+        listed_before = [name for name, _ in self._rows]
         self._choices = recipients.choices(self.snapshot)
         self.filter_box.configure(values=[c.display for c in self._choices])
         for choice in self._choices:
@@ -254,6 +299,7 @@ class PeopleScreen:
                      justify="left", anchor="w", padx=14, pady=12).grid(
                 row=0, column=0, columnspan=4, sticky="w")
             self._update_count()
+            self._rescroll_when_idle(to_top=bool(listed_before))
             return
 
         people = recipients.matching(self.snapshot, self.filter_key)
@@ -292,6 +338,8 @@ class PeopleScreen:
                 row=row, column=4, sticky="ew", padx=(0, 12))
 
         self._update_count()
+        self._rescroll_when_idle(
+            to_top=listed_before != [name for name, _ in self._rows])
 
     def _update_count(self) -> None:
         people = recipients.selected(self.snapshot, self.filter_key, self.excluded)

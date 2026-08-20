@@ -34,6 +34,10 @@ WINDOW_SUBTITLE = "Aylık çalışma süresi raporu"
 
 NAV_WIDTH = 168
 
+# The smallest window the report screen is usable in. Also the floor `_fit` never
+# goes below, so a screen can never be shown in a window too short to hold it.
+MIN_WIDTH, MIN_HEIGHT = 880, 620
+
 
 @dataclass(frozen=True)
 class Screen:
@@ -90,7 +94,7 @@ class App:
         self.last_snapshot: Path | None = None
 
         root.title(WINDOW_TITLE)
-        root.minsize(880, 620)
+        root.minsize(MIN_WIDTH, MIN_HEIGHT)
         self._build()
         self.show(self.screens[0].key)
 
@@ -110,6 +114,36 @@ class App:
         screen.frame.grid(row=0, column=0, sticky="nsew")      # type: ignore[attr-defined]
         self._showing = key
         self.nav.select(key)
+        self._fit()
+
+    def _fit(self) -> None:
+        """Size the window to the screen being shown — growing only, never shrinking.
+
+        Tk shrink-wraps a toplevel to its requested size for as long as no explicit
+        geometry has been set, and the two screens do not request the same height: the
+        report screen asks for 791 px, the people screen 597. Switching to `Kişiler`
+        therefore snapped the window down to the 620 px floor, and switching back threw
+        it up again — measured on this machine, and reported as the window being
+        cropped from the bottom.
+
+        Setting a geometry once ends the shrink-wrap. Taking the maximum of what the
+        screen needs and what the window already is means a taller screen can still
+        grow the window, but no screen can take space away from another — and a window
+        the user has enlarged, or maximized, is left alone because the maximum is
+        already what it is.
+        """
+        if self.root.state() == "zoomed":
+            return                      # maximized — the size is the user's, not ours
+        self.root.update_idletasks()
+        width = max(self.root.winfo_reqwidth(), self.root.winfo_width(), MIN_WIDTH)
+        height = max(self.root.winfo_reqheight(), self.root.winfo_height(),
+                     MIN_HEIGHT)
+        # Set every time, not only when the number changes. A geometry set before the
+        # window has been mapped does not end the shrink-wrap — measured: pinning the
+        # size while the window was still unmapped left it shrinking on the first
+        # switch exactly as before. Re-asserting the same size on each switch is what
+        # makes the pin stick, and costs nothing when it is already that size.
+        self.root.geometry(f"{width}x{height}")
 
     def _definition(self, key: str) -> Screen:
         for screen in self.screens:

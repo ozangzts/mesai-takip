@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (37 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (38 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, üç ay üretiliyor, **340 test geçiyor**.
+Faz 1 çalışıyor, üç ay üretiliyor, **345 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -111,6 +111,19 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 ---
 
 ## Bu turda ne yapıldı (2026-08-20)
+
+**Pencerede iki hata düzeltildi** — ikisi de proje sahibinin kullanırken bulduğu,
+ikisi de pencerenin tuttuğu durumla ilgili, o yüzden hiçbiri "geometri test etmeyiz"
+diyen test paketine yakalanmamıştı (ADR-038):
+
+| Ne | Ölçülen | Düzeltme |
+| --- | --- | --- |
+| Ekran değiştirince pencere küçülüp alttan kırpılıyordu | Rapor 791 px istiyor, Kişiler 597; tk pencereyi istenen boya küçültüyor | Pencere gösterilen ekrana göre **büyür, asla küçülmez** |
+| Kalabalık filtreden az kişilik filtreye geçince liste boş görünüyordu | Görünüm içeriğin **972 px** altında kalıyor, `scrollregion` eski | Her repaint görünümü içeriğe geri sokuyor; **kişiler değiştiyse** en üste döner |
+
+İkinci hatanın ince yeri: sıfırlama repaint'e değil **listelenen isim kümesine** bağlı.
+Yoksa 60 satırın ortasında bir kutu işaretleyen kişi her seferinde en üste fırlar —
+birinci hatayı düzeltirken ikinci hata üretilmiş olurdu.
 
 **Bir açık soru kapandı: `Eğitim İzni` izin sayılıyor, İK onayladı.** Çalışma sayılan
 izin türü listesi tek girdiyle **kapalı** (ADR-037). Program zaten böyle davranıyordu,

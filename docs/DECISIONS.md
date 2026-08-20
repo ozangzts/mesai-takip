@@ -2057,3 +2057,69 @@ included. HR confirmed this.
   earns a note, rather than silently gaining hours nobody can trace.
 - Q13 is closed. Q20a (the nominal `09:00–18:00` rows, ~17 % of reported hours) is now
   the only open question that can still move a Phase 1 total.
+
+---
+
+## ADR-038 — The window grows to fit a screen and never shrinks; a new list starts at its top
+
+2026-08-20 · Status: **Accepted** · Decided by: project owner (both defects reported),
+implementation
+
+### Context
+
+Two defects, found by using the window rather than by reading it. Both are about state
+the window keeps, which is why neither showed up in a test suite that deliberately
+asserts no geometry.
+
+**1. Switching screens resized the window.** Tk shrink-wraps a toplevel to the
+requested size of whatever it is showing, for as long as no explicit geometry has been
+set. The two screens do not request the same height — measured on a 1.333-scaled
+display, the report screen asks for 791 px and the people screen 597 — so opening
+`Kişiler` snapped the window down to the 620 px floor and going back threw it up
+again. Reported as the window being cropped from the bottom.
+
+An explicit geometry ends the shrink-wrap, but only once the window has been mapped.
+Pinning the size during construction, which is where it would naturally go, left the
+behaviour exactly as it was.
+
+**2. A shorter list kept the longer list's scroll offset.** A canvas does not re-clamp
+its offset when its contents are replaced, and the scrollregion was only recomputed
+from the inner frame's `<Configure>` event. Going from a 60-person filter, scrolled to
+the bottom, to a 2-person filter left the view **972 px below** the only two rows: an
+apparently empty list that had to be dragged back up by hand, with the scrollbar
+already hidden because the content now fitted. The list also had no way back — the
+scrollbar it needed was the one that had just correctly hidden itself.
+
+### Decision
+
+**The window grows to fit the screen being shown and never shrinks.** `App._fit` runs
+on every switch, takes the maximum of what the screen requests and what the window
+already is, and re-asserts it every time rather than only when the number changes —
+that is what makes the pin stick after mapping. A maximized window is left alone: the
+size is the user's, and calling `geometry` on it would restore it down.
+
+**Every repaint puts the view back inside the list, and a repaint that changed *which*
+people are listed starts at the top.** The clamp is arithmetic in pixels, not in
+`yview` fractions: the fractions are relative to the scrollregion being replaced, which
+is the value that cannot be trusted at that moment. It is deferred to `after_idle`
+because a row's height is not known until the layout it was just given has been
+processed — measuring earlier measures the previous list, which is how the offset
+survived a repaint in the first place.
+
+### Consequences
+
+- **Reset is tied to the set of names, not to repainting.** `Temizle` and
+  `Tümünü seç` repaint the same people with different ticks and keep their place;
+  throwing somebody back to the top of a 60-row list because they unticked a box
+  halfway down is a second defect, not a fix for the first.
+- `tests/test_gui.py` now asserts a geometry, against its own opening statement. The
+  file says why: both defects are relationships (the window did not get shorter, the
+  first row is at the top of its viewport) rather than pixel counts, and nothing else
+  catches them. Three of the five new tests fail against the previous code — checked
+  by reverting the fix and running them.
+- The people screen is exercised with a **synthetic** month, as the screenshot rule
+  already required: a failure dump from this screen loaded with a real data file would
+  carry employee names and addresses.
+- `_fit` makes the window's size depend on the tallest screen ever opened. A future
+  screen that wants to be shorter cannot make the window smaller — which is the point,
+  but it does mean an unusually tall screen sets the floor for the session.

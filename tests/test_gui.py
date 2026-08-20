@@ -1041,3 +1041,148 @@ def test_settings_written_with_a_byte_order_mark_are_still_read(screen, tmp_path
 
     window = screen()
     assert window.output_dir == kept
+
+
+# --- the window's size, and the list's scroll position ----------------------
+#
+# This file opens by saying no test asserts a geometry, because that would be testing
+# tkinter. These do, and they are the exception that proves the rule: both were real
+# bugs the operator hit, both are about state the window keeps rather than how it
+# draws, and neither can be caught any other way. What is asserted is a relationship
+# (the window did not get shorter; the first row is at the top of its viewport), never
+# a pixel count.
+
+@pytest.fixture
+def people(shell):
+    """The people screen of a real window, holding a synthetic month.
+
+    Synthetic on purpose. A screenshot or a failure dump from this screen loaded with
+    a real data file would carry employee names and e-mail addresses.
+    """
+    from datetime import datetime
+
+    from mesai.snapshot import Person, Snapshot
+
+    surnames = ("DENEME", "ÖRNEK", "NUMUNE", "TASLAK", "MİSAL", "SINAMA")
+
+    def person(index, problems=()):
+        return Person(
+            name=f"KİŞİ{index:03d} {surnames[index % len(surnames)]}",
+            email=f"k{index}@ornek.test", personnel_no=None, department=None,
+            facility=None, in_roster=True, has_attendance=True, worked_days=20,
+            minutes=9000 + index, remote_days=0.0, leave_days=0.0,
+            problems=tuple(problems), expected=(), notes=())
+
+    def build(clean=60, flagged=2):
+        window = shell()
+        window.show("kisiler")
+        screen = window._screens["kisiler"]
+        screen.snapshot = Snapshot(
+            period="2026-07", generated_at=datetime(2026, 8, 20, 9, 0), rules={},
+            coverage={"macunkoy": {"partial": False}},
+            people=tuple([person(i) for i in range(clean)]
+                         + [person(500 + i, ["Çıkış yok"]) for i in range(flagged)]))
+        screen.filter_key = recipients.NO_PROBLEM
+        screen._repaint()
+        window.root.update()
+        return window, screen
+
+    return build
+
+
+def _first_row_offset(screen) -> int:
+    """How far the top of the list sits from the top of its viewport, in pixels.
+
+    0 is right. Negative means the rows have been scrolled up out of sight — the
+    "empty list" the operator had to drag back down by hand.
+    """
+    return screen.list_frame.winfo_rooty() - screen.canvas.winfo_rooty()
+
+
+def test_switching_to_another_screen_never_shrinks_the_window(shell):
+    """Tk shrink-wraps a toplevel to the requested size of whatever is showing.
+
+    The two screens do not ask for the same height, so switching to `Kişiler` snapped
+    the window down and switching back threw it up again — reported as the window
+    being cropped from the bottom.
+    """
+    window = shell()
+    window.root.update()
+    tall = window.root.winfo_height()
+
+    window.show("kisiler")
+    window.root.update()
+    assert window.root.winfo_height() >= tall, "the window got shorter"
+
+    window.show("rapor")
+    window.root.update()
+    assert window.root.winfo_height() >= tall, "and it must not bounce back either"
+
+
+def test_a_shorter_filter_starts_at_the_top_of_its_list(people):
+    """The bug: 60 people, scrolled to the bottom, then a filter with 2.
+
+    The canvas kept the old offset against a scrollregion 30 times shorter, leaving
+    the view 972 px below the only two rows — an apparently empty list, with the
+    scrollbar already hidden because the content now fits.
+    """
+    window, screen = people()
+    screen.canvas.yview_moveto(1.0)
+    window.root.update()
+    assert _first_row_offset(screen) < 0, "the setup must really be scrolled down"
+
+    screen.filter_key = "Çıkış yok"
+    screen._repaint()
+    window.root.update()
+
+    assert _first_row_offset(screen) == 0, "the two rows must be at the top"
+    assert screen.canvas.yview() == (0.0, 1.0), "and nothing is out of view"
+    assert screen._scroll.winfo_manager() == "", "so no scrollbar, which is right"
+
+
+def test_a_longer_filter_also_starts_at_the_top(people):
+    """The other direction: a list that no longer fits must still begin at its top."""
+    window, screen = people()
+    screen.filter_key = "Çıkış yok"
+    screen._repaint()
+    window.root.update()
+
+    screen.filter_key = recipients.NO_PROBLEM
+    screen._repaint()
+    window.root.update()
+
+    assert _first_row_offset(screen) == 0
+    assert screen.canvas.yview()[1] < 1.0, "60 rows must not fit"
+    assert screen._scroll.winfo_manager() == "grid", "so the scrollbar comes back"
+
+
+def test_the_list_keeps_its_place_when_only_the_ticks_change(people):
+    """`Temizle` halfway down a long list must not throw the reader back to the top.
+
+    This is why the reset is tied to the set of names shown rather than to repainting:
+    the same people, re-ticked, is not a new list.
+    """
+    window, screen = people()
+    screen.canvas.yview_moveto(0.5)
+    window.root.update()
+    before = _first_row_offset(screen)
+
+    screen._clear_all()
+    window.root.update()
+
+    assert _first_row_offset(screen) == before, "the view moved"
+    assert all(not var.get() for _, var in screen._rows), "and it did clear them"
+
+
+def test_an_emptied_list_cannot_stay_scrolled_into_nothing(people):
+    """Loading a file whose filter matches nobody leaves no rows at all."""
+    window, screen = people()
+    screen.canvas.yview_moveto(1.0)
+    window.root.update()
+
+    screen.snapshot = None
+    screen._repaint()
+    window.root.update()
+
+    assert _first_row_offset(screen) == 0
+    assert screen.canvas.yview() == (0.0, 1.0)
