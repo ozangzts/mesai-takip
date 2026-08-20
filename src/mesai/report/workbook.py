@@ -740,6 +740,15 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     else:
         line("Resmi tatil / idari tatil", "bu ay için tanımlı değil",
              "Takvimde bu aya ait gün yok — varsa eklenmeli", styles.AMBER_FILL)
+    if stats.holiday_candidates:
+        line("Tatil olabilecek günler", f"{len(stats.holiday_candidates)} gün",
+             "Bu iş günlerinde neredeyse kimse yoktu — tatil miydi?",
+             styles.AMBER_FILL)
+        for candidate in stats.holiday_candidates:
+            line(f"  {candidate.date.strftime('%d.%m.%Y')}",
+                 _DAY_NAMES[candidate.date.weekday()],
+                 f"{candidate.people} kişi — o ayın normal günü {candidate.median} "
+                 f"kişi (%{candidate.share * 100:.0f})")
     if settings.brk.deduct:
         line("Öğle arası", f"{settings.brk.minutes} dk",
              f"kalan mola kuralı, pencere {settings.brk.window_from:%H:%M}-"

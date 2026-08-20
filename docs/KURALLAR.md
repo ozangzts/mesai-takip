@@ -132,6 +132,25 @@ sayfasında turuncuyla yazar — sessiz kalmaz, çünkü sessizlik "tatil yoktu"
 değildi, sadece iki kişi haksız yere "ayı boş" diye işaretlenmişti. Veri o günü tek
 başına gösteriyordu — hafta içi ortanca 130 kişi, o gün 7 kişi.
 
+### Program tatil olabilecek günleri kendisi soruyor
+
+Takvimde olmayan ama **neredeyse kimsenin gelmediği** bir iş günü varsa, rapor bunu
+`Kontrol` sayfasında sayılarıyla sorar:
+
+> `15.07.2026  Çar  —  7 kişi, o ayın normal günü 130 kişi (%5)`
+
+**Program bunu kendisi tatil olarak işaretlemez.** Bir günün neden boş olduğunu — resmi
+tatil mi, şirket kapalı mıydı, başka bir şey mi — yalnızca insan bilir, ve Faz 2'de
+resmi tatil ile şirket kapanması farklı ücretlenecek. Program tahmin etmez, sorar.
+
+Eşik: o ayın normal gününün **%35'i**. Bu sayı ölçümden geliyor — üç ayda tatil olduğu
+bilinen sekiz günün hepsi %2–14 arasında, tatil olmayan en boş gün ise %72. Aradaki
+boşluğa hiçbir gün düşmüyor.
+
+Bu soru bir **gün** hakkındadır, kişi hakkında değil — yani kimsenin satırına not
+düşmez. Şirketin kapalı olduğu bir gün için yirmi kişiye not düşmek, gerçekten kişiyle
+ilgili olan notları gömerdi.
+
 ### "İş günü" kavramı nerede kullanılıyor
 
 Program bir de "beklenen iş günü" sayısı tutar — hafta içi günler, resmi tatiller

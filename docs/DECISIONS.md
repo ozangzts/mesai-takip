@@ -2274,3 +2274,74 @@ kept every minute.
   in a dialog, because two runs of one month must produce the same workbook (AGENTS
   §2.1). A window that edits the file satisfies that; a window that holds the answer in
   memory for one run does not.
+
+---
+
+## ADR-041 — The program points at days the site looks shut; it never marks one
+
+2026-08-20 · Status: **Accepted** · Decided by: project owner (asked how holidays
+should be entered), implementation
+
+### Context
+
+ADR-040 put the fixed-date statutory holidays in the calendar and left the hard half
+open: religious holidays move with the lunar year, and a **company closure** — the site
+shut for a week in August — appears in no source file at all. Neither can be computed,
+and the operator cannot be expected to remember, months later, which five days the site
+was closed.
+
+But the data says it plainly. Measured over May–July 2026:
+
+| | headcount as a share of the month's median across expected working days |
+| --- | --- |
+| the eight days already known to be holidays | **2 % – 14 %** |
+| the emptiest ordinary working day (18 May) | **72 %** |
+
+There is a wide empty gap between "the site was shut" and "a quiet Monday", and nothing
+else in three months of data falls into it. Removing the known holidays from the
+calendar and re-running confirms the direction: the rule recovers **all seven** of May's
+and 15 July, with no false positive in any month.
+
+The two tightest cases are the 25–26 May bridge day and eve at 13–14 %, and they are
+instructive: most of their records are the Teknopark export's nominal `09:00–18:00`
+placeholder. The vendor writes those for a **company** closure but not for a statutory
+holiday, so a closure reads as emptier-than-normal rather than empty.
+
+### Decision
+
+**The program offers candidate days and marks nothing.** A day whose headcount falls
+below `plausibility.holiday_candidate_ratio` (0.35) of the month's median is reported on
+the `Kontrol` sheet with its numbers — `7 kişi — o ayın normal günü 130 kişi (%5)` — as a
+question. Only a human can say whether the site was shut, and whether by law or by
+company decision, and the two are paid differently in Phase 2.
+
+This is the one place the program points at a calendar day it was not told about, and
+the rule against inference (ADR-003) is why it stops at pointing. An inferred holiday
+that nobody confirmed is the same class of mistake as an inferred punch: it would change
+the expected-working-day denominator, and in Phase 2 it would change pay.
+
+Days already in the calendar are not offered — they are answered questions — and leave
+records are excluded from the count, because a day everybody took as collective leave is
+exactly the day being looked for.
+
+The threshold is a **share of the month's own median**, never a headcount. Ten people is
+a normal day at a ten-person site and a closed day at a hundred-person one.
+
+### Consequences
+
+- On the shipped calendar, all three months report **no candidates** — every known
+  holiday is already answered and no ordinary day comes close. The section only appears
+  when there is something to ask, which is what makes it worth reading.
+- It would have caught 15 July the first time July was run, a month before anybody
+  noticed (ADR-040).
+- **A candidate is not an anomaly.** It is a fact about a day, not about a person, so it
+  does not go through `anomalies.py` and shades nobody's row. Twenty people with a note
+  each, for a day the site was shut, would bury the notes that are about people.
+- `takvim.candidates` takes records and returns days: no I/O, no widgets, fully unit
+  tested with hand-computed expectations, and reusable by the window that will offer
+  these days for marking.
+- The threshold is in `config/`, with the measurement that produced it written next to
+  it. Raising it towards 0.7 starts accusing ordinary days; 0 disables the check.
+- **How a marked day gets back into the calendar file is still not built.** The
+  constraint from ADR-040 stands: the run reads the dates from a file, so the window
+  must edit the file rather than hold an answer for one run.

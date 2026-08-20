@@ -56,6 +56,8 @@ class Plausibility:
     repair_max: timedelta = timedelta(hours=20)
     # per person-month — catches a month that is mostly unaccounted for. ADR-030.
     sparse_month_ratio: float = 0.0  # 0 disables the check
+    # per DAY, across everybody — points at a day the site looks shut. ADR-041.
+    holiday_candidate_ratio: float = 0.0  # 0 disables the check
 
 
 @dataclass(frozen=True)
@@ -230,6 +232,11 @@ def load(config_dir: Path, period: str) -> Settings:
         # This one decides who a human is asked about, and a made-up default would
         # either accuse people or hide them, silently either way.
         sparse_month_ratio=float(pl_raw.get("sparse_month_ratio", 0) or 0),
+        # Same reasoning as above, one level up: absent disables it rather than
+        # inventing a threshold. This one only ever asks a question, so a wrong value
+        # costs noise rather than a wrong figure.
+        holiday_candidate_ratio=float(
+            pl_raw.get("holiday_candidate_ratio", 0) or 0),
     )
 
     # A payroll-affecting switch: required, and validated rather than defaulted, so a

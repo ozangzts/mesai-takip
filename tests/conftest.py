@@ -30,6 +30,7 @@ def settings() -> Settings:
             # DISABLES the check, so every test would pass against a rule the program
             # actually runs. test_config.py fails if these drift.
             sparse_month_ratio=0.5,
+            holiday_candidate_ratio=0.35,
         ),
         # Mirrors config/settings.yaml, including the `*.xls*` widening of ADR-020.
         # test_config.py fails if this drifts from the real file again.

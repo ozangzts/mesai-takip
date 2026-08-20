@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (40 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (41 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **359 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **371 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -114,6 +114,28 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 ---
 
 ## Bu turda ne yapıldı (2026-08-20)
+
+**Program artık tatil olabilecek günleri kendisi soruyor** (ADR-041). Takvim
+hardcode edilemez: dini bayramlar her yıl kayıyor, şirketin kapanma günleri ise hiçbir
+kaynak dosyada yok. Ama veri söylüyor — üç ayda ölçüldü:
+
+| | o ayın ortanca gününe oranı |
+| --- | --- |
+| tatil olduğu **bilinen** sekiz gün | **%2 – %14** |
+| tatil olmayan **en boş** iş günü (18 Mayıs) | **%72** |
+
+Aradaki boşluğa üç ayda hiçbir gün düşmüyor. Eşik %35, `config`'te, ölçümü
+yanında yazılı. Bilinen tatiller takvimden çıkarılıp koşulduğunda kural Mayıs'ın **yedisini de**
+ve 15 Temmuz'u geri buluyor, sıfır yanlış pozitifle — yani Temmuz ilk kez
+çalıştırıldığında 15 Temmuz'u yakalardı.
+
+**Program hiçbir günü kendisi işaretlemiyor**, sadece `Kontrol` sayfasında
+sayılarıyla soruyor. Bir günün neden boş olduğunu ve resmi tatil mi şirket kapanması mı olduğunu
+yalnızca insan bilir; ikisi Faz 2'de farklı ücretlenecek. Aday bir **gün** hakkında,
+kişi hakkında değil — kimsenin satırına not düşmüyor.
+
+Sıradaki adım pencere tarafı: ay ızgarası, adayların vurgulanması, ve işaretlenenin
+**takvim dosyasına yazılması** — koşu tarihleri dosyadan okumak zorunda.
 
 **Tatil takvimi düzeltildi** (ADR-040). Üç bulgu, tek sorudan çıktı — "tatilleri neye
 göre belirledin":

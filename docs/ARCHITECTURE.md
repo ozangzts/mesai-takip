@@ -228,6 +228,7 @@ and Windows will label a blocked window "not responding".
 | `test_merge.py` | cross-site union, repair, remote precedence, short days |
 | `test_snapshot.py` | the round trip the mail step depends on |
 | `test_report.py` | that a workbook can actually be written, for every severity |
+| `test_takvim.py` | which days get offered as “was the site shut?” — the rule, without a window |
 | `test_gui.py` | the window's period parsing, folder check, what it remembers, screen navigation, and the people screen's wiring |
 | `test_recipients.py` | who a filter admits, minus who was removed — the rule, without a window |
 | `test_config.py` | that the fixture has not drifted from the shipped config |

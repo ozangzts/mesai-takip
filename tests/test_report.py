@@ -214,6 +214,53 @@ def test_full_coverage_leaves_the_table_where_it_was(tmp_path, settings):
     assert "Dönemin tamamı kapsanıyor" in control
 
 
+def test_a_day_the_site_looked_shut_is_asked_about_with_its_numbers(tmp_path,
+                                                                   settings):
+    """The reader has to be able to judge the question, so it carries the counts.
+
+    "15.07.2026 Çar — 7 kişi, o ayın normal günü 130 kişi (%5)" can be agreed with or
+    dismissed at a glance. "Tatil olabilir" cannot.
+    """
+    from datetime import date
+
+    from mesai.models import HolidayCandidate
+
+    path = tmp_path / "aday.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "test.xlsx"},
+                       holiday_candidates=(HolidayCandidate(
+                           date(2026, 7, 15), people=7, median=130),)),
+        settings=settings, generated_at=datetime(2026, 8, 20, 12, 0),
+    )
+
+    control = "\n".join(
+        " ".join(str(c) for c in r if c is not None)
+        for r in openpyxl.load_workbook(path, read_only=True)["Kontrol"].iter_rows(
+            values_only=True))
+    assert "Tatil olabilecek günler" in control
+    assert "15.07.2026" in control
+    assert "7 kişi" in control and "130 kişi" in control and "%5" in control
+
+
+def test_no_candidate_means_no_section_at_all(tmp_path, settings):
+    """A section that says "nothing to ask" is a line nobody needs every month."""
+    path = tmp_path / "adaysiz.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "test.xlsx"}), settings=settings,
+        generated_at=datetime(2026, 8, 20, 12, 0),
+    )
+
+    control = "\n".join(
+        " ".join(str(c) for c in r if c is not None)
+        for r in openpyxl.load_workbook(path, read_only=True)["Kontrol"].iter_rows(
+            values_only=True))
+    assert "Tatil olabilecek" not in control
+
+
 def test_the_control_sheet_lists_only_this_month_s_holidays(tmp_path, settings):
     """July's report listed May's seven holidays under "assumptions behind the figures".
 

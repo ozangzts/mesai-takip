@@ -139,6 +139,29 @@ class MonthSummary:
 
 
 @dataclass(frozen=True)
+class HolidayCandidate:
+    """An expected working day on which almost nobody was present.
+
+    Not a holiday — a **question** for the operator, who is the only one who can say
+    whether the site was shut, and whether it was shut by law or by the company. The
+    program never marks one itself: an inferred holiday that nobody confirmed is the
+    same class of mistake as an inferred punch (ADR-003).
+
+    Why it can be detected at all, measured over May–July 2026: every day already known
+    to be a holiday carried 2–14 % of that month's weekday median headcount, while the
+    emptiest ordinary working day carried 72 %. The gap is wide enough to point at
+    without guessing inside it.
+    """
+    date: date
+    people: int                   # distinct people with any attendance record
+    median: int                   # the month's median across expected working days
+
+    @property
+    def share(self) -> float:
+        return self.people / self.median if self.median else 0.0
+
+
+@dataclass(frozen=True)
 class SourceCoverage:
     """How much of the reporting period one source actually covers.
 
@@ -186,4 +209,7 @@ class RunStats:
     # trailing run of expected working days with no record at all). The last one is
     # the partial-export signal — see SourceCoverage and ADR-020.
     coverage: dict[str, "SourceCoverage"] = field(default_factory=dict)
+    # Expected working days on which almost nobody was present — questions for the
+    # operator, not conclusions. See rules/takvim.py and ADR-041.
+    holiday_candidates: tuple["HolidayCandidate", ...] = ()
     roster_date: date | None = None      # roster export date, from the file itself

@@ -43,7 +43,7 @@ def test_the_fixture_mirrors_the_shipped_rules(settings, real_settings):
     """The rules that change payroll figures. A silent divergence here is worse than
     a failing test: the suite would be proving something about a config nobody runs."""
     assert settings.daily_hours == real_settings.daily_hours
-    assert settings.plausibility == real_settings.plausibility
+    assert settings.plausibility == real_settings.plausibility   # every field
     assert settings.brk.deduct == real_settings.brk.deduct
     assert settings.brk.minutes == real_settings.brk.minutes
     assert settings.remote_replaces == real_settings.remote_replaces
