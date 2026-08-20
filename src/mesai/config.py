@@ -56,8 +56,6 @@ class Plausibility:
     repair_max: timedelta = timedelta(hours=20)
     # per person-month — catches a month that is mostly unaccounted for. ADR-030.
     sparse_month_ratio: float = 0.0  # 0 disables the check
-    # per DAY, across everybody — points at a day the site looks shut. ADR-041.
-    holiday_candidate_ratio: float = 0.0  # 0 disables the check
 
 
 @dataclass(frozen=True)
@@ -80,21 +78,17 @@ class NominalDay:
 
 @dataclass(frozen=True)
 class Calendar:
-    """Which days are not working days.
+    """Which days are not working days. A set of dates, and the weekly rest days.
 
-    One kind. A statutory holiday and a day the site was shut are the same fact here —
-    the day is not an expected working day — and there was briefly a second category to
-    hold the difference. Nothing calculated them differently, so it bought a label and
-    cost a decision at every click (ADR-043). The label beside each date still says
-    which is which, in words, for whoever is asked to confirm the list.
+    The holidays used to be a `{date: name}` map, with a second map beside it for the
+    company's own closures. Both are gone (ADR-043, ADR-045): nothing in the program ever
+    read a name or told the two kinds apart, and the person marking the days is the
+    person who knows why. A day is a holiday or it is not.
     """
-    holidays: dict[date, str]
-    half_days: frozenset[date]
+    holidays: frozenset[date]
     rest_weekdays: frozenset[int]     # 0 = Monday
 
     def label(self, day: date) -> str:
-        # "Tatil", not "Resmi Tatil": the list holds bridge days and closures too, and
-        # calling those statutory in the sheet HR reads would be a claim about the law.
         if day in self.holidays:
             return "Tatil"
         return ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")[day.weekday()]
@@ -240,11 +234,6 @@ def load(config_dir: Path, period: str) -> Settings:
         # This one decides who a human is asked about, and a made-up default would
         # either accuse people or hide them, silently either way.
         sparse_month_ratio=float(pl_raw.get("sparse_month_ratio", 0) or 0),
-        # Same reasoning as above, one level up: absent disables it rather than
-        # inventing a threshold. This one only ever asks a question, so a wrong value
-        # costs noise rather than a wrong figure.
-        holiday_candidate_ratio=float(
-            pl_raw.get("holiday_candidate_ratio", 0) or 0),
     )
 
     # A payroll-affecting switch: required, and validated rather than defaulted, so a
@@ -287,20 +276,19 @@ def load(config_dir: Path, period: str) -> Settings:
     year = int(period.split("-")[0])
     cal_path = config_dir / f"takvim-{year}.yaml"
     cal_raw = _load_yaml(cal_path)
-    holidays = {_as_date(k, str(cal_path)): str(v)
-                for k, v in (cal_raw.get("holidays") or {}).items()}
-    # `admin_holidays` existed for one day (ADR-042, undone by ADR-043). Still read and
-    # folded in, so a calendar written while it existed does not quietly lose days.
-    holidays.update({_as_date(k, str(cal_path)): str(v)
-                     for k, v in (cal_raw.get("admin_holidays") or {}).items()})
-    half_days = frozenset(_as_date(d, str(cal_path))
-                          for d in (cal_raw.get("half_days") or []))
+    # Read through `takvim_file`, the same reader the window writes with, so the two
+    # halves cannot disagree about what the file means. It accepts the older shapes
+    # (named dates, and the retired `admin_holidays` block) as well.
+    from . import takvim_file
+
+    holidays = frozenset(takvim_file.read(cal_path))
+
     rest_names = cal_raw.get("weekly_rest_days") or ["saturday", "sunday"]
     try:
         rest = frozenset(_WEEKDAYS[str(n).lower()] for n in rest_names)
     except KeyError as exc:
         raise ConfigError(f"{cal_path}: bilinmeyen gün adı {exc}") from exc
-    calendar = Calendar(holidays=holidays, half_days=half_days, rest_weekdays=rest)
+    calendar = Calendar(holidays=holidays, rest_weekdays=rest)
 
     per_raw = _load_yaml(config_dir / "personel.yaml")
     prefixes = tuple(str(p).upper() for p in (per_raw.get("exclude_prefixes") or []))

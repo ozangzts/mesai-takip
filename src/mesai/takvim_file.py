@@ -1,25 +1,19 @@
-"""Reading and writing the calendar file without losing what it says about itself.
+"""Reading and writing the holiday list without losing what the file says about itself.
 
-`config/takvim-<yıl>.yaml` is loaded like any other config, but it is also the one
-config file the **window** writes back to. That rules out dumping it with PyYAML: the
-file carries thirty lines of comments explaining where each date came from, which of
-them are inferred, and what depends on the file — and the comment about what depends on
-it has already been wrong once (ADR-040). A round-trip that deletes those comments would
-delete the only warning a future reader gets.
+`config/takvim-<yıl>.yaml` is loaded like any other config, but it is also the one config
+file the **window** writes back to. That rules out dumping it with PyYAML: the file
+carries the note explaining what depends on it, and that note has already been wrong
+once (ADR-040). A round-trip that deletes it would delete the only warning a future
+reader gets.
 
-So the two date blocks are edited **as lines**. Everything outside them — comments,
-`weekly_rest_days`, `half_days`, blank lines, the order of the file — is copied through
-untouched. The blocks themselves are simple enough for this to be safe rather than
-clever: one `  YYYY-MM-DD: "label"` per line, and nothing else is allowed in them.
+So the date block is edited **as lines**. Everything outside it — comments,
+`weekly_rest_days`, blank lines, the order of the file — is copied through untouched.
 
-**One** kind of non-working day. There were briefly two — statutory and
-administrative — and they were merged again on the day they shipped, for the reason
-that killed the distinction: nothing calculated them differently. Both took the day out
-of the expected working days and nothing else, so the split bought a label and cost the
-operator a decision at every click. A day is a holiday or it is not (ADR-043).
-
-`admin_holidays` is still **read** if a file has it, and folded into the one map, so a
-calendar written during the day the split existed does not silently lose days.
+**A list of dates, and nothing else.** The dates used to carry a name each
+(`Emek ve Dayanışma Günü`) and there was briefly a second block for the company's own
+closures. Both are gone: a day is a holiday or it is not, nothing in the program ever
+read the name, and whoever marks the days knows why they marked them (ADR-045). The two
+older shapes are still **read**, so an existing calendar is not silently emptied.
 """
 
 from __future__ import annotations
@@ -30,11 +24,11 @@ from datetime import date
 from pathlib import Path
 
 HOLIDAYS = "holidays"
-# Read for compatibility, never written. See the module docstring.
-_RETIRED = "admin_holidays"
-BLOCKS = (HOLIDAYS,)
+# An older shape, read and migrated on the next save, never written.
+_RETIRED_BLOCK = "admin_holidays"
 
-_ENTRY = re.compile(r"^(\s+)(\d{4}-\d{2}-\d{2})\s*:\s*(.*?)\s*$")
+_ITEM = re.compile(r"^\s+-\s*(\d{4}-\d{2}-\d{2})\s*(#.*)?$")
+_MAPPING = re.compile(r"^\s+(\d{4}-\d{2}-\d{2})\s*:.*$")
 _BLOCK_START = re.compile(r"^([a-z_]+):\s*$")
 _INDENT = "  "
 
@@ -47,65 +41,33 @@ def path_for(config_dir: Path, year: int) -> Path:
     return config_dir / f"takvim-{year}.yaml"
 
 
-def read(path: Path) -> dict[str, dict[date, str]]:
-    """The two date blocks, as `{block: {date: label}}`. Missing blocks come back empty.
-
-    Deliberately not `yaml.safe_load`: writing goes through the line editor below, and
-    reading the same way is what keeps the two halves agreeing about what a block is.
-    """
-    found: dict[str, dict[date, str]] = {name: {} for name in BLOCKS}
+def read(path: Path) -> set[date]:
+    """Every holiday in the file, whichever of the three shapes it is written in."""
     if not path.is_file():
-        return found
-    readable = (*BLOCKS, _RETIRED)
-
-    current: str | None = None
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.split("#", 1)[0] if raw.lstrip().startswith("#") else raw
-        if not line.strip():
-            continue
-        start = _BLOCK_START.match(line)
-        if start:
-            current = start.group(1) if start.group(1) in readable else None
-            continue
-        if current is None:
-            continue
-        if not line.startswith(" "):        # a new top-level key ends the block
-            current = None
-            continue
-        entry = _ENTRY.match(line)
-        if entry:
-            day = date.fromisoformat(entry.group(2))
-            block = HOLIDAYS if current == _RETIRED else current
-            found[block][day] = _unquote(entry.group(3).split("#", 1)[0].strip())
-    return found
+        return set()
+    lines = path.read_text(encoding="utf-8").splitlines()
+    days = set(_dates(_body(lines, HOLIDAYS)))
+    days.update(_dates(_body(lines, _RETIRED_BLOCK)))
+    return days
 
 
-def write(path: Path, blocks: dict[str, dict[date, str]]) -> None:
-    """Replace the date block in place, leaving every other line alone.
+def write(path: Path, days: set[date]) -> None:
+    """Replace the holiday block, leaving every other line alone.
 
-    A block that exists in the file is rewritten where it stands; one that does not is
-    appended with its own heading. Written to a temporary file and moved into place, so
-    an interrupted save cannot leave a half-written calendar behind — this file decides
-    which days are working days.
+    Written to a temporary file and moved into place: this file decides which days are
+    working days, and a half-written one is worse than an unwritten one.
     """
-    for name in blocks:
-        if name not in BLOCKS:
-            raise CalendarFileError(f"bilinmeyen blok: {name!r}")
+    if not isinstance(days, (set, frozenset)):
+        raise CalendarFileError(f"tarih kümesi beklendi, {type(days).__name__} geldi")
 
     lines = path.read_text(encoding="utf-8").splitlines() if path.is_file() else []
-    # A retired block is taken over rather than left standing. Leaving it would write
-    # the same day twice — once here, once in a block nothing writes any more — and
-    # un-marking the day later would bring it back from the stale copy.
-    retired = _parse_block(_block_body(lines, _RETIRED)).labels
-    if retired:
-        adopted = dict(blocks.get(HOLIDAYS) or {})
-        for day, label in retired.items():
-            adopted.setdefault(day, label)
-        blocks = {**blocks, HOLIDAYS: adopted}
-        lines = _drop_block(lines, _RETIRED)
-
-    for name, entries in blocks.items():
-        lines = _replace_block(lines, name, entries)
+    # A retired block is taken over rather than left standing. Leaving it would keep the
+    # same day in two places, and un-marking it later would bring it back from the one
+    # nothing writes any more.
+    if _bounds(lines, _RETIRED_BLOCK):
+        days = set(days) | set(_dates(_body(lines, _RETIRED_BLOCK)))
+        lines = _drop(lines, _RETIRED_BLOCK)
+    lines = _replace(lines, HOLIDAYS, days)
 
     text = "\n".join(lines).rstrip("\n") + "\n"
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -113,11 +75,12 @@ def write(path: Path, blocks: dict[str, dict[date, str]]) -> None:
     temporary.replace(path)
 
 
+# --- the block, as lines ----------------------------------------------------
 
-def _block_bounds(lines: list[str], name: str) -> tuple[int, int] | None:
+def _bounds(lines: list[str], name: str) -> tuple[int, int] | None:
     start = next((index for index, line in enumerate(lines)
-                  if _BLOCK_START.match(line)
-                  and _BLOCK_START.match(line).group(1) == name), None)
+                  if (match := _BLOCK_START.match(line)) and match.group(1) == name),
+                 None)
     if start is None:
         return None
     end = start + 1
@@ -130,108 +93,75 @@ def _block_bounds(lines: list[str], name: str) -> tuple[int, int] | None:
     return start, end
 
 
-def _block_body(lines: list[str], name: str) -> list[str]:
-    bounds = _block_bounds(lines, name)
+def _body(lines: list[str], name: str) -> list[str]:
+    bounds = _bounds(lines, name)
     return lines[bounds[0] + 1:bounds[1]] if bounds else []
 
 
-def _drop_block(lines: list[str], name: str) -> list[str]:
-    bounds = _block_bounds(lines, name)
+def _dates(body: list[str]) -> list[date]:
+    found = []
+    for line in body:
+        match = _ITEM.match(line) or _MAPPING.match(line)
+        if match:
+            found.append(date.fromisoformat(match.group(1)))
+    return found
+
+
+def _drop(lines: list[str], name: str) -> list[str]:
+    bounds = _bounds(lines, name)
     if bounds is None:
         return lines
     start, end = bounds
     while start > 0 and not lines[start - 1].strip():
-        start -= 1                    # take the blank line that separated it
+        start -= 1                    # and the blank line that separated it
     return lines[:start] + lines[end:]
 
 
-def _replace_block(lines: list[str], name: str,
-                   entries: dict[date, str]) -> list[str]:
-    bounds = _block_bounds(lines, name)
-    if bounds is None:
-        if not entries:
-            return lines
-        return lines + ["", f"{name}:"] + [
-            f"{_INDENT}{day.isoformat()}: {_quote(label)}"
-            for day, label in sorted(entries.items())]
-    start, end = bounds
-
-    # A comment sitting above an entry explains THAT entry — the shipped file has two
-    # lines above 15 July saying why it is not an inference — so it travels with the
-    # date and is dropped with it. Comments before the first entry describe the block
-    # and stay at its top. Hoisting everything to the top instead passed every
-    # synthetic test and changed the real file, which is what
-    # `test_the_real_config_survives_a_round_trip_unchanged` is for.
-    old = _parse_block(lines[start + 1:end])
-    body: list[str] = []
-    for day, label in sorted(entries.items()):
-        body.extend(old.above.get(day, ()))
-        # A trailing note like `# INFERRED` describes the label beside it, so it is
-        # kept only while that label is unchanged. Carrying "INFERRED" onto a date
-        # somebody has just relabelled would turn a preserved comment into a false one.
-        was = old.labels.get(day)
-        suffix = old.trailing.get(day, "") if was == label else ""
-        body.append(f"{_INDENT}{day.isoformat()}: {_quote(label)}{suffix}")
-    return lines[:start] + [f"{name}:"] + old.heading + body + lines[end:]
-
-
 @dataclass(frozen=True)
-class _Block:
-    heading: list[str]                    # comments introducing the block
-    above: dict[date, list[str]]          # comment lines belonging to one date
-    trailing: dict[date, str]             # the `# ...` after a date's value
-    labels: dict[date, str]               # the label each date had on disk
+class _Comments:
+    heading: list[str]                # comments introducing the block
+    above: dict[date, list[str]]      # comment lines belonging to one date
 
 
-def _parse_block(block: list[str]) -> _Block:
-    """Take a block apart so a rewrite can put every comment back where it was.
+def _comments(body: list[str]) -> _Comments:
+    """Take the block apart so a rewrite can put every comment back where it was.
 
-    One ambiguity has to be resolved by convention: a comment run immediately before
-    the FIRST entry reads as an introduction to the block, while a run before any later
-    entry explains that entry. Both shapes are in the shipped file — the note about
-    listing the whole year opens the block, the two lines about 15 July belong to
-    15 July — and this is the reading that keeps both in place.
+    One ambiguity is resolved by convention: a comment run immediately before the FIRST
+    date reads as an introduction to the block, while a run before any later date
+    explains that date. Both shapes have been in the shipped file.
     """
     heading: list[str] = []
     above: dict[date, list[str]] = {}
-    trailing: dict[date, str] = {}
-    labels: dict[date, str] = {}
     pending: list[str] = []
     first = True
-
-    for line in block:
-        entry = _ENTRY.match(line)
-        if entry:
-            day = date.fromisoformat(entry.group(2))
+    for line in body:
+        match = _ITEM.match(line) or _MAPPING.match(line)
+        if match:
+            day = date.fromisoformat(match.group(1))
             if first:
                 heading, first = pending, False
             else:
                 above[day] = pending
             pending = []
-            value = entry.group(3)
-            marker = value.find("#")
-            labels[day] = _unquote(value[:marker].strip() if marker >= 0
-                                   else value.strip())
-            if marker >= 0:
-                trailing[day] = value[len(value[:marker].rstrip()):]
         elif line.lstrip().startswith("#"):
             pending.append(line)
-
-    # Comments after the last entry belong to no date. They are block-level notes and
-    # must survive, so they join the heading rather than being dropped.
-    if first:
-        heading = pending
-    else:
-        heading = heading + pending
-    return _Block(heading=heading, above=above, trailing=trailing, labels=labels)
+    # Comments after the last date belong to no date; they are block-level notes and
+    # have to survive, so they join the heading.
+    return _Comments(heading=(pending if first else heading + pending), above=above)
 
 
-def _quote(label: str) -> str:
-    cleaned = label.replace('"', "'").strip() or "Tatil"
-    return f'"{cleaned}"'
+def _replace(lines: list[str], name: str, days: set[date]) -> list[str]:
+    bounds = _bounds(lines, name)
+    if bounds is None:
+        if not days:
+            return lines
+        return lines + ["", f"{name}:"] + [
+            f"{_INDENT}- {day.isoformat()}" for day in sorted(days)]
 
-
-def _unquote(value: str) -> str:
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-        return value[1:-1]
-    return value
+    start, end = bounds
+    comments = _comments(lines[start + 1:end])
+    body: list[str] = []
+    for day in sorted(days):
+        body.extend(comments.above.get(day, ()))
+        body.append(f"{_INDENT}- {day.isoformat()}")
+    return lines[:start] + [f"{name}:"] + comments.heading + body + lines[end:]

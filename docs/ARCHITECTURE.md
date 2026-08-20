@@ -184,9 +184,6 @@ Seven presentation rules the window holds itself to, each of them a defect once:
   requested size of whatever it is showing, and the two screens do not ask for the
   same height — so opening `Kişiler` used to snap the window down and going back threw
   it up again. `App._fit` grows the window to fit and never shrinks it (ADR-038).
-- **A check belongs where its evidence is.** The empty-day check reads well on the
-  report's `Kontrol` sheet, which has the month's records in hand, and read badly on the
-  calendar screen, which had to inherit them from whatever ran last (ADR-044).
 - **A list that was replaced starts at its top.** A canvas keeps its scroll offset when
   its rows are destroyed and rebuilt, so a 2-person filter inherited a 60-person
   filter's position and showed an empty box. Reset is tied to the set of names shown,
@@ -236,8 +233,7 @@ and Windows will label a blocked window "not responding".
 | `test_merge.py` | cross-site union, repair, remote precedence, short days |
 | `test_snapshot.py` | the round trip the mail step depends on |
 | `test_report.py` | that a workbook can actually be written, for every severity |
-| `test_takvim_file.py` | editing the calendar file without losing its comments |
-| `test_takvim.py` | which days get offered as “was the site shut?” — the rule, without a window |
+| `test_takvim_file.py` | editing the holiday list without losing the file's comments |
 | `test_gui.py` | the window's period parsing, folder check, what it remembers, screen navigation, and the people screen's wiring |
 | `test_recipients.py` | who a filter admits, minus who was removed — the rule, without a window |
 | `test_config.py` | that the fixture has not drifted from the shipped config |

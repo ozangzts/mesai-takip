@@ -1,49 +1,35 @@
-# Public holidays and weekly rest days.
+# Tatil günleri ve hafta tatili.
 #
-# STATUS: not supplied by HR. The 2026-05 entries were INFERRED from the data; the
-# 2026-07 one is a fixed-date statutory holiday, confirmed against the data as well.
-# See docs/DATA-SOURCES.md §6.2 and open question Q16 in docs/ROADMAP.md.
+# Tatil günleri programı kullanan kişi tarafından işaretlenir — pencerede Takvim
+# ekranı. Program hiçbir günü kendisi tatil yapmaz.
 #
-# WHAT DEPENDS ON THIS FILE — the comment here used to say "only the Gün column
-# label", and that stopped being true:
+# BU DOSYAYA NELER DAYANIYOR — buradaki yorum bir kez "sadece Gün kolonu etiketi,
+# hiçbir saat hesabı buna dayanmıyor" diyordu ve yanlıştı. Bugünkü hâli:
 #
-#   1. the "Gün" column label in the daily detail sheet;
-#   2. `Calendar.expected_workdays`, which is the coverage guard's denominator
-#      (ADR-020) and the denominator of the `Ay büyük ölçüde boş` note (ADR-030);
-#   3. splitting a MULTI-DAY `Uzaktan Çalışma` row into per-day worked intervals,
-#      which skips holidays — so a missing holiday here can add paid hours.
+#   1. Günlük Detay sayfasındaki "Gün" kolonu etiketi (`Tatil`);
+#   2. `Calendar.expected_workdays` — kaynak dosya ayın tamamını kapsıyor mu
+#      kontrolünün ve `Ay büyük ölçüde boş` notunun paydası;
+#   3. Birden fazla günü kapsayan bir uzaktan çalışma beyanı güne bölünürken
+#      tatiller atlanır — yani buradan eksik bir gün ödenen saate dönüşebilir.
 #
-# A missing holiday therefore inflates the expected working days and can flag people
-# who were not actually absent. Measured on July 2026: adding 15 July removed two
-# such notes and changed nobody's hours.
+# Eksik bir tatil, beklenen iş günü sayısını şişirir ve aslında devamsız olmayan
+# kişileri işaretleyebilir. Buna karşılık bir tatil, ÇALIŞAN kimsenin saatini
+# eksiltmez: hafta sonu ve tatil çalışması tam sayılır (docs/KURALLAR.md §4).
 #
-# A holiday NEVER removes hours from somebody who worked. Weekend and holiday work
-# is counted in full (docs/KURALLAR.md §4) — seven people badged in on 15 July 2026
-# and kept every minute.
+# Yeni bir yıl için: `takvim-2027.yaml` açın, aynı iki anahtar yeter.
 
 weekly_rest_days: [saturday, sunday]
 
-# The fixed-date statutory holidays are listed for the WHOLE year, not just for the
-# months reported on so far. They are law and the same every year, so leaving them out
-# until a month needs them is how 15 July came to be missing from a July report. The
-# ones that move — Ramazan and Kurban Bayramı — cannot be listed this way and have to
-# be entered before running a month that contains one. A month with no entry at all is
-# called out on the report's Kontrol sheet.
 holidays:
-  2026-01-01: "Yılbaşı"
-  2026-04-23: "Ulusal Egemenlik ve Çocuk Bayramı"
-  2026-05-01: "Emek ve Dayanışma Günü"
-  2026-05-19: "Atatürk'ü Anma, Gençlik ve Spor Bayramı"
-  2026-05-25: "Toplu İzin (köprü)"          # INFERRED
-  2026-05-26: "Kurban Bayramı Arefesi"      # INFERRED - half day
-  2026-05-27: "Kurban Bayramı 1. Gün"       # INFERRED
-  2026-05-28: "Kurban Bayramı 2. Gün"       # INFERRED
-  2026-05-29: "Kurban Bayramı 3. Gün"       # INFERRED
-  # Fixed-date statutory holiday, so not an inference — and the data agrees twice
-  # over: 7 people badged in that Wednesday against a weekday median of 130 (5 %).
-  2026-07-15: "Demokrasi ve Millî Birlik Günü"
-  2026-08-30: "Zafer Bayramı"
-  2026-10-29: "Cumhuriyet Bayramı"
-
-half_days:
+  - 2026-01-01
+  - 2026-04-23
+  - 2026-05-01
+  - 2026-05-19
+  - 2026-05-25
   - 2026-05-26
+  - 2026-05-27
+  - 2026-05-28
+  - 2026-05-29
+  - 2026-07-15
+  - 2026-08-30
+  - 2026-10-29

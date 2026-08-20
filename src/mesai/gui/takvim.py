@@ -37,11 +37,6 @@ from ..config import ConfigError
 from . import widgets as w
 from .period import period_label
 
-HOLIDAY = takvim_file.HOLIDAYS
-# What a day is called when the operator marks one and the file had no name for it.
-# Deliberately plain: the program does not know whether the day was the law's or the
-# company's, and writing a guess into the file would be inventing a fact.
-_DEFAULT_LABEL = "Tatil"
 _DAY_NAMES = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
 
 _CELL_WIDTH = 5
@@ -57,10 +52,10 @@ class CalendarScreen:
         # {date: kind}, only for days in the month on display. The rest of the file is
         # held separately and written back untouched — a year's other months are not
         # this screen's business and must survive a save.
-        # {date: label} for the month on display. Other months are held apart and
-        # written back untouched — a year's other months are not this screen's business.
-        self.marks: dict[date, str] = {}
-        self._other: dict[date, str] = {}
+        # The month on display, and every other month held apart so a save writes it
+        # back untouched — a year's other months are not this screen's business.
+        self.marks: set[date] = set()
+        self._other: set[date] = set()
         self._cells: dict[date, tk.Label] = {}
         self._dirty = False
 
@@ -119,14 +114,9 @@ class CalendarScreen:
         """Show `period`, as the calendar file has it."""
         self.period = period
         year, month = self._year_month()
-        entries = takvim_file.read(self._path())[HOLIDAY]
-        self.marks = {}
-        self._other = {}
-        for day, label in entries.items():
-            if (day.year, day.month) == (year, month):
-                self.marks[day] = label
-            else:
-                self._other[day] = label
+        days = takvim_file.read(self._path())
+        self.marks = {day for day in days if (day.year, day.month) == (year, month)}
+        self._other = days - self.marks
         self._dirty = False
         self._paint()
 
@@ -206,13 +196,8 @@ class CalendarScreen:
         return cell
 
     def toggle(self, day: date) -> None:
-        """Holiday or not. A name the file already had is kept when it comes back."""
-        if day in self.marks:
-            self._forgotten = (day, self.marks.pop(day))
-        else:
-            previous = getattr(self, "_forgotten", (None, None))
-            self.marks[day] = (previous[1] if previous[0] == day
-                               else _DEFAULT_LABEL)
+        """Holiday or not. That is the whole state of a day."""
+        self.marks.symmetric_difference_update({day})
         self._dirty = True
         self._paint()
 
@@ -229,12 +214,9 @@ class CalendarScreen:
 
     # --- saving ------------------------------------------------------------
     def _save(self) -> None:
-        # The month on display, plus every other month exactly as it was read.
-        entries = dict(self._other)
-        entries.update(self.marks)
-        blocks = {HOLIDAY: entries}
         try:
-            takvim_file.write(self._path(), blocks)
+            # The month on display, plus every other month exactly as it was read.
+            takvim_file.write(self._path(), self._other | self.marks)
         except PermissionError:
             # The likely shape of this once the program is a single .exe: the config
             # folder sitting somewhere the user cannot write to. Naming the folder and

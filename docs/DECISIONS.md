@@ -2517,3 +2517,67 @@ which is exactly what the screen did not.
   for the screen to read the month's records itself, not to inherit them from whatever
   ran last. That would mean the screen needing an input folder, which is a bigger claim
   on the design than it is worth today.
+
+---
+
+## ADR-045 — The calendar is a list of dates, and the empty-day check is gone
+
+2026-08-20 · Status: **Accepted** · Supersedes the label half of **ADR-040** and all of
+**ADR-041** / **ADR-044** · Decided by: project owner
+
+### Context
+
+Two things the operator said, both of which stand up.
+
+**1. The empty-day check.** ADR-041 found days on which almost nobody was present and
+reported them on the `Kontrol` sheet; ADR-044 kept that after removing the screen half.
+The justification given for keeping it was that it *"would have caught 15 July a month
+before anybody did"* — **and that was wrong.** July's first report was produced on
+18–19 August and the omission was noticed on the 20th; the check would have bought about
+a day, not a month.
+
+The rest of the objection is structural: the check can only see a month whose data is
+already in hand. It cannot say anything about September, and by the time it speaks, the
+month's report has already been produced — possibly sent. With the fixed-date statutory
+holidays now listed for the whole year, what was left for it to catch was a closure the
+operator forgot to mark in the same session they were marking closures in.
+
+**2. The names.** Each date carried one (`Emek ve Dayanışma Günü`, `Toplu İzin (köprü)`).
+Nothing in the program ever read a name. They existed to let HR confirm the list — and
+the person who runs this monthly says confirming the list is not an HR question: they
+pick the folder, mark the holidays, done.
+
+### Decision
+
+**`config/takvim-<yıl>.yaml` holds a list of dates and the weekly rest days.** No names,
+no categories, no `half_days` — that last one was parsed into `Calendar` and read by
+nothing, so it advertised a rule that does not exist. `Calendar.holidays` is a
+`frozenset[date]`.
+
+**The empty-day check is deleted** — `rules/takvim.py`, `HolidayCandidate`, the
+threshold in `config/`, the `Kontrol` section, and their tests. The holiday section of
+that sheet now lists the month's marked dates plainly, with no claim about who confirmed
+them.
+
+Both older file shapes are still **read** — named dates, and the retired
+`admin_holidays` block — so an existing calendar is not silently emptied, and the retired
+block is removed on the next save.
+
+### Consequences
+
+- Measured across all three months after the change: **no person's hours changed**, and
+  the reported totals are identical to the figures already on the operator's Desktop.
+- The program is smaller by a rule module, a model, a config threshold, a report section
+  and 12 tests, and the calendar file went from 40 lines of dates-with-provenance to 12
+  lines of dates.
+- **What was lost:** if a holiday is never marked, nothing now notices. The day counts
+  as an expected working day, which inflates the coverage denominator and can flag
+  somebody as absent who was not. That is the operator's trade to make — they are the
+  one marking the days, in the same sitting, for the month in front of them.
+- The `Kontrol` sheet no longer says "İK onaylamadı" beside the holidays. It was never
+  a question HR had been asked, and printing it as though a confirmation were pending
+  made the report claim a process that did not exist. ROADMAP Q16 goes with it.
+- The general lesson, and the reason this ADR exists rather than a quiet revert: **a
+  justification built on an unchecked number is not a justification.** The "a month
+  before" figure was written into two ADRs and repeated to the operator before anybody
+  compared it to the dates in the git log.

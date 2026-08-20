@@ -117,20 +117,11 @@ Mayıs 2026'da ölçülen:
 
 ### Tatil listesi nereden geliyor
 
-**İK vermedi.** Şu an iki kaynağı var:
+**Programı kullanan kişi işaretler.** Başka bir kaynağı yok: program hiçbir günü
+kendisi tatil yapmaz, hiçbir öneri göstermez, hiçbir yerden tatil listesi çekmez.
 
-| Tür | Nereden | Örnek |
-| --- | --- | --- |
-| Sabit tarihli resmi tatiller | **Kanun** — her yıl aynı, yılın tamamı yazılı | 1 Ocak, 23 Nisan, 1 Mayıs, 19 Mayıs, 15 Temmuz, 30 Ağustos, 29 Ekim |
-| Dini bayramlar ve köprü günleri | **Veriden çıkarıldı**, onay bekliyor | Kurban Bayramı bloğu (25–29 Mayıs 2026) |
-
-Dini bayramlar her yıl kayar, yani kanundan hesaplanamaz; o ayı çalıştırmadan önce
-elle girilmesi gerekir. Bir ayda hiç tatil tanımlı değilse rapor bunu `Kontrol`
-sayfasında turuncuyla yazar — sessiz kalmaz, çünkü sessizlik "tatil yoktu" gibi okunur.
-
-15 Temmuz 2026 bir süre listede yoktu ve kimse fark etmedi: kimsenin saati yanlış
-değildi, sadece iki kişi haksız yere "ayı boş" diye işaretlenmişti. Veri o günü tek
-başına gösteriyordu — hafta içi ortanca 130 kişi, o gün 7 kişi.
+Takvimde tarihlerden başka bir şey tutulmaz — hangi bayram olduğu, kanundan mı geldiği,
+şirketin kararı mı olduğu yazılmaz. Hesap açısından hepsi aynı: o gün çalışılmıyor.
 
 ### Tatil günleri programa nasıl giriliyor
 
@@ -151,26 +142,6 @@ Kaydetmek, takvim dosyasını günceller. **Kaydettikten sonra raporu yeniden ü
 gerekir** — saatler o dosyaya göre hesaplanır. Tıklamak tek başına hiçbir rakamı
 değiştirmez; ekran da bunu söylüyor.
 
-### Rapor, tatil olabilecek günleri sorar
-
-Tatil günleri **elle** işaretlenir; program hiçbir günü kendisi işaretlemez ve pencerede
-hiçbir öneri göstermez. Ama takvimde olmayan bir iş gününde **neredeyse kimse yoksa**,
-rapor bunu `Kontrol` sayfasında sayılarıyla sorar:
-
-> `15.07.2026  Çar  —  7 kişi, o ayın normal günü 130 kişi (%5)`
-
-**Program bunu kendisi tatil olarak işaretlemez.** Bir günün neden boş olduğunu — resmi
-tatil mi, şirket kapalı mıydı, başka bir şey mi — yalnızca insan bilir, ve Faz 2'de
-resmi tatil ile şirket kapanması farklı ücretlenecek. Program tahmin etmez, sorar.
-
-Eşik: o ayın normal gününün **%35'i**. Bu sayı ölçümden geliyor — üç ayda tatil olduğu
-bilinen sekiz günün hepsi %2–14 arasında, tatil olmayan en boş gün ise %72. Aradaki
-boşluğa hiçbir gün düşmüyor.
-
-Bu soru bir **gün** hakkındadır, kişi hakkında değil — yani kimsenin satırına not
-düşmez. Şirketin kapalı olduğu bir gün için yirmi kişiye not düşmek, gerçekten kişiyle
-ilgili olan notları gömerdi.
-
 ### "İş günü" kavramı nerede kullanılıyor
 
 Program bir de "beklenen iş günü" sayısı tutar — hafta içi günler, resmi tatiller
@@ -185,6 +156,9 @@ haksız yere işaretlenmez.
 Tatil listesinin saatlere dokunduğu **tek** yer var: **birden fazla günü kapsayan**
 bir uzaktan çalışma beyanı güne bölünürken tatiller atlanır. Kart basan kimsenin
 saatine hiçbir tatil dokunmaz.
+
+Bir gün tatil olarak işaretlenmezse program bunu fark etmez — o gün beklenen iş günü
+sayılır. Bu, işaretlemeyi yapan kişinin sorumluluğunda.
 
 ### Henüz yapılmayan
 

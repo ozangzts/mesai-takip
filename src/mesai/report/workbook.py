@@ -288,8 +288,7 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
                                 if w.key in employees else ""), w.date),
     ):
         employee = employees.get(workday.key)
-        label = settings.calendar.holidays.get(workday.date)
-        day_label = "Tatil" if label else _DAY_NAMES[workday.date.weekday()]
+        day_label = settings.calendar.label(workday.date)
 
         if settings.brk.deduct:
             middle_values = [hhmm(workday.gross), hhmm(workday.break_deduction),
@@ -316,7 +315,7 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
         fill = None
         if workday.tags:
             fill = styles.AMBER_FILL
-        if label:
+        if settings.calendar.is_holiday(workday.date):
             fill = styles.GREY_FILL
         styles.style_row(sheet, row, span, fill)
         row += 1
@@ -730,25 +729,16 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     # for, so July's report listed May's seven holidays — dates outside the period it
     # reports on, presented as assumptions behind its figures.
     year, month = (int(part) for part in period.split("-"))
-    in_period = {day: label for day, label in settings.calendar.holidays.items()
-                 if (day.year, day.month) == (year, month)}
+    in_period = sorted(day for day in settings.calendar.holidays
+                       if (day.year, day.month) == (year, month))
     if in_period:
         line("Tatil günleri", f"{len(in_period)} gün",
-             "Bu aya ait tatiller — İK onaylamadı", styles.AMBER_FILL)
-        for day, label in sorted(in_period.items()):
-            line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()], label)
+             "Takvimde bu ay için işaretli günler")
+        for day in in_period:
+            line(f"  {day.strftime('%d.%m.%Y')}", _DAY_NAMES[day.weekday()])
     else:
-        line("Tatil günleri", "bu ay için tanımlı değil",
-             "Takvimde bu aya ait gün yok — varsa eklenmeli", styles.AMBER_FILL)
-    if stats.holiday_candidates:
-        line("Tatil olabilecek günler", f"{len(stats.holiday_candidates)} gün",
-             "Bu iş günlerinde neredeyse kimse yoktu — tatil miydi?",
-             styles.AMBER_FILL)
-        for candidate in stats.holiday_candidates:
-            line(f"  {candidate.date.strftime('%d.%m.%Y')}",
-                 _DAY_NAMES[candidate.date.weekday()],
-                 f"{candidate.people} kişi — o ayın normal günü {candidate.median} "
-                 f"kişi (%{candidate.share * 100:.0f})")
+        line("Tatil günleri", "bu ay için işaretli gün yok",
+             "Varsa pencerenin Takvim ekranından işaretlenir", styles.AMBER_FILL)
     if settings.brk.deduct:
         line("Öğle arası", f"{settings.brk.minutes} dk",
              f"kalan mola kuralı, pencere {settings.brk.window_from:%H:%M}-"

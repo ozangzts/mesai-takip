@@ -20,7 +20,6 @@ from .models import (
 )
 from .readers import LayoutError, find_sources, izin, macunkoy, roster, teknopark
 from .report import workbook as report_workbook
-from .rules import takvim
 from . import snapshot as snapshot_module
 
 
@@ -108,9 +107,6 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     # A file can be internally perfect and still describe half a month. July 2026's
     # Teknopark export stopped on the 19th and every other guard passed. ADR-020.
     stats.coverage = _coverage(records, period, settings)
-    # A question about the calendar, not about the records: which expected working days
-    # look like the site was shut. Nothing is marked — see rules/takvim.py.
-    stats.holiday_candidates = takvim.candidates(records, period, settings)
 
     # --- stage 3: normalize / resolve identity -----------------------------
     employees = _resolve_employees(records, leave, roster_entries)

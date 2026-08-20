@@ -47,19 +47,6 @@ plausibility:
   # somebody whose records went missing — and that is exactly the person to ask about.
   # ADR-030.
   sparse_month_ratio: 0.5
-  # A DAY on which almost nobody was present, as a share of the month's median
-  # headcount across its expected working days. Below this, the day is offered to the
-  # operator as "was the site shut?" — it is never marked as a holiday by the program.
-  #
-  # Measured over May-July 2026: the eight days already known to be holidays carried
-  # 2-14 % of their month's median, and the emptiest ordinary working day carried 72 %.
-  # 0.35 sits in the middle of that gap. The tightest cases are the 25-26 May bridge
-  # day and eve at 13-14 %, where the Teknopark export still wrote its nominal
-  # 09:00-18:00 day — it does that for a company closure but not for a statutory
-  # holiday, so a closure reads as emptier-than-normal rather than empty.
-  #
-  # Raising this towards 0.7 starts accusing ordinary days; 0 disables the check.
-  holiday_candidate_ratio: 0.35
   # A person-DAY longer than this is flagged — counted, never excluded. A 16-hour day
   # is real work until somebody says otherwise (ADR-032).
   # Also the ceiling for

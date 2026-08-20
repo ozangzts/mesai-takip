@@ -8,7 +8,7 @@ file as part of that work.
 | 0 | Understand the data, agree the plan | **Done** — 2026-08-03 |
 | 1 | Total hours worked per employee per month | **Done** — 2026-08-03 |
 | 1b | Validate against a second month | **Done** — June 2026 runs clean |
-| 2 | Overtime, shifts, Multinet, holidays | Blocked on Q5–Q8, Q16 |
+| 2 | Overtime, shifts, Multinet, holidays | Blocked on Q5–Q8 |
 | 3 | Leave integration, excused absence, assignments | Not started |
 | 4a | Drive ingestion automation | **Deferred** — manual by decision, 2026-08-03 (Q21) |
 | 4c | Desktop window, no terminal needed | **Done** — 2026-08-18, `arayuz.cmd` |
@@ -27,7 +27,7 @@ is narrower than what it computes.
 | "These records are internally consistent and correctly merged across sites" | **Yes** — verified algorithm, tested |
 | "Here are all the records that are missing or suspect" | **Yes** — that is the anomaly sheet's job |
 | "This is how many hours person X actually worked in May" | **No** — Q4, ~426 unaccounted days |
-| "This is ready for payroll" | **No** — Q4, Q16 |
+| "This is ready for payroll" | **No** — Q4 |
 | "This can be e-mailed to employees" | **No** — Q4, Q18 |
 
 The May run is therefore a **validation run**: it proves the pipeline, produces the
@@ -309,7 +309,7 @@ Nasıl okunur:
   sorulduğunu bilmesi gerekiyor.
 
 **Önce kovalanması gereken dördü:** **Q4** (bir tesisin mesai verisi tamamen eksik
-mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
+mi), **Q18** (işe giriş/çıkış tarihleri),
 **Q5/Q6** (Faz 2'nin başlayamadığı fazla mesai kuralları).
 
 ### Cevaplananlar
@@ -330,6 +330,7 @@ mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
 | Q10 | Dışa aktarım formatı ay ay değişiyor mu? | **DEĞİŞTİ — 2026-08-18'de bu cevap geçersiz kaldı.** Haziran hiçbir değişiklik gerektirmemişti, ama Temmuz'da Macunköy dosyası `.xls`'e döndü, `Personel` kolonu kalktı ve başlık satırı aşağı kaydı. Okuyucular artık kabı ve kolon konumlarını keşfediyor. ADR-020, `DATA-SOURCES.md` D10 |
 | Q13 | **`Eğitim İzni` uzaktan çalışma gibi çalışma sayılacak mı?** | **Hayır — izin.** İK onayladı. `Uzaktan Çalışma` dışındaki bütün türler izin; liste kapalı. "Kayıtlarında saat var" gerekçesi eğitime özgü değildi: on iki türün hepsinde her satırda saat var, yıllık izin dahil. Ölçülen alternatif maliyeti: Mayıs +18:26, Haziran +4:53 — çoğu eğitim saati zaten kart basılan günün içinde kalıyor. ADR-037 |
 | Q23 | **Temmuz Teknopark dosyası ayın tamamını kapsamıyordu (1–19 Temmuz). Tam ay için yeniden alınabilir mi?** | **Alındı — 2026-08-20.** `Teknopark - Temmuz.xlsx` ayın 1–31'ini kapsıyor; iki kaynak da 23 iş gününün 23'ünde kayıt taşıyor, koşu `0` koduyla çıkıyor. Toplam 16 078:44 → **26 233:17** (+10 154:33, ayın yarısı). Guard eksiği doğru yakalamış ve doğru bırakmıştı. **Dosyaların her ay ayın kaçında alınacağı hâlâ belirsiz** — bir sonraki ayın aynı hataya düşmemesi buna bağlı. ADR-020, `DATA-SOURCES.md` D12 |
+| Q16 | Resmi tatil takvimini İK onaylasın mı? | **Hayır, İK'ya sorulacak bir şey değil.** Tatilleri programı kullanan kişi pencerede işaretliyor; takvimde tarihten başka bir şey tutulmuyor. ADR-045 |
 | Q14 | Teknopark dosyası kesilmiş mi (31 günün sadece 21'i var)? | **Hayır.** Eksik günler hafta sonları artı 27–31 Mayıs tatil bloğu; ofis kapalıyken Macunköy üretimi çalışıyordu. `DATA-SOURCES.md §6.2` |
 | Q15 | Sıralama ve eşleştirme isimle mi sicil numarasıyla mı? | **İsim anahtar ve sıralama ölçütü**; sicil numarası bilgi amaçlı ve sadece izin dosyasından. ADR-009 |
 | Q17 | Faz 4 için personel e-posta adresleri nereden gelecek? | Personel listesinden — 181 kişinin hepsinde dolu. Mesai kaydı olanların %97'si kapsanıyor; kalanlar Q4 kapsamında |
@@ -350,6 +351,5 @@ mi), **Q18** (işe giriş/çıkış tarihleri), **Q16** (resmi tatil takvimi),
 | Q7 | Otomatik vardiya atamasında giriş saati pencereleri tam olarak ne; `2. Vardiya` henüz yok — ne zaman devreye girecek? | Faz 2 | Yanlış vardiya ⇒ yanlış beklenen saat |
 | Q8 | Resmi tatil çalışmasının ücret mi izin mi olacağına kim nasıl karar veriyor, bu bilgi nereden gelecek? | Faz 2 | Mevcut hiçbir dosyadan çıkarılamıyor |
 | Q12 | Raporun tamamını kim alabilir? Departman bazlı bölünmesi gerekiyor mu? | Faz 1 çıktısı | 162 kişinin kişisel verisi tek dosyada |
-| Q16 | **Tatil listesini onaylayın.** Sabit tarihli olanlar kanundan geliyor ve artık yılın tamamı yazılı (1 Ocak, 23 Nisan, 1 Mayıs, 19 Mayıs, 15 Temmuz, 30 Ağustos, 29 Ekim). Onay bekleyen kısım **veriden çıkarılan** Kurban Bayramı bloğu: 25 Mayıs köprü, 26 Mayıs yarım gün, 27–29 Mayıs. Ayrıca: **dini bayramlar her yıl kayıyor ve şirketin kendi kapanma günleri hiçbir dosyada yok** — bunlar programa nasıl girecek? | Faz 2 | Tatil ücretini belirliyor. ADR-040 |
 | Q20a | **Teknopark puantajındaki nominal `09:00–18:00` satırları neden yazılıyor?** Mayıs'ta 319, Haziran'da 418 satır; %90'ının arkasında uzaktan çalışma beyanı yok, yani tetikleyici sadece uzaktan çalışma değil. Kalanların sebebi hiçbir dosyadan çıkmıyor (görev, seyahat, unutulan kart?) | Hiçbir şeyi bloke etmiyor — ADR-017 ile çalışma sayılıyor | Raporun ~%17'si bu satırlardan geliyor. Cevap "bordroda ödenmiyor" olursa yeni bir ADR ve ~%17 düşüş demek. `DATA-SOURCES.md` D11 |
 | **Q21** | **Kaynak dosyalar her ay Google Drive'a yükleniyor. Hangi entegrasyon?** Elle (bugünkü), Drive for Desktop (sürücü harfi, kod değişikliği yok), Drive API (gözetimsiz, ağ bağımlılığı ekler), ya da mevcut `Y:` ağ sürücüsü. Ayrıca: klasör ay başına ayrı mı? Erişimi kimde? | Faz 4 | 2026-08-03'te **şimdilik elle** kalmasına karar verildi. **2026-08-18: klasör yapısı belli oldu** — dosyalar `Y:` ağ paylaşımında, ay başına ayrı klasör, `AA - YYYY` biçiminde adlandırılmış. Yani Drive API'ye gerek yok, mevcut ağ sürücüsü yeterli. Erişim yetkisinin kimde olduğu hâlâ bilinmiyor. README "İleride: Drive otomasyonu" |

@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (44 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (45 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **399 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **387 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -124,47 +124,24 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 
 ## Bu turda ne yapıldı (2026-08-20)
 
-**Program artık tatil olabilecek günleri kendisi soruyor** (ADR-041). Takvim
-hardcode edilemez: dini bayramlar her yıl kayıyor, şirketin kapanma günleri ise hiçbir
-kaynak dosyada yok. Ama veri söylüyor — üç ayda ölçüldü:
+**Takvim sadeleşti: tarih listesi, başka bir şey yok** (ADR-045). Proje sahibinin iki
+itirazı da haklı çıktı:
 
-| | o ayın ortanca gününe oranı |
-| --- | --- |
-| tatil olduğu **bilinen** sekiz gün | **%2 – %14** |
-| tatil olmayan **en boş** iş günü (18 Mayıs) | **%72** |
+- **Boş gün kontrolü silindi.** Tutma gerekçem "15 Temmuz'u bir ay önce yakalardı"
+  idi ve **yanlıştı** — Temmuz ilk kez 18–19 Ağustos'ta üretildi, eksik 20 Ağustos'ta
+  fark edildi, yani kontrol bir gün kazandırırdı. Ayrıca kontrol sadece verisi elde
+  olan bir ayı görebiliyor; Eylül hakkında hiçbir şey söyleyemez ve konuştuğunda o
+  ayın raporu çoktan üretilmiş olur.
+- **Tarihlerin adı silindi.** Programda hiçbir şey adı okumuyordu; İK'nın onaylaması
+  için duruyorlardı, ama bu İK'ya sorulacak bir şey değil (Q16 kapandı).
 
-Aradaki boşluğa üç ayda hiçbir gün düşmüyor. Eşik %35, `config`'te, ölçümü
-yanında yazılı. Bilinen tatiller takvimden çıkarılıp koşulduğunda kural Mayıs'ın **yedisini de**
-ve 15 Temmuz'u geri buluyor, sıfır yanlış pozitifle — yani Temmuz ilk kez
-çalıştırıldığında 15 Temmuz'u yakalardı.
+Giden: `rules/takvim.py`, `HolidayCandidate`, config eşiği, `Kontrol` bölümü, 12 test,
+ve `half_days` — o da `Calendar`'a okunup hiçbir yerde kullanılmıyordu, yani var olmayan
+bir kuralı ima ediyordu. Takvim dosyası 40 satırdan 12 satıra indi.
 
-**Program hiçbir günü kendisi işaretlemiyor**, sadece `Kontrol` sayfasında
-sayılarıyla soruyor. Bir günün neden boş olduğunu ve resmi tatil mi şirket kapanması mı olduğunu
-yalnızca insan bilir; ikisi Faz 2'de farklı ücretlenecek. Aday bir **gün** hakkında,
-kişi hakkında değil — kimsenin satırına not düşmüyor.
-
-**Üçüncü ekran geldi: Takvim** (ADR-042). Ayın günleri ızgara halinde; bir tıklama
-günü sırayla **iş günü → resmi tatil → idari tatil** yapıyor, hafta sonuna
-tıklanamıyor. Koşulan ayla açılıyor, adaylar `?` ve sayılarıyla işaretli ama **hiçbiri
-önceden seçili değil**. Kaydetmek `config/takvim-<yıl>.yaml`'ı güncelliyor.
-
-Mimarideki kilit nokta: ekran bir **dosya düzenleyicisi**, hafızada cevap tutan bir
-diyalog değil. Aynı ayın iki koşusu aynı workbook'u üretmek zorunda (AGENTS §2.1).
-
-`takvim_file.py` dosyayı **satır satır** düzenliyor, `yaml.safe_dump` ile değil: dosya
-hangi tarihin nereden geldiğini ve nelerin ona dayandığını anlatan otuz satır yorum
-taşıyor, ve o son not bir kez zaten yanlış çıktı (ADR-040). En sıkı test şu — gerçek
-takvimi kendi içeriğiyle yeniden yazmak **birebir aynı dosyayı** vermeli; ilk
-uygulamam bütün sentetik testleri geçip bu testte iki kez düştü.
-
-**Tek tür var: tatil** (ADR-043). Kısa süre iki kategori vardı — resmi ve idari —
-ama ölçüldü: hiçbir hesap ikisini farklı işlemiyordu. Bir gün ya tatildir ya
-değildir; tıklama iki durumlu. Günün ne olduğu takvimdeki adında duruyor.
-`admin_holidays` hâlâ **okunuyor** ve tek bloğa katlanıyor, kaydederken de eski
-blok siliniyor — yoksa aynı gün iki yerde durur ve işaret kaldırılınca bayat
-kopyadan geri gelir. Bunu inceleme değil, göç için yazılan test buldu.
-`Günlük Detay`'daki etiket `Resmi Tatil` yerine **`Tatil`** — listede köprü günleri
-ve kapanmalar da var, onlara kanun demek desteklenmeyen bir iddiaydı.
+**Kaybedilen:** bir tatil hiç işaretlenmezse artık kimse fark etmiyor. O gün beklenen
+iş günü sayılır ve devamsız olmayan biri işaretlenebilir. Bu, işaretlemeyi yapan
+kişinin tercihi.
 
 **Tatil takvimi düzeltildi** (ADR-040). Üç bulgu, tek sorudan çıktı — "tatilleri neye
 göre belirledin":
