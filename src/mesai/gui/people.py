@@ -37,7 +37,10 @@ class PeopleScreen:
         self.filter_key = recipients.ALL
         self.excluded: set[str] = set()
         self._choices: tuple[recipients.Choice, ...] = ()
-        self._rows: list[tuple[str, tk.BooleanVar]] = []
+        # (name, row id) in display order. The tick itself is not stored here —
+        # `excluded` is the one place it lives, and the glyph is drawn from it.
+        self._rows: list[tuple[str, str]] = []
+        self._pointer_in_list = False
 
         self._build(parent)
         self._repaint()
@@ -75,29 +78,73 @@ class PeopleScreen:
                                        font=(w.FACE, 10))
         self.filter_box.grid(row=0, column=0, sticky="w", ipady=3)
         self.filter_box.bind("<<ComboboxSelected>>", self._filter_changed)
+        self.filter_box.bind("<MouseWheel>", self._wheel_over_filter)
 
         self.filter_note = tk.Label(filter_row, background=w.BG, foreground=w.MUTED,
                                     font=(w.FACE, 9), anchor="w", justify="left")
         self.filter_note.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
         # --- the list ----------------------------------------------------
+        #
+        # A `ttk.Treeview`, not a frame of labels inside a canvas. The frame worked and
+        # was smooth enough at ten rows; at a real month's 171 it was not. Measured:
+        # 856 widgets, 1 065 ms to draw the list, and 58 ms for one scroll step (worst
+        # 145 ms), because tk repositions every one of those widgets on every step.
+        # That is what the operator saw as rows smearing over each other while dragging
+        # and settling once released. The same 171 rows in a Treeview: 20 ms to redraw,
+        # 17.7 ms per step, worst 19 ms — it draws text instead of moving widgets.
+        # ADR-039.
         card = tk.Frame(body, background=w.LINE)
         card.grid(row=5, column=0, sticky="nsew")
         card.columnconfigure(0, weight=1)
         card.rowconfigure(0, weight=1)
-        self.canvas = tk.Canvas(card, background=w.CARD, highlightthickness=0,
-                                borderwidth=0)
-        self.canvas.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
-        self._scroll = ttk.Scrollbar(card, orient="vertical",
-                                     command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self._scrolled)
-        self.canvas.bind("<MouseWheel>", self._wheel)
 
-        self.list_frame = tk.Frame(self.canvas, background=w.CARD)
-        self._window = self.canvas.create_window((0, 0), window=self.list_frame,
-                                                 anchor="nw")
-        self.list_frame.bind("<Configure>", self._resized)
-        self.canvas.bind("<Configure>", self._canvas_resized)
+        style = ttk.Style()
+        style.configure("Kisiler.Treeview", background=w.CARD, fieldbackground=w.CARD,
+                        foreground=w.INK, font=(w.FACE, 9), rowheight=_ROW_HEIGHT,
+                        borderwidth=0, relief="flat")
+        # The vista theme draws a sunken border around a Treeview and offers no option
+        # to turn it off; the card's hairline is the border here, so the element is
+        # taken out of the layout instead.
+        style.layout("Kisiler.Treeview",
+                     [("Treeview.treearea", {"sticky": "nswe"})])
+
+        self.tree = ttk.Treeview(
+            card, style="Kisiler.Treeview", show="", selectmode="none",
+            columns=("tik", "ad", "saat", "diger", "eposta"))
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        for column, width, anchor, stretch in (
+                ("tik", 34, "center", False),
+                ("ad", 210, "w", False),
+                # Right-aligned rather than set in the fixed-width face: a Treeview
+                # takes one font for the whole widget, and lining up the ends of the
+                # figures is what made this column readable without one.
+                ("saat", 66, "e", False),
+                ("diger", 38, "w", False),
+                ("eposta", 240, "w", True)):
+            self.tree.column(column, width=width, anchor=anchor, stretch=stretch)
+        # A tag colours a whole row — a Treeview has no per-cell colour. Only the
+        # missing address earns one, because it is the one thing on a row that stops
+        # the mail step from working. The note count stays plain text.
+        self.tree.tag_configure("adres-yok", foreground=w.WARN)
+
+        self._scroll = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self._scrolled)
+        self.tree.bind("<Button-1>", self._clicked)
+        self.tree.bind("<Enter>", self._grab_wheel)
+        self.tree.bind("<Leave>", self._release_wheel)
+        # Three bindings for one gesture, because tk offers no single place that
+        # catches it. `_grab_wheel` says why.
+        self.tree.bind("<MouseWheel>", self._wheel)
+
+        # Shown in the list's place when no month is loaded. A Treeview cannot hold a
+        # paragraph, and a fake row saying "nothing here" is still a row.
+        self.empty_note = tk.Label(
+            card, background=w.CARD, foreground=w.MUTED, font=(w.FACE, 9),
+            justify="left", anchor="nw", padx=14, pady=12,
+            text="Rapor oluşturduktan sonra kişiler burada listelenir.\n"
+                 "Daha önce üretilmiş bir ay için 'Aç…' ile veri dosyasını "
+                 "seçebilirsiniz.")
 
         # --- actions ------------------------------------------------------
         actions = tk.Frame(body, background=w.BG)
@@ -118,14 +165,13 @@ class PeopleScreen:
 
     # --- scrolling ---------------------------------------------------------
     #
-    # A canvas keeps its scroll offset when its contents are replaced, and tk does not
-    # re-clamp that offset against the new, shorter scrollregion. Going from a filter
-    # with 60 people to one with 2 therefore left the view 972 px below the only two
-    # rows: an apparently empty list that had to be dragged back up by hand, with the
-    # scrollbar already hidden because the content now fits. So every repaint has to
-    # put the view back inside the content, and every clamp is done in pixels rather
-    # than in yview fractions — the fractions are relative to the scrollregion being
-    # replaced, which is the thing that cannot be trusted here.
+    # The Treeview keeps its own scroll region, so an offset can no longer outlive the
+    # rows it belonged to — which is what left a 2-person filter showing the empty
+    # space below a 60-person one. What survives is the decision: a list of different
+    # people starts at its top, the same people re-ticked keep their place (ADR-038,
+    # ADR-039).
+
+    _WHEEL_LINES = 3                  # what Windows itself scrolls per notch
 
     def _scrolled(self, first: str, last: str) -> None:
         if float(first) <= 0.0 and float(last) >= 1.0:
@@ -134,49 +180,58 @@ class PeopleScreen:
             self._scroll.grid(row=0, column=1, sticky="ns", padx=(0, 1), pady=1)
         self._scroll.set(first, last)
 
-    def _wheel(self, event: tk.Event) -> str:
-        self.canvas.yview_scroll(-event.delta // 120, "units")
-        self._clamp_scroll()
+    def _grab_wheel(self, _event: object = None) -> None:
+        """Take the wheel while the pointer is over the list.
+
+        Choosing a filter left the wheel doing nothing over the list, and which widget
+        a `<MouseWheel>` reaches is not one answer: tk routes it by focus on some
+        builds and by the window under the pointer on others, and the rows used to be
+        labels that swallowed it either way. So the gesture is caught in three places
+        and every one of them ends here:
+
+        - **on the tree**, for when the event arrives at the widget under the pointer;
+        - **on the `all` tag** while the pointer is inside, for when it arrives at
+          whatever holds focus — a button, the path field, anything;
+        - **on the filter box**, which needs its own handler for a second reason, in
+          `_wheel_over_filter`.
+
+        A widget binding runs before its class binding, which is what stops the list
+        being scrolled twice at two speeds when the tree itself has focus: ttk's own
+        Treeview binding moves one row per notch, this one moves three — the number
+        Windows uses.
+
+        `unbind_all` is safe only because nothing else in this window binds
+        `<MouseWheel>` on the `all` tag. If something ever does, this has to change.
+        """
+        self._pointer_in_list = True
+        self.tree.bind_all("<MouseWheel>", self._wheel)
+
+    def _release_wheel(self, _event: object = None) -> None:
+        self._pointer_in_list = False
+        self.tree.unbind_all("<MouseWheel>")
+
+    def _wheel_over_filter(self, event: tk.Event) -> str:
+        """The wheel must never change the filter.
+
+        ttk gives every combobox a class binding that steps its value on each notch.
+        On this screen that meant a stray notch moved the filter from `Herkes` to
+        `Sorunu olmayanlar` to `Çıkış yok` — measured, 43 people to 40 to 3 — and each
+        change also drops the removals made by hand, because a removal belongs to the
+        group it was made in. A gesture whose effect depends on where the focus
+        invisibly happens to be does not belong on the screen that decides who gets an
+        e-mail.
+
+        Returning "break" is what stops the class binding from running. The list is
+        still scrolled while the pointer is over it, so the wheel does exactly one
+        thing.
+        """
+        if self._pointer_in_list:
+            self._wheel(event)
         return "break"
 
-    def _resized(self, _event: object) -> None:
-        self._clamp_scroll()
-
-    def _canvas_resized(self, event: tk.Event) -> None:
-        self.canvas.itemconfigure(self._window, width=event.width)
-        self._clamp_scroll()
-
-    def _clamp_scroll(self, *, to_top: bool = False) -> None:
-        """Re-measure the list and keep the view inside it.
-
-        `to_top` is for a repaint that changed *which* people are listed: a new list
-        starts at its first row. A repaint that only re-ticked boxes keeps its place,
-        because jumping to the top under somebody who just pressed `Temizle` halfway
-        down a long list loses where they were.
-        """
-        box = self.canvas.bbox("all")
-        self.canvas.configure(scrollregion=box or (0, 0, 0, 0))
-        if box is None:
-            return
-        top, bottom = box[1], box[3]
-        visible = self.canvas.winfo_height()
-        offset = self.canvas.canvasy(0)
-        if to_top or (bottom - top) <= visible:
-            wanted = float(top)
-        else:
-            wanted = min(max(offset, top), bottom - visible)
-        if wanted != offset:
-            self.canvas.yview_moveto((wanted - top) / max(bottom - top, 1))
-
-    def _rescroll_when_idle(self, *, to_top: bool) -> None:
-        """Clamp once tk has laid the new rows out.
-
-        Deferred on purpose: a row's height is not known until the layout it was just
-        given has been processed, so measuring here would measure the previous list —
-        which is exactly how the offset came to survive a repaint in the first place.
-        """
-        self.canvas.after_idle(lambda: (self.canvas.winfo_exists()
-                                        and self._clamp_scroll(to_top=to_top)))
+    def _wheel(self, event: tk.Event) -> str:
+        self.tree.yview_scroll(int(-event.delta / 120) * self._WHEEL_LINES, "units")
+        return "break"
 
     # --- loading -----------------------------------------------------------
     def load(self, path: Path) -> None:
@@ -244,19 +299,57 @@ class PeopleScreen:
 
     def _select_all(self) -> None:
         self.excluded.clear()
-        self._repaint()
+        self._redraw_ticks()
 
     def _clear_all(self) -> None:
         self.excluded = {p.name for p in recipients.matching(self.snapshot,
                                                              self.filter_key)}
-        self._repaint()
+        self._redraw_ticks()
 
-    def _toggle(self, name: str, var: tk.BooleanVar) -> None:
-        if var.get():
+    def _redraw_ticks(self) -> None:
+        """Repaint every glyph without rebuilding the list.
+
+        These two buttons change no row's contents and no row's order, so rebuilding
+        would only throw the reader back to the top of a list they were halfway down.
+        """
+        for name, row in self._rows:
+            self.tree.set(row, "tik", self._glyph(name))
+        self._update_count()
+
+    def _clicked(self, event: tk.Event) -> str | None:
+        """A click anywhere on a row takes that person in or out.
+
+        The whole row, not a checkbox glyph a few pixels wide: in or out is the only
+        thing a row does here, so making the target the size of the row costs nothing
+        and misses nothing. Clicking below the last row does nothing rather than
+        toggling whoever is nearest.
+        """
+        item = self.tree.identify_row(event.y)
+        if not item:
+            return None
+        for name, row in self._rows:
+            if row == item:
+                self._toggle(name)
+                break
+        return "break"
+
+    def _toggle(self, name: str) -> None:
+        if name in self.excluded:
             self.excluded.discard(name)
         else:
             self.excluded.add(name)
+        self._redraw_tick(name)
         self._update_count()
+
+    def _redraw_tick(self, name: str) -> None:
+        """Repaint one row's glyph. The rest of the row has not changed."""
+        for listed, row in self._rows:
+            if listed == name:
+                self.tree.set(row, "tik", self._glyph(name))
+                return
+
+    def _glyph(self, name: str) -> str:
+        return "☐" if name in self.excluded else "☑"
 
     def _copy(self) -> None:
         people = recipients.selected(self.snapshot, self.filter_key, self.excluded)
@@ -281,65 +374,37 @@ class PeopleScreen:
                     foreground=w.MUTED)
                 break
 
-        for child in self.list_frame.winfo_children():
-            child.destroy()
+        self.tree.delete(*self.tree.get_children())
         self._rows = []
-        # The address column takes the slack, not the name column. Names are short and
-        # of a known length; an address is the thing that runs out of room, and it was
-        # being clipped mid-word with no indication that anything had been cut.
-        self.list_frame.columnconfigure(1, weight=0)
-        self.list_frame.columnconfigure(4, weight=1)
 
         if self.snapshot is None:
-            tk.Label(self.list_frame,
-                     text="Rapor oluşturduktan sonra kişiler burada listelenir.\n"
-                          "Daha önce üretilmiş bir ay için 'Aç…' ile veri dosyasını "
-                          "seçebilirsiniz.",
-                     background=w.CARD, foreground=w.MUTED, font=(w.FACE, 9),
-                     justify="left", anchor="w", padx=14, pady=12).grid(
-                row=0, column=0, columnspan=4, sticky="w")
+            self.tree.grid_remove()
+            self._scroll.grid_remove()
+            self.empty_note.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
             self._update_count()
-            self._rescroll_when_idle(to_top=bool(listed_before))
             return
+        self.empty_note.grid_remove()
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
 
-        people = recipients.matching(self.snapshot, self.filter_key)
-        for row, person in enumerate(people):
-            var = tk.BooleanVar(value=person.name not in self.excluded)
-            box = tk.Checkbutton(
-                self.list_frame, variable=var, background=w.CARD,
-                activebackground=w.CARD, highlightthickness=0, borderwidth=0,
-                command=lambda n=person.name, v=var: self._toggle(n, v))
-            box.grid(row=row, column=0, sticky="w", padx=(10, 4))
-            self._rows.append((person.name, var))
-
-            tk.Label(self.list_frame, text=person.name, background=w.CARD,
-                     foreground=w.INK, font=(w.FACE, 9), anchor="w").grid(
-                row=row, column=1, sticky="ew")
-            tk.Label(self.list_frame, text=person.hours_text, background=w.CARD,
-                     foreground=w.MUTED, font=(w.MONO, 9), anchor="e", width=8).grid(
-                row=row, column=2, sticky="e", padx=(8, 8))
-
-            # Only a count, never the notes themselves. Somebody filtering by one note
-            # still needs to know this person has others — "fix the missing exit" is a
-            # different conversation if the same person also has three short days —
-            # but printing every label on every row turns the list into a wall of text
-            # and pushes the address off the edge.
+        for person in recipients.matching(self.snapshot, self.filter_key):
+            # Only a count of the other notes, never the notes themselves. Somebody
+            # filtering by one note still needs to know this person has others — "fix
+            # the missing exit" is a different conversation if the same person also has
+            # three short days — but printing every label on every row turns the list
+            # into a wall of text and pushes the address off the edge.
             others = other_problems(person, self.filter_key)
-            tk.Label(self.list_frame, text=f"+{others}" if others else "",
-                     background=w.CARD, foreground=w.WARN if others else w.MUTED,
-                     font=(w.FACE, 9), anchor="w", width=3).grid(
-                row=row, column=3, sticky="w", padx=(0, 8))
             # No address is a fact about the row, not a reason to hide it. Eleven of
             # May's people are leavers the roster no longer carries an address for.
-            trailing = person.email or "e-posta yok"
-            tk.Label(self.list_frame, text=trailing, background=w.CARD,
-                     foreground=w.MUTED if person.email else w.WARN,
-                     font=(w.FACE, 9), anchor="w").grid(
-                row=row, column=4, sticky="ew", padx=(0, 12))
+            row = self.tree.insert(
+                "", "end", tags=() if person.email else ("adres-yok",),
+                values=(self._glyph(person.name), person.name, person.hours_text,
+                        f"+{others}" if others else "",
+                        person.email or "e-posta yok"))
+            self._rows.append((person.name, row))
 
         self._update_count()
-        self._rescroll_when_idle(
-            to_top=listed_before != [name for name, _ in self._rows])
+        if listed_before != [name for name, _ in self._rows]:
+            self.tree.yview_moveto(0.0)
 
     def _update_count(self) -> None:
         people = recipients.selected(self.snapshot, self.filter_key, self.excluded)

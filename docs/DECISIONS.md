@@ -2123,3 +2123,84 @@ survived a repaint in the first place.
 - `_fit` makes the window's size depend on the tallest screen ever opened. A future
   screen that wants to be shorter cannot make the window smaller — which is the point,
   but it does mean an unusually tall screen sets the floor for the session.
+
+---
+
+## ADR-039 — The people list is a Treeview, and the wheel is caught in three places
+
+2026-08-20 · Status: **Accepted** · Decided by: project owner (both defects reported),
+implementation
+
+### Context
+
+Two complaints about the same screen, one gesture apart.
+
+**1. The wheel did nothing over the list after a filter was chosen.** The scrollbar had
+to be dragged by hand. Which widget a `<MouseWheel>` reaches is not one answer in tk —
+focus on some builds, the window under the pointer on others — and the rows were labels
+inside the canvas, so on the pointer route they swallowed the event and on the focus
+route it went to the combobox. Either way the canvas binding never fired.
+
+Worse, measured while fixing it: ttk gives every combobox a class binding that steps
+its value on each notch. With the focus left on the filter box, two notches moved the
+filter from `Herkes` (43 people) to `Sorunu olmayanlar` (40) to `Çıkış yok` (3) — and
+each change drops the removals made by hand, because a removal belongs to the group it
+was made in (ADR-028). On the screen that decides who gets an e-mail, an unnoticed
+wheel notch silently reselecting the recipients is the more serious of the two defects,
+and nobody reported it because nothing about it looks like an error.
+
+**2. Rows smeared over each other while the scrollbar was dragged**, settling once
+released. Not a redraw flag — a widget count. Measured with a real month's 171 people:
+
+| | frame of labels in a canvas | `ttk.Treeview` |
+| --- | --- | --- |
+| widgets in the list | **856** | 1 |
+| draw the list | 1 065 ms | 56 ms |
+| redraw it | ~1 000 ms | **20 ms** |
+| one scroll step | 58 ms (worst **145**) | 17.7 ms (worst **19**) |
+
+Tk repositions every one of those 856 child windows on every scroll step. The lag is
+not fixable while the rows are widgets: halving them to two per row still leaves ~23 ms
+a step, and the worst case is what is felt.
+
+### Decision
+
+**The list is a `ttk.Treeview`.** It draws text instead of moving widgets, so the cost
+stops scaling with the number of people. A click anywhere on a row takes that person in
+or out — the whole row rather than a glyph a few pixels wide, since in-or-out is the
+only thing a row does — and the tick is drawn from `excluded`, which stays the single
+place the answer lives.
+
+**The wheel is bound in three places, all ending in one handler:** on the tree, on the
+`all` tag while the pointer is inside the list, and on the filter box. Three because
+tk offers no single place that catches the gesture on every build. The filter box's
+handler returns `"break"`, which is what stops ttk's class binding — **the wheel can no
+longer change the filter.** It scrolls three rows per notch, the number Windows itself
+uses; one row per notch was part of why a 171-row list felt like it was not moving.
+
+A widget binding runs before its class binding, which is also what stops the list being
+scrolled twice at two speeds when the tree itself holds focus.
+
+### Consequences
+
+- **Three deliberate losses**, all of them things a Treeview cannot do:
+  - Per-cell colour. A tag colours a whole row, so only the missing address earns one —
+    it is the one thing on a row that stops the mail step working. The other-notes
+    count is now plain text rather than amber.
+  - Per-column font. The figures were set in the fixed-width face; the column is now
+    right-aligned instead, which lines up the ends of the numbers and reads as well.
+  - The native checkbox, replaced by a `☑` / `☐` glyph.
+- The empty state is a Label shown in the list's place. A Treeview cannot hold a
+  paragraph, and a row saying "nothing here" is still a row.
+- `Tümünü seç` and `Temizle` now repaint the glyphs in place instead of rebuilding the
+  list, so they keep the reader's position — the same decision as ADR-038, arrived at
+  again from the other side: rebuilding a Treeview sends it back to the top.
+- Half of ADR-038's scroll-clamp code is **deleted**. The Treeview keeps its own scroll
+  region, so an offset can no longer outlive the rows it belonged to. The decision
+  survives, the arithmetic does not.
+- `unbind_all("<MouseWheel>")` is safe only while nothing else in this window binds
+  that sequence on the `all` tag. Noted in the code; it has to change if that changes.
+- Seven existing tests moved from asserting label widgets to asserting cell values,
+  which is the better assertion anyway: `tree.set(row, "eposta") == "e-posta yok"` says
+  what the reader sees, where walking `list_frame.winfo_children()` said how it was
+  built. Each new guard was checked by removing it and watching the test fail.

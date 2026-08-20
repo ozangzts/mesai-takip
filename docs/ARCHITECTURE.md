@@ -167,7 +167,7 @@ Two behaviours the tests pin down, both of which are bugs if they regress:
 `nav.py` is handed labels and hands back the key that was clicked. It knows nothing
 about what a screen does, which is what keeps the registry the only thing to edit.
 
-Five presentation rules the window holds itself to, each of them a defect once:
+Seven presentation rules the window holds itself to, each of them a defect once:
 
 - **Red means a problem.** "You have not picked a folder yet" is where every run
   starts, so it is not red; and when two of three exports are found, the two that were
@@ -187,6 +187,13 @@ Five presentation rules the window holds itself to, each of them a defect once:
   its rows are destroyed and rebuilt, so a 2-person filter inherited a 60-person
   filter's position and showed an empty box. Reset is tied to the set of names shown,
   not to repainting: re-ticking the same people keeps its place (ADR-038).
+- **A long list is a Treeview, not a frame of widgets.** 171 people meant 856 widgets
+  and 58 ms per scroll step, because tk repositions every one of them; the rows smeared
+  over each other while dragging. A Treeview draws text — 17.7 ms a step, 20 ms to
+  redraw the list (ADR-039).
+- **One gesture, one meaning.** The wheel scrolls the list from wherever the focus
+  happens to be, and it can no longer step the filter box — ttk's own binding did that,
+  silently reselecting who was listed and dropping the removals made by hand (ADR-039).
 
 `rapor.py` keeps its Turkish name deliberately: `gui/report.py` would read as a
 sibling of `mesai/report/`, the package that writes the workbook, which it is not.

@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (38 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (39 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **346 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **355 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -115,6 +115,20 @@ Soru 5'in cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşün
 
 ## Bu turda ne yapıldı (2026-08-20)
 
+**Kişiler listesi `ttk.Treeview` oldu ve teker düzeldi** (ADR-039). İki şikâyet,
+aynı jestin iki ucu:
+
+| Ne | Ölçülen | Sonrası |
+| --- | --- | --- |
+| Sürüklerken satırlar üst üste biniyordu | 171 kişi = **856 widget**, adım başına 58 ms (en kötü 145) | adım başına 17,7 ms (en kötü 19), listeyi çizme 1065 → 20 ms |
+| Filtre seçtikten sonra teker çalışmıyordu | olay odaktaki widget'a gidiyor, satırlar da onu yutuyordu | teker üç yerde yakalanıyor, çentik başına 3 satır |
+
+Düzeltirken **bildirilmeyen daha ciddi bir hata** çıktı: ttk'nın combobox sınıf
+bağlantısı her çentikte filtreyi değiştiriyordu — iki çentikte `Herkes` (43 kişi) →
+`Çıkış yok` (3 kişi) — ve her değişim elle yapılan çıkarmaları siliyordu. Kime mail
+gideceğini belirleyen ekranda, hiçbir şeyi hataya benzemeyen bir sessiz yeniden seçim.
+Artık teker filtreyi değiştirmiyor.
+
 **Temmuz tamamlandı.** Teknopark'ın tam ay dosyası geldi; rapor artık `0` koduyla
 çıkıyor, 26 233:17 / 176 kişi. Eksik hâlinden farkı **10 154:33**. Guard'ın doğru
 davrandığı da böylece ölçüldü: ayı "tam" saymayı reddetti, ama kapsadığı günlerin
@@ -197,6 +211,13 @@ sayısı ve hiç görülmemiş olanlar işaretli.
   `Plausibility`'nin **tamamını** karşılaştırıyor. Yeni bir config anahtarı eklerken
   fixture'a da ekle — yoksa bütün test paketi, kimsenin çalıştırmadığı bir kurala karşı
   geçmeye devam eder.
+- **Kişiler listesi artık widget yığını değil.** Uzun bir listeyi frame içinde
+  label'larla çizmek 171 kişide 856 widget demek ve tk her kaydırma adımında hepsini
+  yeniden konumlandırıyor. Yeni bir liste ekranı gerekirse `Treeview` ile başla
+  (ADR-039). Karşılığında üç şey kaybedildi ve bilerek: hücre bazlı renk, kolon bazlı
+  yazı tipi, yerel onay kutusu.
+- **`unbind_all("<MouseWheel>")`** yalnızca bu pencerede başka hiçbir şey o olayı
+  `all` etiketine bağlamadığı için güvenli. Bağlayan bir şey eklenirse bu değişmeli.
 - **GUI testleri artık "ekran yok" diye sessizce atlanmıyor.** Her `TclError` ekran
   yokluğu sayılıyordu; ekranın olup olmadığı bir kez ölçülüyor, sonrasında pencere
   kurulamazsa test kırmızı düşüyor. Nadiren (2-3 tam koşuda bir) bir pencere testi

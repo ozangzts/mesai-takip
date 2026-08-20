@@ -789,8 +789,9 @@ def test_the_people_screen_starts_empty_and_says_what_to_do(people_screen):
 
     assert screen.snapshot is None
     assert recipients.choices(None) == ()
-    shown = [c.cget("text") for c in screen.list_frame.winfo_children()]
-    assert any("Rapor oluşturduktan sonra" in str(t) for t in shown)
+    assert "Rapor oluşturduktan sonra" in str(screen.empty_note.cget("text"))
+    assert screen.empty_note.winfo_manager() == "grid", "and it must be showing"
+    assert screen.tree.winfo_manager() == "", "with the list out of the way"
 
 
 def test_a_finished_run_hands_its_data_file_over(shell, tmp_path):
@@ -839,13 +840,16 @@ def test_unticking_someone_removes_them_from_the_selection(people_screen, tmp_pa
     screen.load(_snapshot_file(tmp_path, [
         _person("AYŞE DENEME"), _person("BERK NUMUNE")]))
 
-    name, var = screen._rows[0]
-    var.set(False)
-    screen._toggle(name, var)
+    name, row = screen._rows[0]
+    screen._toggle(name)
 
     chosen = recipients.selected(screen.snapshot, screen.filter_key, screen.excluded)
     assert [p.name for p in chosen] == ["BERK NUMUNE"]
     assert "1 / 2 kişi seçili" in screen.count_label.cget("text")
+    assert screen.tree.set(row, "tik") == "☐", "and the glyph must say so"
+
+    screen._toggle(name)
+    assert screen.tree.set(row, "tik") == "☑", "clicking again puts them back"
 
 
 def test_changing_the_filter_forgets_removals(people_screen, tmp_path):
@@ -865,8 +869,11 @@ def test_a_person_without_an_address_is_shown_and_counted(people_screen, tmp_pat
         _person("AYŞE DENEME", email=None), _person("BERK NUMUNE")]))
 
     assert "1 kişinin e-postası yok" in screen.count_label.cget("text")
-    labels = [str(c.cget("text")) for c in screen.list_frame.winfo_children()]
-    assert "e-posta yok" in labels
+    rows = {screen.tree.set(row, "ad"): row for _name, row in screen._rows}
+    assert screen.tree.set(rows["AYŞE DENEME"], "eposta") == "e-posta yok"
+    assert screen.tree.item(rows["AYŞE DENEME"], "tags") == ("adres-yok",), \
+        "an address that is missing is the one thing on a row worth colouring"
+    assert screen.tree.item(rows["BERK NUMUNE"], "tags") == ""
 
 
 def test_an_incomplete_month_is_called_out_before_anyone_acts_on_it(people_screen,
@@ -1119,13 +1126,13 @@ def people(shell):
     return build
 
 
-def _first_row_offset(screen) -> int:
-    """How far the top of the list sits from the top of its viewport, in pixels.
+def _at_top(screen) -> bool:
+    """Is the list showing its first row?
 
-    0 is right. Negative means the rows have been scrolled up out of sight — the
-    "empty list" the operator had to drag back down by hand.
+    Asked of the widget rather than of pixels now that the rows are a Treeview: it
+    keeps its own scroll region, so "the top" is a fraction it reports itself.
     """
-    return screen.list_frame.winfo_rooty() - screen.canvas.winfo_rooty()
+    return screen.tree.yview()[0] == 0.0
 
 
 def test_switching_to_another_screen_never_shrinks_the_window(shell):
@@ -1156,16 +1163,16 @@ def test_a_shorter_filter_starts_at_the_top_of_its_list(people):
     scrollbar already hidden because the content now fits.
     """
     window, screen = people()
-    screen.canvas.yview_moveto(1.0)
+    screen.tree.yview_moveto(1.0)
     window.root.update()
-    assert _first_row_offset(screen) < 0, "the setup must really be scrolled down"
+    assert not _at_top(screen), "the setup must really be scrolled down"
 
     screen.filter_key = "Çıkış yok"
     screen._repaint()
     window.root.update()
 
-    assert _first_row_offset(screen) == 0, "the two rows must be at the top"
-    assert screen.canvas.yview() == (0.0, 1.0), "and nothing is out of view"
+    assert _at_top(screen), "the two rows must be at the top"
+    assert screen.tree.yview() == (0.0, 1.0), "and nothing is out of view"
     assert screen._scroll.winfo_manager() == "", "so no scrollbar, which is right"
 
 
@@ -1180,8 +1187,8 @@ def test_a_longer_filter_also_starts_at_the_top(people):
     screen._repaint()
     window.root.update()
 
-    assert _first_row_offset(screen) == 0
-    assert screen.canvas.yview()[1] < 1.0, "60 rows must not fit"
+    assert _at_top(screen)
+    assert screen.tree.yview()[1] < 1.0, "60 rows must not fit"
     assert screen._scroll.winfo_manager() == "grid", "so the scrollbar comes back"
 
 
@@ -1192,26 +1199,132 @@ def test_the_list_keeps_its_place_when_only_the_ticks_change(people):
     the same people, re-ticked, is not a new list.
     """
     window, screen = people()
-    screen.canvas.yview_moveto(0.5)
+    screen.tree.yview_moveto(0.5)
     window.root.update()
-    before = _first_row_offset(screen)
+    before = screen.tree.yview()
 
     screen._clear_all()
     window.root.update()
 
-    assert _first_row_offset(screen) == before, "the view moved"
-    assert all(not var.get() for _, var in screen._rows), "and it did clear them"
+    assert screen.tree.yview() == before, "the view moved"
+    assert all(screen.tree.set(row, "tik") == "☐" for _name, row in screen._rows), \
+        "and it did clear them"
 
 
 def test_an_emptied_list_cannot_stay_scrolled_into_nothing(people):
     """Loading a file whose filter matches nobody leaves no rows at all."""
     window, screen = people()
-    screen.canvas.yview_moveto(1.0)
+    screen.tree.yview_moveto(1.0)
     window.root.update()
 
     screen.snapshot = None
     screen._repaint()
     window.root.update()
 
-    assert _first_row_offset(screen) == 0
-    assert screen.canvas.yview() == (0.0, 1.0)
+    assert screen._rows == []
+    assert screen.tree.winfo_manager() == "", "the list gives way to the note"
+    assert screen.empty_note.winfo_manager() == "grid"
+
+
+@pytest.mark.parametrize("focus_on", ["filter_box", "tree", "copy_button"])
+def test_the_wheel_scrolls_the_list_wherever_the_focus_is(people, focus_on):
+    """The reported bug: after choosing a filter the wheel did nothing over the list.
+
+    Which widget a `<MouseWheel>` reaches depends on the tk build — focus on some, the
+    window under the pointer on others — and the rows used to be labels that swallowed
+    it either way. Parametrised over the three places the focus realistically sits, so
+    the answer cannot be right for one of them and wrong for the others.
+    """
+    window, screen = people()
+    target = getattr(screen, focus_on)
+    screen._grab_wheel()                       # what entering the list does
+    target.focus_set()
+    window.root.update()
+    assert _at_top(screen)
+
+    target.event_generate("<MouseWheel>", delta=-120)
+    window.root.update()
+
+    assert not _at_top(screen), f"the wheel did nothing with the focus on {focus_on}"
+
+
+def test_the_wheel_never_changes_the_filter(people):
+    """ttk steps a combobox's value on every notch, and this box decides who is listed.
+
+    Measured before the guard: two notches moved the filter from `Herkes` (43 people)
+    to `Çıkış yok` (3), and each change drops the removals made by hand. A gesture
+    whose effect depends on where the focus invisibly is does not belong here.
+    """
+    window, screen = people()
+    screen._grab_wheel()
+    screen.filter_box.focus_set()
+    window.root.update()
+    before = screen.filter_var.get()
+
+    for _ in range(3):
+        screen.filter_box.event_generate("<MouseWheel>", delta=-120)
+        window.root.update()
+
+    assert screen.filter_var.get() == before, "the filter moved under the wheel"
+    assert not _at_top(screen), "and the list still scrolled"
+
+
+def test_the_wheel_does_nothing_once_the_pointer_has_left_the_list(people):
+    window, screen = people()
+    screen._release_wheel()                    # what leaving the list does
+    screen.filter_box.focus_set()
+    window.root.update()
+    before = screen.filter_var.get()
+
+    screen.filter_box.event_generate("<MouseWheel>", delta=-120)
+    window.root.update()
+
+    assert _at_top(screen), "nothing outside the list may scroll it"
+    assert screen.filter_var.get() == before
+
+
+def test_the_wheel_binding_is_dropped_on_the_way_out(people):
+    """It is bound on the `all` tag, so leaving the list has to undo it."""
+    window, screen = people()
+    screen._grab_wheel()
+    assert screen.tree.bind_all("<MouseWheel>"), "bound while inside"
+
+    screen._release_wheel()
+    assert not screen.tree.bind_all("<MouseWheel>"), "and gone on the way out"
+
+
+def test_one_wheel_notch_scrolls_more_than_one_row(people):
+    """A row per notch is what made a 171-person list feel like it was not moving."""
+    window, screen = people()
+    window.root.update()
+    screen._wheel(type("Wheel", (), {"delta": -120})())
+    window.root.update()
+
+    first_row_height = 1 / max(len(screen._rows), 1)
+    assert screen.tree.yview()[0] > first_row_height, "one notch, one row"
+
+
+def test_clicking_a_row_takes_that_person_out_and_back(people):
+    """The whole row is the target, not a glyph a few pixels wide."""
+    window, screen = people()
+    name, row = screen._rows[0]
+    window.root.update()
+
+    y = screen.tree.bbox(row)[1] + 2
+    screen._clicked(type("Click", (), {"y": y})())
+    assert name in screen.excluded
+    assert screen.tree.set(row, "tik") == "☐"
+
+    screen._clicked(type("Click", (), {"y": y})())
+    assert name not in screen.excluded
+
+
+def test_clicking_below_the_last_row_changes_nothing(people):
+    """There is no nearest person to guess at down there."""
+    window, screen = people()
+    screen.filter_key = "Çıkış yok"
+    screen._repaint()
+    window.root.update()
+
+    screen._clicked(type("Click", (), {"y": screen.tree.winfo_height() - 4})())
+    assert screen.excluded == set()
