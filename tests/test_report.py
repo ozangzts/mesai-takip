@@ -493,11 +493,13 @@ def test_the_result_panel_names_both_output_paths(tmp_path, settings, monkeypatc
     from mesai import gui
     from mesai.gui import rapor, widgets
 
-    try:
-        root = tk.Tk()
-    except tk.TclError:                       # pragma: no cover - headless CI
-        pytest.skip("no display")
+    # Through the same helper the window tests use: it decides once whether a display
+    # exists and then lets a failure be a failure, instead of reading every transient
+    # TclError as "headless" and quietly skipping. This test used to lose itself that
+    # way roughly once in three full runs. It also parks the window off-screen.
+    from tests.test_gui import _tk_root
 
+    root = _tk_root(tk)
     try:
         app = gui.App(root, config_dir=tmp_path, roster_dir=tmp_path, base=tmp_path)
         report = tmp_path / "out" / "mesai-raporu-2026-07.xlsx"

@@ -39,6 +39,7 @@ from ..report.workbook import ReportLocked
 from ..normalize import fold
 from ..rules.worktime import hhmm
 from . import places
+from . import settings as settings_file
 from . import widgets as w
 from .period import MONTHS, guess_period, parse_period, period_label
 
@@ -401,23 +402,13 @@ class ReportScreen:
     # offers the place reports go. Same mechanism, opposite consequence.
 
     def _settings_path(self) -> Path:
-        return self.base / SETTINGS_FILE
+        return settings_file.path_for(self.base)
 
     def _restore(self) -> None:
         """Load the browse starting point and the output folder. Selects no input."""
         self.browse_dir: Path | None = None
         self.output_dir: Path = places.desktop_dir()
-        saved: dict[str, object] = {}
-        try:
-            # utf-8-sig, not utf-8: a byte-order mark makes a perfectly valid file
-            # unreadable to the strict decoder, and anything that writes this file
-            # other than us — Notepad, PowerShell's Set-Content — adds one. The
-            # failure was silent: every remembered path reverted at once and nothing
-            # said why. `utf-8-sig` reads both forms.
-            saved = json.loads(
-                self._settings_path().read_text(encoding="utf-8-sig"))
-        except (OSError, ValueError):
-            pass
+        saved = settings_file.load(self.base)
 
         candidate = saved.get("browse_dir")
         if candidate is None and saved.get("folder"):
@@ -446,17 +437,17 @@ class ReportScreen:
         self._describe()
 
     def _save(self) -> None:
-        """Write both remembered paths. Always both, so neither can drop the other."""
-        payload: dict[str, str] = {"output_dir": str(self.output_dir)}
-        if self.browse_dir is not None:
-            payload["browse_dir"] = str(self.browse_dir)
-        if self.roster_file is not None:
-            payload["roster_file"] = str(self.roster_file)
-        try:
-            self._settings_path().write_text(
-                json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        except OSError:
-            pass        # a read-only install is not worth failing a run over
+        """Write this screen's own keys, always all of them.
+
+        Read-modify-write, so another screen's remembered setting survives — see
+        `gui/settings.py`. `None` is written for a path that is not set, rather than
+        the key being left out, so clearing a choice is remembered as cleared.
+        """
+        settings_file.update(
+            self.base,
+            output_dir=str(self.output_dir),
+            browse_dir=str(self.browse_dir) if self.browse_dir else None,
+            roster_file=str(self.roster_file) if self.roster_file else None)
 
     def _remember(self) -> None:
         if self.folder is None:

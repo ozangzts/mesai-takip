@@ -2696,3 +2696,79 @@ Two things followed beyond wording:
   that distinction directly.
 - Checked the only way a guard should be: the old sheet name was put back and the test
   failed with `sayfa adı: 'sorulacak' in 'Sorulacaklar'`.
+
+---
+
+## ADR-048 — `Sorunu olanlar`, and which notes count is ticked in the window
+
+2026-08-21 · Status: **Accepted** · Decided by: project owner (relaying their manager),
+implementation
+
+### Context
+
+The people screen offered `Herkes`, `Sorunu olmayanlar` and one entry per note. The
+workflow it is actually for runs the other way: pick the people whose records need
+chasing, and later mail them. There was no way to say "everybody with a problem".
+
+The three categories named as making somebody one of those people:
+
+- missing entry and/or exit,
+- did not work that day and has no leave either,
+- inconsistent, implausible hours.
+
+And immediately: *"of course this may change."* So the set is an input, not a constant.
+
+Mapping those onto the labels that exist and counting the three real months made the
+decision easy, because it showed how small the argument is:
+
+| | May | June | July |
+| --- | --- | --- | --- |
+| anyone with any problem note | 94 | 111 | 107 |
+| the three categories, unioned | 90 | 103 | 99 |
+
+**The whole difference is two labels.** `Tesis birleştirme` (9 / 18 / 13 people) is a
+missing punch the program completed from the other site's record, and
+`Uzaktan + kart kaydı` (2 / 4 / 5) is a remote day where the badge reading was counted
+too. Both describe something already dealt with rather than something to take up with
+the person.
+
+### Decision
+
+**A `Sorunu olanlar` entry in the filter list, and a panel of note checkboxes under it.**
+Ticked notes are the ones that put somebody in the list; the panel appears only under
+that filter, grouped by family, each note carrying its own headcount. `Hepsi` and
+`Temizle` for the two extremes.
+
+**The selection is remembered** in `arayuz-ayarlari.json`. This is a setup decision, not
+a monthly one — nobody should re-tick three boxes every month.
+
+**What is stored is the OFF set, not the ON set.** So a note added to `anomalies.py`
+later counts by default. For a list that decides who gets contacted, including somebody
+who should not have been is a correction; leaving somebody out is silence — the same
+direction ADR-017 and ADR-030 chose.
+
+`DEFAULT_OFF` is the two labels above, and it lives **in code**, not `config/`: these are
+our own labels from `anomalies.py`, which is the line AGENTS.md §6 draws.
+
+### Consequences
+
+- On the shipped default the group is exactly what was asked for — measured against the
+  three real months: 90, 103, 99.
+- `Sorunu olanlar` and `Sorunu olmayanlar` **partition the month** when every note is
+  ticked, and a test asserts it. Somebody reading `(99)` beside `(69)` on a 176-person
+  month should be able to add them.
+- An empty tick list shows **nobody**, not everybody. Tested explicitly, because the
+  convenient fallback is the dangerous one.
+- Expected-behaviour notes are never offered for ticking. `Uzaktan + sistem kaydı` is 38
+  people in July and says the program did the right thing (ADR-017); a checkbox for it
+  would invite a chasing list made of correct behaviour.
+- `gui/settings.py` **had to exist first.** The report screen wrote
+  `arayuz-ayarlari.json` by dumping its own three keys over the whole file, so the
+  second screen to remember anything would have silently erased the first one's setting
+  on its next save. Writing is now read-modify-write in one place, and a cleared value
+  is written as an explicit `null` — omitting the key would leave the old value behind.
+- The panel is two columns, not one per family: four columns of Turkish labels clipped
+  `Günlük süre çok uzun (>16 saat)  (4)` mid-count. Blocks are dealt into whichever
+  column is shorter.
+- The mail step itself is untouched. This decides who the list is; nothing sends
+  anything.

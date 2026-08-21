@@ -21,11 +21,14 @@ from tkinter import filedialog, ttk
 
 from .. import snapshot as snapshot_module
 from ..mail import recipients
+from . import settings as settings_file
 from ..mail.recipients import other_problems
 from . import widgets as w
 from .period import period_label
 
 _ROW_HEIGHT = 22
+# The note panel's header occupies row 0; family blocks start below it.
+_NOTES_TOP = 1
 
 
 class PeopleScreen:
@@ -36,6 +39,12 @@ class PeopleScreen:
         self.source: Path | None = None
         self.filter_key = recipients.ALL
         self.excluded: set[str] = set()
+        # Which notes are NOT counted towards `Sorunu olanlar`. The off-set is stored
+        # rather than the on-set on purpose: a note added to `anomalies.py` later then
+        # counts by default, instead of quietly leaving people out of a list that
+        # decides who gets contacted. Remembered between runs — this is a setup
+        # decision, not a monthly one.
+        self._off: set[str] = set(self._remembered_off())
         self._choices: tuple[recipients.Choice, ...] = ()
         # (name, row id) in display order. The tick itself is not stored here —
         # `excluded` is the one place it lives, and the glyph is drawn from it.
@@ -45,11 +54,23 @@ class PeopleScreen:
         self._build(parent)
         self._repaint()
 
+    def _remembered_off(self) -> tuple[str, ...]:
+        stored = settings_file.load(self.base).get("problem_notes_off")
+        if not isinstance(stored, list):
+            return recipients.DEFAULT_OFF
+        return tuple(str(label) for label in stored)
+
+    def counted(self) -> frozenset[str]:
+        """The notes that put somebody in `Sorunu olanlar`, for this month's snapshot."""
+        present = {label for _family, label, _count
+                   in recipients.problem_labels(self.snapshot)}
+        return frozenset(present - self._off)
+
     # --- layout ------------------------------------------------------------
     def _build(self, parent: tk.Misc) -> None:
         body = self.frame = tk.Frame(parent, background=w.BG)
         body.columnconfigure(0, weight=1)
-        body.rowconfigure(5, weight=1)
+        body.rowconfigure(6, weight=1)
 
         w.caption(body, "VERİ DOSYASI", row=0)
         source_row = tk.Frame(body, background=w.BG)
@@ -84,6 +105,17 @@ class PeopleScreen:
                                     font=(w.FACE, 9), anchor="w", justify="left")
         self.filter_note.grid(row=0, column=1, sticky="w", padx=(12, 0))
 
+        # --- which notes count as a problem ------------------------------
+        #
+        # Shown only under `Sorunu olanlar`, because under any other filter there is
+        # nothing for it to change. One column per family so twelve checkboxes read as
+        # four short lists rather than one wall (ADR-029).
+        self.notes_frame = tk.Frame(body, background=w.CARD, highlightthickness=1,
+                                    highlightbackground=w.LINE)
+        self.notes_frame.grid(row=5, column=0, sticky="ew", pady=(0, 12))
+        self.notes_frame.grid_remove()
+        self._note_vars: dict[str, tk.BooleanVar] = {}
+
         # --- the list ----------------------------------------------------
         #
         # A `ttk.Treeview`, not a frame of labels inside a canvas. The frame worked and
@@ -95,7 +127,7 @@ class PeopleScreen:
         # 17.7 ms per step, worst 19 ms — it draws text instead of moving widgets.
         # ADR-039.
         card = tk.Frame(body, background=w.LINE)
-        card.grid(row=5, column=0, sticky="nsew")
+        card.grid(row=6, column=0, sticky="nsew")
         card.columnconfigure(0, weight=1)
         card.rowconfigure(0, weight=1)
 
@@ -148,7 +180,7 @@ class PeopleScreen:
 
         # --- actions ------------------------------------------------------
         actions = tk.Frame(body, background=w.BG)
-        actions.grid(row=6, column=0, sticky="ew", pady=(12, 0))
+        actions.grid(row=7, column=0, sticky="ew", pady=(12, 0))
         actions.columnconfigure(1, weight=1)
         left = tk.Frame(actions, background=w.BG)
         left.grid(row=0, column=0, sticky="w")
@@ -302,8 +334,8 @@ class PeopleScreen:
         self._redraw_ticks()
 
     def _clear_all(self) -> None:
-        self.excluded = {p.name for p in recipients.matching(self.snapshot,
-                                                             self.filter_key)}
+        self.excluded = {p.name for p in recipients.matching(
+            self.snapshot, self.filter_key, self.counted())}
         self._redraw_ticks()
 
     def _redraw_ticks(self) -> None:
@@ -352,23 +384,104 @@ class PeopleScreen:
         return "☐" if name in self.excluded else "☑"
 
     def _copy(self) -> None:
-        people = recipients.selected(self.snapshot, self.filter_key, self.excluded)
+        people = recipients.selected(self.snapshot, self.filter_key, self.excluded,
+                                     self.counted())
         if not people:
             return
         text = "\n".join(f"{p.name}\t{p.email or ''}\t{p.hours_text}" for p in people)
         self.root.clipboard_clear()
         self.root.clipboard_append(text)
 
+    # --- which notes count -------------------------------------------------
+    def _paint_notes(self) -> None:
+        """Rebuild the checkbox panel, or hide it when it has nothing to say."""
+        for child in self.notes_frame.winfo_children():
+            child.destroy()
+        self._note_vars = {}
+
+        offered = recipients.problem_labels(self.snapshot)
+        if self.filter_key != recipients.PROBLEM or not offered:
+            self.notes_frame.grid_remove()
+            return
+        self.notes_frame.grid()
+
+        header = tk.Frame(self.notes_frame, background=w.CARD)
+        header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
+        header.columnconfigure(0, weight=1)
+        tk.Label(header, text="HANGİ NOTLAR SAYILACAK", background=w.CARD,
+                 foreground=w.MUTED, font=(w.FACE, 8, "bold"), anchor="w").grid(
+            row=0, column=0, sticky="w")
+        w.button(header, "Hepsi", self._count_all, primary=False).grid(
+            row=0, column=1, padx=(8, 0))
+        w.button(header, "Temizle", self._count_none, primary=False).grid(
+            row=0, column=2, padx=(6, 0))
+
+        families: dict[str, list[tuple[str, int]]] = {}
+        for family, label, count in offered:
+            families.setdefault(family, []).append((label, count))
+
+        # Two columns, not one per family. Four columns of Turkish labels do not fit
+        # the width — `Günlük süre çok uzun (>16 saat)  (4)` was clipped mid-count, and
+        # a checkbox whose text is cut off is worse than a taller panel. Blocks are
+        # dealt into whichever column is shorter, so the two sides stay even.
+        heights = [0, 0]
+        rows = [_NOTES_TOP, _NOTES_TOP]
+        for family, labels in families.items():
+            side = 0 if heights[0] <= heights[1] else 1
+            heights[side] += len(labels) + 1
+            tk.Label(self.notes_frame, text=family, background=w.CARD,
+                     foreground=w.INK, font=(w.FACE, 9, "bold"), anchor="w").grid(
+                row=rows[side], column=side, sticky="w", padx=(10, 24),
+                pady=(6 if rows[side] > _NOTES_TOP else 2, 2))
+            rows[side] += 1
+            for label, count in labels:
+                var = tk.BooleanVar(value=label not in self._off)
+                self._note_vars[label] = var
+                tk.Checkbutton(
+                    self.notes_frame, text=f"{label}  ({count})", variable=var,
+                    background=w.CARD, activebackground=w.CARD, foreground=w.INK,
+                    font=(w.FACE, 9), highlightthickness=0, borderwidth=0, anchor="w",
+                    command=lambda lbl=label: self._toggle_note(lbl)).grid(
+                    row=rows[side], column=side, sticky="w", padx=(8, 24))
+                rows[side] += 1
+
+        for column in (0, 1):
+            self.notes_frame.columnconfigure(column, weight=1)
+        tk.Frame(self.notes_frame, background=w.CARD, height=8).grid(
+            row=max(rows), column=0, columnspan=2, sticky="ew")
+
+    def _toggle_note(self, label: str) -> None:
+        if self._note_vars[label].get():
+            self._off.discard(label)
+        else:
+            self._off.add(label)
+        self._remember_off()
+        self._repaint()
+
+    def _count_all(self) -> None:
+        self._off.clear()
+        self._remember_off()
+        self._repaint()
+
+    def _count_none(self) -> None:
+        self._off = {label for _f, label, _c
+                     in recipients.problem_labels(self.snapshot)}
+        self._remember_off()
+        self._repaint()
+
+    def _remember_off(self) -> None:
+        settings_file.update(self.base, problem_notes_off=sorted(self._off))
+
     # --- painting ----------------------------------------------------------
     def _repaint(self) -> None:
         listed_before = [name for name, _ in self._rows]
-        self._choices = recipients.choices(self.snapshot)
+        self._choices = recipients.choices(self.snapshot, self.counted())
         self.filter_box.configure(values=[c.display for c in self._choices])
         for choice in self._choices:
             if choice.key == self.filter_key:
                 self.filter_var.set(choice.display)
                 self.filter_note.configure(
-                    text="" if choice.key in (recipients.ALL, recipients.NO_PROBLEM)
+                    text="" if choice.key in recipients.STANDING
                     else ("bu bir sorun değil, beklenen durum"
                           if not choice.is_problem else ""),
                     foreground=w.MUTED)
@@ -381,12 +494,14 @@ class PeopleScreen:
             self.tree.grid_remove()
             self._scroll.grid_remove()
             self.empty_note.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+            self._paint_notes()
             self._update_count()
             return
         self.empty_note.grid_remove()
         self.tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
 
-        for person in recipients.matching(self.snapshot, self.filter_key):
+        for person in recipients.matching(self.snapshot, self.filter_key,
+                                          self.counted()):
             # Only a count of the other notes, never the notes themselves. Somebody
             # filtering by one note still needs to know this person has others — "fix
             # the missing exit" is a different conversation if the same person also has
@@ -402,13 +517,16 @@ class PeopleScreen:
                         person.email or "e-posta yok"))
             self._rows.append((person.name, row))
 
+        self._paint_notes()
         self._update_count()
         if listed_before != [name for name, _ in self._rows]:
             self.tree.yview_moveto(0.0)
 
     def _update_count(self) -> None:
-        people = recipients.selected(self.snapshot, self.filter_key, self.excluded)
-        total = len(recipients.matching(self.snapshot, self.filter_key))
+        counted = self.counted()
+        people = recipients.selected(self.snapshot, self.filter_key, self.excluded,
+                                     counted)
+        total = len(recipients.matching(self.snapshot, self.filter_key, counted))
         missing = recipients.without_email(people)
         text = f"{len(people)} / {total} kişi seçili"
         if missing:

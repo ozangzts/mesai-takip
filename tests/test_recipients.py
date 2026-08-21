@@ -45,7 +45,8 @@ def test_the_filter_list_is_built_from_the_data_not_hard_coded(snap):
     """A note added to anomalies.py must appear here without this module changing."""
     keys = [c.key for c in recipients.choices(snap)]
 
-    assert keys[:2] == [recipients.ALL, recipients.NO_PROBLEM]
+    assert keys[:3] == [recipients.ALL, recipients.NO_PROBLEM,
+                        recipients.PROBLEM]
     assert "Çıkış yok" in keys
     assert "Uzaktan + sistem kaydı" in keys
 
@@ -53,9 +54,9 @@ def test_the_filter_list_is_built_from_the_data_not_hard_coded(snap):
 def test_the_two_standing_filters_come_first(snap):
     """Everyone, then the clean ones. Both are answers to "who", not notes."""
     entries = recipients.choices(snap)
-    assert [c.key for c in entries[:2]] == [recipients.ALL, recipients.NO_PROBLEM]
-    assert all(c.key not in (recipients.ALL, recipients.NO_PROBLEM)
-               for c in entries[2:])
+    assert [c.key for c in entries[:3]] == [recipients.ALL, recipients.NO_PROBLEM,
+                                           recipients.PROBLEM]
+    assert all(c.key not in recipients.STANDING for c in entries[3:])
 
 
 def test_each_entry_carries_its_own_count(snap):
@@ -133,7 +134,7 @@ def test_related_notes_are_neighbours(snap):
 
     family = {label: group for label, _s, _e, group in DESCRIPTIONS.values()}
     notes = [c.label for c in recipients.choices(snap)
-             if c.key not in (recipients.ALL, recipients.NO_PROBLEM)]
+             if c.key not in recipients.STANDING]
     groups = [family[label] for label in notes]
 
     assert groups == sorted(groups, key=GROUPS.index), "families must not interleave"
@@ -191,3 +192,111 @@ def test_expected_behaviour_does_not_inflate_the_extra_count(snap):
 def test_someone_with_one_note_shows_nothing_extra(snap):
     cagla = next(p for p in snap.people if p.name == "ÇAĞLA DENEME")
     assert recipients.other_problems(cagla, "Çıkış yok") == 0
+
+
+# --- the problem group, and which notes count (ADR-048) ---------------------
+#
+# The workflow this exists for: pick the people whose records need chasing, and later
+# mail them. Which notes make somebody one of those people is a decision that will
+# change, so it is an argument rather than a constant — and the default is measured
+# rather than guessed.
+
+def test_the_problem_group_is_everybody_the_counted_notes_admit(snap):
+    """`ÇAĞLA` and `AHMET` have `Çıkış yok`; nobody else does."""
+    people = recipients.matching(snap, recipients.PROBLEM, ["Çıkış yok"])
+
+    assert [p.name for p in people] == ["AHMET SINAMA", "ÇAĞLA DENEME"]
+
+
+def test_a_person_with_two_notes_appears_once(snap):
+    """`AHMET` has both, and a union is not a concatenation."""
+    people = recipients.matching(
+        snap, recipients.PROBLEM,
+        ["Çıkış yok", "Günlük süre çok kısa (<2 saat)"])
+
+    assert [p.name for p in people] == ["AHMET SINAMA", "ÇAĞLA DENEME"]
+
+
+def test_no_counted_note_means_an_empty_list_not_everybody(snap):
+    """The dangerous direction. An empty tick list must not quietly mean "all"."""
+    assert recipients.matching(snap, recipients.PROBLEM, []) == ()
+
+
+def test_the_default_counts_every_problem_note_but_the_two(snap):
+    """A note added to `anomalies.py` later counts without anybody being told.
+
+    For a list that decides who gets contacted, including somebody who should not have
+    been is a correction; leaving somebody out is silence.
+    """
+    default = recipients.default_labels(snap)
+
+    assert "Çıkış yok" in default
+    assert "Mesai verisi yok" in default
+    for label in recipients.DEFAULT_OFF:
+        assert label not in default
+    assert "Uzaktan + sistem kaydı" not in default, "expected behaviour is not a problem"
+
+
+def test_the_two_switched_off_notes_can_be_switched_on(snap):
+    """They are a default, not a rule. `Tesis birleştirme` is a repaired punch, but
+    somebody may still want to look at those people."""
+    snapshot = Snapshot(
+        period=snap.period, generated_at=snap.generated_at, rules={},
+        coverage=snap.coverage,
+        people=(person("SEDA TASLAK", problems=("Tesis birleştirme",)),))
+
+    assert recipients.matching(snapshot, recipients.PROBLEM) == ()
+    admitted = recipients.matching(snapshot, recipients.PROBLEM,
+                                   ["Tesis birleştirme"])
+    assert [p.name for p in admitted] == ["SEDA TASLAK"]
+
+
+def test_the_group_and_the_clean_group_partition_the_month(snap):
+    """With every problem note counted, the two must add up to everybody exactly once.
+
+    The complement is the property that makes the pair trustworthy: somebody reading
+    `Sorunu olanlar (99)` beside `Sorunu olmayanlar (69)` on a 176-person month should
+    be able to add them.
+    """
+    every = frozenset(label for _f, label, _c in recipients.problem_labels(snap))
+    problem = {p.name for p in recipients.matching(snap, recipients.PROBLEM, every)}
+    clean = {p.name for p in recipients.matching(snap, recipients.NO_PROBLEM)}
+
+    assert problem | clean == {p.name for p in snap.people}
+    assert problem & clean == set()
+
+
+def test_the_count_in_the_list_is_the_count_of_rows(snap):
+    """A filter list that says 12 and then shows 40 is worse than no number."""
+    for labels in ([], ["Çıkış yok"], None):
+        entry = next(c for c in recipients.choices(snap, labels)
+                     if c.key == recipients.PROBLEM)
+        assert entry.count == len(
+            recipients.matching(snap, recipients.PROBLEM, labels))
+
+
+def test_the_notes_offered_for_ticking_carry_their_family_and_count(snap):
+    """Fifteen checkboxes read as a wall unless they are grouped (ADR-029)."""
+    from mesai.anomalies import GROUPS
+
+    offered = recipients.problem_labels(snap)
+
+    assert offered, "a month with problems must offer something to tick"
+    families = [family for family, _label, _count in offered]
+    assert families == sorted(families, key=GROUPS.index), "families must not interleave"
+    for _family, label, count in offered:
+        assert count == len(recipients.matching(snap, label)), label
+    assert all(label != "Uzaktan + sistem kaydı"
+               for _f, label, _c in offered), "expected behaviour is not offered"
+
+
+def test_removals_still_apply_to_the_problem_group(snap):
+    people = recipients.selected(snap, recipients.PROBLEM, {"AHMET SINAMA"},
+                                 ["Çıkış yok"])
+    assert [p.name for p in people] == ["ÇAĞLA DENEME"]
+
+
+def test_nothing_is_offered_or_admitted_without_a_snapshot():
+    assert recipients.problem_labels(None) == ()
+    assert recipients.default_labels(None) == frozenset()
+    assert recipients.matching(None, recipients.PROBLEM) == ()

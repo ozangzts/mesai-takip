@@ -690,7 +690,8 @@ def test_changing_the_output_folder_is_saved_without_losing_the_browse_location(
     window._save()
 
     saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
-    assert saved == {"output_dir": str(kept), "browse_dir": str(share)}
+    assert saved["output_dir"] == str(kept)
+    assert saved["browse_dir"] == str(share)
 
 
 def test_the_folder_name_puts_the_month_first_and_says_what_it_is():
@@ -1026,15 +1027,22 @@ def test_a_roster_that_moved_is_forgotten_rather_than_blocking(screen, tmp_path)
 
 
 def test_forgetting_a_roster_also_survives_a_restart(screen, tmp_path):
-    _touch(tmp_path / "ik", "calisan_listesi.xlsx")
+    """What matters is that a fresh window does not bring it back.
+
+    Asserted through `_restore` rather than by looking for an absent key: since the
+    settings file is written read-modify-write (so screens cannot clobber each other),
+    *omitting* a key would leave the old value in the file. Clearing is therefore
+    written as an explicit `null`, and the assertion has to be about the behaviour.
+    """
+    _touch(tmp_path / "personel", "calisan_listesi.xlsx")
     window = screen()
-    window.roster_file = tmp_path / "ik" / "calisan_listesi.xlsx"
+    window.roster_file = tmp_path / "personel" / "calisan_listesi.xlsx"
     window._save()
 
     window._forget_source("roster")
 
-    saved = json.loads((tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
-    assert "roster_file" not in saved
+    reopened = screen()
+    assert reopened.roster_file is None, "a forgotten roster came back"
 
 
 def test_a_found_roster_can_still_be_changed(screen, tmp_path, settings):
@@ -1597,3 +1605,207 @@ def test_a_screen_without_unsaved_work_is_not_consulted(shell, monkeypatch):
                         lambda *a, **k: pytest.fail("asked about a screen with no hook"))
 
     window.close()
+
+
+# --- picking which notes count as a problem (ADR-048) -----------------------
+#
+# The workflow: filter to the people whose records need chasing, tick who stays, copy
+# the list — and later, mail them. Which notes make somebody one of those people is a
+# decision that will change, so it is ticked in the window rather than fixed in code.
+# What must not happen is a silent one: an empty tick list meaning "everybody", or a
+# remembered selection quietly dropping a note that appeared this month.
+
+def _boxes(screen) -> dict:
+    """The note checkboxes, by the label they carry."""
+    import tkinter as tk_local
+
+    found = {}
+    for child in screen.notes_frame.winfo_children():
+        if isinstance(child, tk_local.Checkbutton):
+            text = str(child.cget("text"))
+            found[text.rsplit("  (", 1)[0]] = child
+    return found
+
+
+@pytest.fixture
+def problem_screen(people_screen, tmp_path):
+    """The people screen showing `Sorunu olanlar` over a synthetic month."""
+    def build():
+        screen = people_screen._screens["kisiler"]
+        screen.load(_snapshot_file(tmp_path, [
+            _person("AYŞE DENEME", ["Çıkış yok"]),
+            _person("BERK NUMUNE", ["Çıkış yok", "Gece geçişi"]),
+            _person("CEM ÖRNEK", ["Tesis birleştirme"]),
+            _person("DENİZ TASLAK", ["Mesai verisi yok"]),
+            _person("EDA MİSAL", []),
+        ]))
+        screen.filter_key = recipients.PROBLEM
+        screen._repaint()
+        people_screen.root.update()
+        return screen
+    return build
+
+
+def test_the_problem_filter_is_offered_next_to_the_clean_one(problem_screen):
+    """They are each other's counterpart; a list with only one of them reads oddly."""
+    screen = problem_screen()
+    shown = list(screen.filter_box.cget("values"))
+
+    assert any(s.startswith("Sorunu olmayanlar  (1)") for s in shown)
+    assert any(s.startswith("Sorunu olanlar  (3)") for s in shown), shown
+
+
+def test_the_two_defaults_off_are_unticked_and_their_people_absent(problem_screen):
+    """`CEM` has only `Tesis birleştirme` — a punch the program already repaired."""
+    screen = problem_screen()
+
+    assert screen._off == set(recipients.DEFAULT_OFF)
+    assert [name for name, _row in screen._rows] == [
+        "AYŞE DENEME", "BERK NUMUNE", "DENİZ TASLAK"]
+    assert _boxes(screen)["Tesis birleştirme"].cget("variable")
+
+
+def test_ticking_a_note_back_on_brings_its_people_in(problem_screen):
+    screen = problem_screen()
+
+    _boxes(screen)["Tesis birleştirme"].invoke()
+    assert "CEM ÖRNEK" in [name for name, _row in screen._rows]
+
+    _boxes(screen)["Tesis birleştirme"].invoke()
+    assert "CEM ÖRNEK" not in [name for name, _row in screen._rows]
+
+
+def test_unticking_a_note_removes_only_the_people_it_alone_explains(problem_screen):
+    """`BERK` has `Çıkış yok` too, so dropping `Gece geçişi` must not drop him."""
+    screen = problem_screen()
+
+    _boxes(screen)["Gece geçişi"].invoke()
+
+    assert "BERK NUMUNE" in [name for name, _row in screen._rows]
+
+
+def test_clearing_every_note_shows_nobody_rather_than_everybody(problem_screen):
+    """The dangerous direction: an empty tick list must not fall back to "all"."""
+    screen = problem_screen()
+
+    screen._count_none()
+
+    assert screen._rows == []
+    assert "0 / 0 kişi seçili" in screen.count_label.cget("text")
+
+
+def test_hepsi_counts_every_note_including_the_two(problem_screen):
+    screen = problem_screen()
+
+    screen._count_all()
+
+    assert screen._off == set()
+    assert len(screen._rows) == 4, "everyone with any note at all"
+
+
+def test_the_filter_count_matches_the_number_of_rows(problem_screen):
+    """A filter list that says 12 and then shows 40 is worse than no number."""
+    screen = problem_screen()
+
+    for action in (lambda: _boxes(screen)["Çıkış yok"].invoke(),
+                   screen._count_all,
+                   screen._count_none):
+        action()
+        entry = next(c for c in screen._choices if c.key == recipients.PROBLEM)
+        assert entry.count == len(screen._rows), entry.display
+
+
+def test_the_selection_is_remembered_between_runs(problem_screen, people_screen,
+                                                  tmp_path):
+    """A setup decision, not a monthly one."""
+    screen = problem_screen()
+    _boxes(screen)["Gece geçişi"].invoke()
+
+    stored = json.loads(
+        (tmp_path / "arayuz-ayarlari.json").read_text(encoding="utf-8"))
+    assert "Gece geçişi" in stored["problem_notes_off"]
+
+
+def test_a_remembered_selection_is_applied_on_the_next_window(shell, tmp_path):
+    (tmp_path / "arayuz-ayarlari.json").write_text(
+        json.dumps({"problem_notes_off": ["Çıkış yok"]}), encoding="utf-8")
+
+    window = shell()
+    window.show("kisiler")
+    screen = window._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("AYŞE DENEME", ["Çıkış yok"]),
+        _person("DENİZ TASLAK", ["Mesai verisi yok"])]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+    window.root.update()
+
+    assert [name for name, _row in screen._rows] == ["DENİZ TASLAK"]
+
+
+def test_a_note_that_is_new_this_month_counts_without_being_asked(shell, tmp_path):
+    """The off-set is stored, not the on-set — so a note nobody has seen counts.
+
+    For a list that decides who gets contacted, including somebody who should not have
+    been is a correction; leaving somebody out is silence.
+    """
+    (tmp_path / "arayuz-ayarlari.json").write_text(
+        json.dumps({"problem_notes_off": ["Tesis birleştirme"]}), encoding="utf-8")
+
+    window = shell()
+    window.show("kisiler")
+    screen = window._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("YENİ SINAMA", ["Giriş-çıkış tutarsız"])]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+    window.root.update()
+
+    assert [name for name, _row in screen._rows] == ["YENİ SINAMA"]
+
+
+def test_the_panel_is_shown_only_under_the_problem_filter(problem_screen):
+    """Under any other filter it has nothing to change, so it is not in the way."""
+    screen = problem_screen()
+    assert screen.notes_frame.winfo_manager() == "grid"
+
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+    assert screen.notes_frame.winfo_manager() == ""
+
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+    assert screen.notes_frame.winfo_manager() == "grid"
+
+
+def test_expected_behaviour_notes_are_not_offered_for_ticking(people_screen, tmp_path):
+    """`Uzaktan + sistem kaydı` is expected behaviour, not somebody's problem (ADR-017).
+
+    Offering it here would invite putting 38 people on a chasing list for a note that
+    says the program did the right thing.
+    """
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("AYŞE DENEME", ["Çıkış yok"], ["Uzaktan + sistem kaydı"])]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+    people_screen.root.update()
+
+    assert "Uzaktan + sistem kaydı" not in _boxes(screen)
+    assert "Çıkış yok" in _boxes(screen)
+
+
+def test_the_copied_list_follows_the_ticked_notes(problem_screen):
+    """The clipboard is the point of the screen; it must not copy a different list."""
+    screen = problem_screen()
+    captured: list[str] = []
+    screen.root.clipboard_clear = lambda: None
+    screen.root.clipboard_append = lambda text: captured.append(text)
+
+    screen._copy()
+    assert len(captured[0].split("\n")) == 3
+
+    captured.clear()
+    screen._count_all()
+    screen._copy()
+    assert len(captured[0].split("\n")) == 4

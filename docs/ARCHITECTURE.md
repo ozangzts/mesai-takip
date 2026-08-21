@@ -85,6 +85,7 @@ src/mesai/
 │   ├── rapor.py       ✅  the report screen: folder, period, run, result card
 │   ├── people.py      ✅  the people screen: load a data file, filter, select
 │   ├── takvim.py      ✅  the calendar screen: mark a month's non-working days
+│   ├── settings.py    ✅  what the window remembers; read-modify-write, one place
 │   ├── period.py      ✅  `07-2026` -> `2026-07` -> `Temmuz 2026`; pure, tested
 │   └── widgets.py     ✅  palette, buttons, and the hand-drawn activity bar
 ├── snapshot.py        ✅  machine-readable companion to the workbook
@@ -195,6 +196,10 @@ Seven presentation rules the window holds itself to, each of them a defect once:
 - **One gesture, one meaning.** The wheel scrolls the list from wherever the focus
   happens to be, and it can no longer step the filter box — ttk's own binding did that,
   silently reselecting who was listed and dropping the removals made by hand (ADR-039).
+- **A default errs towards including somebody, not leaving them out.** The note
+  selection stores which notes are switched OFF, so a note added later counts without
+  anybody being told. On a list that decides who gets contacted, one person too many is
+  a correction and one too few is silence (ADR-048).
 - **Nothing is lost by closing the window.** A screen with unsaved work grows an
   `unsaved()` method; the shell asks before destroying the toplevel and knows nothing
   else about it. The calendar's month switch already asked, and the X — the route

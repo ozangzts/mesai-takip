@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (47 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (48 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **389 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **412 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -46,6 +46,20 @@ bilerek yeniden üretilmedi, Teknopark dosyasının tam ay hâli bekleniyor.
 ---
 
 ## Sıradaki iş
+
+### 0. Yeni: `Sorunu olanlar` filtresi ve sayılacak notlar (ADR-048)
+
+Kişiler ekranında artık `Sorunu olanlar` var; altındaki onay kutularından hangi notların
+"sorunlu" saydığı işaretleniyor, seçim hatırlanıyor. Varsayılan, yöneticinin saydığı üç
+kategori — üç gerçek ayda 90 / 103 / 99 kişi. `Tesis birleştirme` ve
+`Uzaktan + kart kaydı` başlangıçta işaretsiz: ikisi de zaten çözülmüş bir durumu
+anlatıyor.
+
+**Saklanan şey KAPALI olan notlar**, açık olanlar değil — böylece `anomalies.py`'ye
+sonradan eklenen bir not kendiliğinden sayılır. Kime ulaşılacağını belirleyen bir
+listede fazladan bir kişi düzeltilir, eksik bir kişi sessizlik.
+
+Mail adımı bundan bağımsız; bu sadece listenin kim olduğunu belirliyor.
 
 ### 1. İstisna listesi (4. dosya) — mekanizma hazır
 
@@ -253,6 +267,11 @@ sayısı ve hiç görülmemiş olanlar işaretli.
   `Plausibility`'nin **tamamını** karşılaştırıyor. Yeni bir config anahtarı eklerken
   fixture'a da ekle — yoksa bütün test paketi, kimsenin çalıştırmadığı bir kurala karşı
   geçmeye devam eder.
+- **`arayuz-ayarlari.json` artık `gui/settings.py` üzerinden yazılıyor** — oku,
+  değiştir, yaz. Eskiden rapor ekranı kendi üç anahtarını bütün dosyanın üzerine
+  yazıyordu, yani bir şey hatırlayan ikinci ekran birincisinin ayarını sessizce
+  silecekti. Temizlenen bir değer açıkça `null` yazılıyor; anahtarı hiç yazmamak eski
+  değeri dosyada bırakır.
 - **Kişiler listesi artık widget yığını değil.** Uzun bir listeyi frame içinde
   label'larla çizmek 171 kişide 856 widget demek ve tk her kaydırma adımında hepsini
   yeniden konumlandırıyor. Yeni bir liste ekranı gerekirse `Treeview` ile başla

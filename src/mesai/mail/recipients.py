@@ -6,7 +6,10 @@ hand-written expectation, which is the whole reason it is not in the window.
 
 The vocabulary is deliberately small:
 
-* a **filter** narrows the snapshot to a group (everyone, the clean ones, or one note),
+* a **filter** narrows the snapshot to a group — everyone, the clean ones, the ones with
+  a problem, or one specific note,
+* for the problem group, a set of **counted labels** says which notes make somebody a
+  problem; the rest of the notes do not put anybody in the list,
 * an **exclusion set** removes named individuals from whatever the filter returned,
 * a **selection** is what survives both.
 
@@ -19,6 +22,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from ..anomalies import DESCRIPTIONS
 from ..normalize import sort_key
 from ..snapshot import Person, Snapshot
 
@@ -26,9 +30,28 @@ from ..snapshot import Person, Snapshot
 # call site so the window cannot invent a third by typo.
 ALL = "__all__"
 NO_PROBLEM = "__clean__"
+PROBLEM = "__problem__"
 
 ALL_LABEL = "Herkes"
 NO_PROBLEM_LABEL = "Sorunu olmayanlar"
+PROBLEM_LABEL = "Sorunu olanlar"
+
+# The entries that are not a note. Named once: three call sites were keeping their own
+# `(ALL, NO_PROBLEM)` tuple in step by hand, and the third one to be added would have
+# been the one somebody forgot.
+STANDING = (ALL, NO_PROBLEM, PROBLEM)
+
+# Problem labels that do NOT count towards the problem group unless somebody ticks them.
+# Both describe something already dealt with rather than something to take up with the
+# person: `Tesis birleştirme` is a missing punch the program completed from the other
+# site's record, and `Uzaktan + kart kaydı` is a remote day where the badge reading was
+# counted too. Measured over May-July 2026 they are the whole difference between "anyone
+# with a problem note" and the three categories actually wanted — 4, 8 and 8 people.
+#
+# In code rather than in `config/`, because these are OUR OWN labels from
+# `anomalies.py`, which is the line AGENTS.md §6 draws: tables keyed on strings a source
+# file writes belong in config, tables keyed on our identifiers do not.
+DEFAULT_OFF = ("Tesis birleştirme", "Uzaktan + kart kaydı")
 
 
 @dataclass(frozen=True)
@@ -49,7 +72,33 @@ class Choice:
         return f"{self.label}  ({self.count}){suffix}"
 
 
-def choices(snapshot: Snapshot | None) -> tuple[Choice, ...]:
+def problem_labels(snapshot: Snapshot | None) -> tuple[tuple[str, str, int], ...]:
+    """`(family, label, people)` for every problem note present, in filter order.
+
+    The family comes along so a list of fifteen checkboxes can be grouped instead of
+    read as one wall — the same grouping the filter list uses (ADR-029).
+    """
+    if snapshot is None:
+        return ()
+    family = {label: group for label, _s, _e, group in DESCRIPTIONS.values()}
+    return tuple((family.get(label, "Diğer"), label, count)
+                 for label, count, is_problem in snapshot.label_counts()
+                 if is_problem)
+
+
+def default_labels(snapshot: Snapshot | None) -> frozenset[str]:
+    """Which notes count as a problem before anybody has said otherwise.
+
+    Everything except `DEFAULT_OFF`. A note added to `anomalies.py` later therefore
+    counts by default: for a list that decides who gets contacted, including somebody
+    who should not have been is a correction, and leaving somebody out is silence.
+    """
+    return frozenset(label for _family, label, _count in problem_labels(snapshot)
+                     if label not in DEFAULT_OFF)
+
+
+def choices(snapshot: Snapshot | None,
+            labels: Iterable[str] | None = None) -> tuple[Choice, ...]:
     """The filter list for a UI, built from the snapshot rather than hard-coded.
 
     A note that nobody has does not appear, and a note added to `anomalies.py` later
@@ -63,30 +112,46 @@ def choices(snapshot: Snapshot | None) -> tuple[Choice, ...]:
     entries = [
         Choice(ALL, ALL_LABEL, len(snapshot.people)),
         Choice(NO_PROBLEM, NO_PROBLEM_LABEL, clean),
+        # Counted against the ticked labels, not against "has any note at all", so the
+        # number in the list is the number of rows the list will show.
+        Choice(PROBLEM, PROBLEM_LABEL, len(matching(snapshot, PROBLEM, labels)),
+               is_problem=True),
     ]
     entries += [Choice(label, label, count, is_problem)
                 for label, count, is_problem in snapshot.label_counts()]
     return tuple(entries)
 
 
-def matching(snapshot: Snapshot | None, filter_key: str) -> tuple[Person, ...]:
-    """Everyone the filter admits, in the order a person reads a list of names."""
+def matching(snapshot: Snapshot | None, filter_key: str,
+             labels: Iterable[str] | None = None) -> tuple[Person, ...]:
+    """Everyone the filter admits, in the order a person reads a list of names.
+
+    `labels` applies to the problem group only: the notes that count. `None` means the
+    default set, so a caller that does not care about the distinction gets a sensible
+    list rather than an empty one.
+    """
     if snapshot is None:
         return ()
     if filter_key == ALL:
         people = snapshot.people
     elif filter_key == NO_PROBLEM:
         people = tuple(p for p in snapshot.people if not p.problems)
+    elif filter_key == PROBLEM:
+        counted = (default_labels(snapshot) if labels is None
+                   else frozenset(labels))
+        people = tuple(p for p in snapshot.people
+                       if counted.intersection(p.problems))
     else:
         people = snapshot.with_label(filter_key)
     return tuple(sorted(people, key=lambda p: sort_key(p.name)))
 
 
-def selected(snapshot: Snapshot | None, filter_key: str,
-             excluded: Iterable[str]) -> tuple[Person, ...]:
+def selected(snapshot: Snapshot | None, filter_key: str, excluded: Iterable[str],
+             labels: Iterable[str] | None = None) -> tuple[Person, ...]:
     """The filter's result minus the people removed by hand."""
     removed = set(excluded)
-    return tuple(p for p in matching(snapshot, filter_key) if p.name not in removed)
+    return tuple(p for p in matching(snapshot, filter_key, labels)
+                 if p.name not in removed)
 
 
 def without_email(people: Iterable[Person]) -> tuple[Person, ...]:
@@ -108,5 +173,8 @@ def other_problems(person: Person, filter_key: str) -> int:
 
     Expected-behaviour labels are not counted. They are not problems, and inflating a
     problem count with them is the mistake ADR-017 exists to prevent.
+
+    Under the problem group there is no single note to subtract, so it is the whole
+    count — which is what somebody scanning that list wants to know.
     """
     return sum(1 for label in person.problems if label != filter_key)
