@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (50 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (51 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **422 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **431 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -39,7 +39,7 @@ Faz 1 çalışıyor, **üç ayın üçü de tam**, **422 test geçiyor**.
 
 **Mayıs ve Haziran yeni kurallarla yeniden üretildi** (ADR-030, ADR-032, ADR-033
 Haziran'ın toplamını 27 119:24'ten 27 166:19'a çıkarmıştı). Pencereden üretilen
-kopyalar Masaüstünde, `snapshot format_version 3`; doğrulandı — aynı ay yeniden
+kopyalar Masaüstünde, `snapshot format_version 4`; doğrulandı — aynı ay yeniden
 üretildiğinde `gonderim-*.json` üretim saati dışında birebir aynı çıkıyor. Temmuz
 bilerek yeniden üretilmedi, Teknopark dosyasının tam ay hâli bekleniyor.
 
@@ -307,7 +307,13 @@ sayısı ve hiç görülmemiş olanlar işaretli.
   vardı, pytest dışında 280 denemede tekrarlanmıyor.
 - **Etiketler artık filtre anahtarı** (ADR-027). Bir etiketi yeniden adlandırmak
   snapshot için kırıcı değişikliktir, düzeltme değil. İki tür aynı etiketi paylaşamaz.
-- Snapshot `format_version` **3**. Eski dosyalar "yeniden üret" diye reddediliyor.
+- Snapshot `format_version` **4** (ADR-051 ile 3'ten çıktı). Eski dosyalar
+  "yeniden üret" diye reddediliyor; üç ay Masaüstünde yeniden üretildi.
+- **Veri dosyası artık kişi başına SORUNLU GÜNLERİ de taşıyor** — tarih, giriş,
+  çıkış, o günün etiketleri. Mail adımı kişiyi işaretli notlara göre seçecek ama
+  mesajda **yalnızca o notlara ait günleri** yazacak; işaretlenmemiş notların
+  günleri, o kişiye mail gitse bile gönderilmeyecek. Ay düzeyindeki notların
+  (`Mesai verisi yok`, `Ay büyük ölçüde boş`) tarihi yok, o yüzden günü de yok.
 - Ekran görüntüsü alırken **tüm ekranı değil pencereyi** yakala (`PrintWindow`), ve
   Kişiler ekranını **sentetik veriyle** test et — gerçek veriyle açılan bir ekran
   görüntüsü çalışan adlarını ve e-posta adreslerini gösterir. Bu turda bir kez oldu.

@@ -2903,3 +2903,69 @@ printing the note's wording there would claim time was added when it was not.
 - Three vocabularies are now one, in three sheets: the filter list, the `Not` column
   (ADR-049) and the `Etiket` column say the same words for the same fact. That was the
   whole point of ADR-027, one sheet at a time.
+
+---
+
+## ADR-051 — The data file carries the problem days, not just the problem labels
+
+2026-08-21 · Status: **Accepted** · Decided by: project owner (relaying the workflow)
+
+### Context
+
+ADR-048 made the ticked notes decide **who** is in the list. The operator then explained
+what the ticks are actually for, and it is more than that:
+
+> The reason we choose which problems count is that when we mail those people we will
+> send them the entry and exit times **of those days**. If somebody has several problem
+> days, everything we marked as a problem goes — but the days belonging to notes we did
+> **not** mark are not sent, even though that person is being mailed.
+
+So the tick list selects **rows**, not only people. A person with a missing exit on the
+3rd and a cross-site repair on the 9th, with only the punch notes ticked, is written to
+about the 3rd and not the 9th.
+
+The data file could not support that. `Person` carried aggregates and a flat list of
+labels — no dates, no per-day times. Everything needed was in the workbook's audit
+sheet, and reading the workbook back is the one thing this program does not do
+(`snapshot.py`, ADR-021).
+
+### Decision
+
+**`Person.days` — one `ProblemDay` per person-day that carries a problem note**, in date
+order, each with its own labels. `format_version` 3 → 4.
+
+Each day carries `entry`, `exit` and `minutes`. Two sources, because one is not enough:
+
+- **when the day produced an interval**, the measured first entry and last exit and the
+  minutes counted;
+- **when the record was refused**, the source file's own raw stamps and `minutes=None`.
+
+That second case is the one the reader most needs — a missing exit can mean the whole day
+was refused, so there is no measured time to quote. `None` rather than `0`, because zero
+reads as "worked nothing" where the truth is "nothing could be counted".
+
+`entry` and `exit` are **strings and may be empty**. A missing exit is the point of the
+row; `""` states it where a `None` time would need explaining.
+
+**Month-level notes produce no day.** `Mesai verisi yok` and `Ay büyük ölçüde boş` have
+no date — there is no day to tell anybody about — so they stay in `problems` only.
+Measured on July: 107 people have a problem, 78 of them have days.
+
+### Consequences
+
+- Measured on July: **314 person-day records**, at most 21 on one person, median 2. The
+  file grew by about a third; it was never large.
+- The rule the mail step will apply is stated once, in a test rather than in prose: with
+  the three punch notes ticked, 64 people would be written to and **244 of their 284**
+  problem days sent — the other 40 belong to notes nobody ticked.
+- **Existing data files are refused**, as the version check is designed to: `veri dosyası
+  sürümü 3, beklenen 4. Raporu yeniden üretin.` All three months were regenerated onto
+  the operator's Desktop; no figure changed.
+- One thing to be careful of when the message is written: **a note is about a record, the
+  times are about the day.** A `Giriş-çıkış yok` row can sit on a day that still counted
+  ten hours, because another record covered it. `01.07 · 07:27–18:26 · Giriş-çıkış yok`
+  is accurate and reads as a contradiction, so the wording will have to say which record
+  the note is about, or the day will have to say what was counted despite it.
+- Nothing sends anything. The three decisions ADR-028 left open — preview or send by
+  default, whether a manual removal is recorded, whether an incomplete month may be
+  mailed from — are still open.

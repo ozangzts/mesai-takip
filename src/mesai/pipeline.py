@@ -133,7 +133,7 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     if snapshot_path is not None:
         written_snapshot = snapshot_module.save(
             snapshot_module.build(period, summaries, anomalies, stats, settings,
-                                  generated_at),
+                                  generated_at, workdays),
             snapshot_path)
 
     return {

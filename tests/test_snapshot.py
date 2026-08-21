@@ -166,3 +166,145 @@ def test_no_temp_file_is_left_behind(tmp_path, settings):
     path = snap.save(_build(settings), tmp_path / "s.json")
     assert path.exists()
     assert not list(tmp_path.glob("*.tmp.json"))
+
+
+# --- the problem days (ADR-051) ---------------------------------------------
+#
+# The mail step chooses people by the notes that were ticked, and then has to list
+# **the days those notes are about** — not every day the person had a note on. Somebody
+# with a missing exit on the 3rd and a cross-site repair on the 9th gets told about the
+# 3rd only, if the repair was not ticked. So the day is the unit and the label travels
+# with it.
+
+def _workday(key, day, first, last, minutes):
+    from mesai.models import Interval, WorkDay
+
+    start = datetime(day.year, day.month, day.day, *first)
+    end = datetime(day.year, day.month, day.day, *last)
+    return WorkDay(
+        key=key, date=day,
+        intervals=(Interval(start, end, frozenset({"teknopark"})),),
+        gross=timedelta(minutes=minutes), break_deduction=timedelta(),
+        net=timedelta(minutes=minutes))
+
+
+def test_a_person_carries_the_days_their_notes_are_about(settings):
+    days = _build(settings).people
+    ayse = next(p for p in days if p.name == "AYŞE DENEME")
+
+    assert [d.date for d in ayse.days] == [date(2026, 7, 3), date(2026, 7, 6)]
+    assert ayse.days[0].problems == ("Çıkış yok",)
+    assert ayse.days[1].problems == ("Günlük süre çok kısa (<2 saat)",)
+
+
+def test_the_days_are_in_date_order(settings):
+    """They are read as a list of dates by a person; frequency order would be unreadable."""
+    ayse = next(p for p in _build(settings).people if p.name == "AYŞE DENEME")
+
+    assert [d.date for d in ayse.days] == sorted(d.date for d in ayse.days)
+
+
+def test_an_expected_behaviour_note_produces_no_day(settings):
+    """VELİ's only note is `info`. Nobody is mailed about the program working (ADR-017)."""
+    veli = next(p for p in _build(settings).people if p.name == "VELİ ÖRNEK")
+
+    assert veli.days == ()
+    assert veli.expected, "the note is still recorded, just not as a day"
+
+
+def test_a_month_level_note_produces_no_day(settings):
+    """`Mesai verisi yok` has no date, so there is no day to tell anybody about."""
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.NO_ATTENDANCE_DATA, source="izin", source_row=0, key=KEY_A,
+        raw_name="AYŞE DENEME"))                      # no date
+
+    built = snap.build("2026-07", [_summary(_employee(KEY_A, "AYŞE DENEME"))],
+                       collector, _stats(), settings, datetime(2026, 8, 18, 10, 0))
+    person = built.people[0]
+
+    assert person.days == ()
+    assert "Mesai verisi yok" in person.problems, "still a problem, just not a day"
+
+
+def test_a_day_that_counted_carries_the_measured_times(settings):
+    """When the day produced an interval, the figures are the measured ones."""
+    built = snap.build(
+        "2026-07", [_summary(_employee(KEY_A, "AYŞE DENEME"))], _anomalies(),
+        _stats(), settings, datetime(2026, 8, 18, 10, 0),
+        workdays=[_workday(KEY_A, date(2026, 7, 3), (7, 58), (18, 29), 631)])
+    day = next(d for d in built.people[0].days if d.date == date(2026, 7, 3))
+
+    assert (day.entry, day.exit) == ("07:58", "18:29")
+    assert day.minutes == 631
+    assert day.hours_text == "10:31"
+
+
+def test_a_refused_record_falls_back_to_what_the_file_said(settings):
+    """The case the reader most needs: no interval at all, so no measured time.
+
+    A missing exit can mean the whole day was refused. `minutes` is then `None` — not
+    zero, which would read as "worked nothing" rather than "nothing could be counted" —
+    and the times come from the source's own stamps.
+    """
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.MISSING_EXIT, source="macunkoy", source_row=7, key=KEY_A,
+        raw_name="AYŞE DENEME", date=date(2026, 7, 3),
+        raw_entry="08:12", raw_exit=""))
+
+    built = snap.build("2026-07", [_summary(_employee(KEY_A, "AYŞE DENEME"))],
+                       collector, _stats(), settings, datetime(2026, 8, 18, 10, 0))
+    day = built.people[0].days[0]
+
+    assert (day.entry, day.exit) == ("08:12", "")
+    assert day.minutes is None
+    assert day.hours_text == "", "no measured time is empty, not 0:00"
+
+
+def test_two_notes_on_one_day_are_one_day_with_two_labels(settings):
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+
+    collector = Collector()
+    for kind in (AnomalyKind.MISSING_EXIT, AnomalyKind.SHORT_DAY):
+        collector.add(Anomaly(
+            kind=kind, source="macunkoy", source_row=7, key=KEY_A,
+            raw_name="AYŞE DENEME", date=date(2026, 7, 3)))
+
+    built = snap.build("2026-07", [_summary(_employee(KEY_A, "AYŞE DENEME"))],
+                       collector, _stats(), settings, datetime(2026, 8, 18, 10, 0))
+
+    assert len(built.people[0].days) == 1
+    assert built.people[0].days[0].problems == (
+        "Günlük süre çok kısa (<2 saat)", "Çıkış yok")
+
+
+def test_the_days_survive_the_round_trip(tmp_path, settings):
+    """A file that loses them would make the mail step guess, which is the whole point."""
+    original = snap.build(
+        "2026-07", [_summary(_employee(KEY_A, "AYŞE DENEME"))], _anomalies(),
+        _stats(), settings, datetime(2026, 8, 18, 10, 0),
+        workdays=[_workday(KEY_A, date(2026, 7, 3), (7, 58), (18, 29), 631)])
+    path = snap.save(original, tmp_path / "gonderim-2026-07.json")
+
+    assert snap.load(path).people[0].days == original.people[0].days
+
+
+def test_choosing_labels_selects_a_subset_of_the_days(settings):
+    """The mail rule, stated once here so it is not invented twice later.
+
+    Measured on July 2026: with the three punch notes ticked, 64 people would be
+    written to and 244 of their 284 problem days sent — the other 40 belong to notes
+    nobody ticked.
+    """
+    ayse = next(p for p in _build(settings).people if p.name == "AYŞE DENEME")
+    chosen = {"Çıkış yok"}
+
+    sendable = [d for d in ayse.days if chosen & set(d.problems)]
+
+    assert [d.date for d in sendable] == [date(2026, 7, 3)]
+    assert len(ayse.days) == 2, "the other day stays out of the message"

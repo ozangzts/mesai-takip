@@ -88,7 +88,8 @@ src/mesai/
 │   ├── settings.py    ✅  what the window remembers; read-modify-write, one place
 │   ├── period.py      ✅  `07-2026` -> `2026-07` -> `Temmuz 2026`; pure, tested
 │   └── widgets.py     ✅  palette, buttons, and the hand-drawn activity bar
-├── snapshot.py        ✅  machine-readable companion to the workbook
+├── snapshot.py        ✅  machine-readable companion: per person, and per
+│                          problem DAY (ADR-051)
 ├── pipeline.py        ✅  the six stages; file discovery, period filter
 ├── config.py          ✅  YAML -> typed Settings; validates on load
 ├── models.py          ✅  the vocabulary of the whole system

@@ -24,12 +24,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date as date_type, datetime
 from pathlib import Path
 
 from .anomalies import DESCRIPTIONS, GROUPS, Collector
 from .config import Settings
-from .models import MonthSummary, RunStats
+from .models import MonthSummary, RunStats, WorkDay
 
 # Bump when a field changes meaning or disappears. A reader that meets a version it
 # does not know refuses rather than guessing — see load().
@@ -39,11 +39,40 @@ from .models import MonthSummary, RunStats
 #    written against "Çıkış kaydı yok" would quietly match nobody under "Çıkış yok".
 # 3: `expected` added — the `info`-severity labels, so they can be filtered on without
 #    joining `problems` and making expected behaviour look like a defect (ADR-028).
-FORMAT_VERSION = 3
+FORMAT_VERSION = 4
 
 
 class SnapshotError(Exception):
     """The snapshot is missing, unreadable, or of an unknown version."""
+
+
+@dataclass(frozen=True)
+class ProblemDay:
+    """One person-day that carries at least one problem note.
+
+    Exists for the mail step. A person is chosen by the notes that were ticked, and the
+    message is supposed to list **the days those notes are about** — not every day the
+    person had a note on. So the day has to be the unit, and the label has to travel
+    with it: somebody with a missing exit on the 3rd and a cross-site repair on the 9th
+    gets told about the 3rd only, if the repair was not ticked.
+
+    `entry` and `exit` are strings, not times, and may be empty. A missing exit is the
+    whole point of the row, and `""` says it where a `None` time would have to be
+    explained. They are taken from the day's measured interval when there is one, and
+    from the source's own raw stamp when the record was refused — which is exactly the
+    case where the reader needs to see what the file actually said.
+    """
+    date: date_type
+    problems: tuple[str, ...]
+    entry: str = ""
+    exit: str = ""
+    minutes: int | None = None       # counted for that day; None if nothing counted
+
+    @property
+    def hours_text(self) -> str:
+        if self.minutes is None:
+            return ""
+        return f"{self.minutes // 60}:{self.minutes % 60:02d}"
 
 
 @dataclass(frozen=True)
@@ -74,6 +103,10 @@ class Person:
     # being anybody's problem. ADR-028.
     expected: tuple[str, ...]
     notes: tuple[str, ...]
+    # The person's problem days, for the mail step. Month-level notes
+    # (`Mesai verisi yok`, `Ay büyük ölçüde boş`) carry no date and stay in
+    # `problems` only — there is no day to tell somebody about.
+    days: tuple[ProblemDay, ...] = ()
 
     @property
     def labels(self) -> tuple[str, ...]:
@@ -165,9 +198,58 @@ def default_path(period: str, output_path: Path) -> Path:
     return output_path.parent / f"gonderim-{period}.json"
 
 
+def _problem_days(
+    anomalies: Collector, workdays: list[WorkDay],
+) -> dict[tuple[str, str], tuple[ProblemDay, ...]]:
+    """Per person, the days carrying a problem note, in date order.
+
+    Two sources, and both are needed. The **labels and the raw stamps** come from the
+    anomalies, which is the only place that knows a record was refused and what the file
+    actually said. The **measured figures** come from the WorkDay, when there is one —
+    for a refused record there may be no interval at all, which is exactly the day the
+    reader has to be told about.
+
+    Month-level notes are skipped: they have no date, so there is no day to report.
+    """
+    days: dict[tuple[str, str], dict[date_type, dict]] = {}
+    for anomaly in anomalies.items:
+        if anomaly.key is None or anomaly.date is None or not anomaly.is_problem:
+            continue
+        entry = days.setdefault(anomaly.key, {}).setdefault(
+            anomaly.date, {"labels": set(), "entry": "", "exit": ""})
+        entry["labels"].add(anomaly.label)
+        # First non-empty wins. A day can carry two records — one per site — and their
+        # stamps differ; the audit sheet has every one of them, this needs a
+        # representative pair rather than a merged fiction.
+        entry["entry"] = entry["entry"] or anomaly.raw_entry
+        entry["exit"] = entry["exit"] or anomaly.raw_exit
+
+    measured = {(w.key, w.date): w for w in workdays}
+    built: dict[tuple[str, str], tuple[ProblemDay, ...]] = {}
+    for key, by_date in days.items():
+        rows = []
+        for day, found in sorted(by_date.items()):
+            workday = measured.get((key, day))
+            rows.append(ProblemDay(
+                date=day,
+                problems=tuple(sorted(found["labels"])),
+                # The measured figures when the day counted, the file's own stamps when
+                # it did not.
+                entry=(workday.first_entry.strftime("%H:%M")
+                       if workday and workday.first_entry else found["entry"]),
+                exit=(workday.last_exit.strftime("%H:%M")
+                      if workday and workday.last_exit else found["exit"]),
+                minutes=(int(workday.gross.total_seconds() // 60)
+                         if workday else None),
+            ))
+        built[key] = tuple(rows)
+    return built
+
+
 def build(
     period: str, summaries: list[MonthSummary], anomalies: Collector,
     stats: RunStats, settings: Settings, generated_at: datetime,
+    workdays: list[WorkDay] | None = None,
 ) -> Snapshot:
     by_key: dict[tuple[str, str], set[str]] = {}
     expected_by_key: dict[tuple[str, str], set[str]] = {}
@@ -176,6 +258,8 @@ def build(
             continue
         target = by_key if anomaly.is_problem else expected_by_key
         target.setdefault(anomaly.key, set()).add(anomaly.label)
+
+    days_by_key = _problem_days(anomalies, workdays or [])
 
     people = tuple(
         Person(
@@ -193,6 +277,7 @@ def build(
             problems=tuple(sorted(by_key.get(s.employee.key, ()))),
             expected=tuple(sorted(expected_by_key.get(s.employee.key, ()))),
             notes=tuple(s.notes),
+            days=days_by_key.get(s.employee.key, ()),
         )
         for s in summaries
     )
@@ -241,6 +326,11 @@ def save(snapshot: Snapshot, path: Path) -> Path:
                 "remote_days": p.remote_days, "leave_days": p.leave_days,
                 "problems": list(p.problems), "expected": list(p.expected),
                 "notes": list(p.notes),
+                "days": [
+                    {"date": d.date.isoformat(), "problems": list(d.problems),
+                     "entry": d.entry, "exit": d.exit, "minutes": d.minutes}
+                    for d in p.days
+                ],
             }
             for p in snapshot.people
         ],
@@ -289,6 +379,13 @@ def load(path: Path) -> Snapshot:
                 problems=tuple(p.get("problems", ())),
                 expected=tuple(p.get("expected", ())),
                 notes=tuple(p.get("notes", ())),
+                days=tuple(
+                    ProblemDay(
+                        date=date_type.fromisoformat(d["date"]),
+                        problems=tuple(d.get("problems", ())),
+                        entry=d.get("entry", ""), exit=d.get("exit", ""),
+                        minutes=d.get("minutes"))
+                    for d in p.get("days", ())),
             )
             for p in payload.get("people", ())
         ),
