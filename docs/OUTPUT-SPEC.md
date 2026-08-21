@@ -175,6 +175,18 @@ questionable days — 49 exceed 1 h in May 2026, 13 exceed 2 h.
 With `break.deduct: true`, G–H become the three-column `Brüt` / `Öğle Kesintisi` /
 `Net` layout and I–J shift right by one.
 
+## 1e. Tags are printed in words
+
+`Etiket` on `Günlük Detay` prints a day's tags through `anomalies.TAG_TEXT`, never the
+internal name. Where a tag means what a note label means it uses that label's exact
+words, so the same fact reads the same in the filter list, the `Not` column and here.
+
+Two of them have no label and say what they are: `İki tesisin kaydı çakışıyor` (an
+interval carrying both sites' records — the overlap counted once) and `Eksik kayıt diğer
+tesisten tamamlandı` (a missing punch resolved from the other site, whether or not that
+added any time). The second deliberately does not borrow `Tesis birleştirme`'s wording,
+because it is the broader case. ADR-050.
+
 ## 1d. One note, one wording
 
 The `Not` column on `Aylık Özet` prints the person's **note labels** — the same strings

@@ -449,6 +449,12 @@ single-container glob.**
 name, implausible duration) are collected into a structured list and written to a
 report sheet. They are not printed warnings and not silent skips.
 
+**Internal identifiers never reach the workbook.** A `WorkDay`'s tags are short
+names for the code (`kısa-gün`, `çapraz-tesis`); the report prints them through
+`anomalies.TAG_TEXT`, using the note label's exact words wherever the tag means the same
+thing. Two tests enforce it, one of which greps `merge.py` so a new tag without wording
+fails rather than leaking (ADR-050).
+
 **One note has one wording, everywhere.** The monthly summary's `Not` column was
 five hand-written strings while every other list used the note labels: four were
 re-wordings (`Ayın çoğu açıklanmıyor` for `Ay büyük ölçüde boş`) and the other eleven

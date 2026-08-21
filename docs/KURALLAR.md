@@ -178,6 +178,14 @@ gördüğün adlarla birebir aynı. Sorunu olan herkesin notu vardır; boş bir 
 Tek istisna `Personel listesinde yok`: bu bir sorun değil, personel listesiyle ilgili bir
 bilgi. O kişi çalışmıştır ve bütün saatlerini alır.
 
+`Günlük Detay` sayfasındaki `Etiket` kolonu da aynı kelimeleri kullanır. Karşılığı olmayan
+iki tanesi şunlar:
+
+| Etiket | Ne demek |
+| --- | --- |
+| `İki tesisin kaydı çakışıyor` | Kişi aynı saatlerde iki tesisin dosyasında da var; süre bir kez sayıldı |
+| `Eksik kayıt diğer tesisten tamamlandı` | Giriş ya da çıkışı eksikti, diğer tesisin kaydıyla tamamlandı |
+
 Her notun bir **ağırlığı** var:
 
 | Renk | Anlamı |

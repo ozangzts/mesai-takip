@@ -14,7 +14,7 @@ from pathlib import Path
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ..anomalies import DESCRIPTIONS, IMPACT_TEXT, Collector
+from ..anomalies import DESCRIPTIONS, IMPACT_TEXT, TAG_TEXT, Collector
 from ..config import Settings
 from ..models import Employee, LeaveRecord, MonthSummary, NameKey, RunStats, WorkDay
 from ..normalize import sort_key
@@ -308,7 +308,7 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
             len(workday.intervals),
             *middle_values,
             _day_sources_label(workday),
-            ", ".join(sorted(workday.tags)),
+            _tags_label(workday.tags),
         ]
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
@@ -801,6 +801,17 @@ def _roster_age_line(line, stats: RunStats, period: str) -> None:
         line("Personel listesi tarihi", stamp,
              f"Rapor döneminden {-gap} ay ÖNCE alınmış. O tarihten sonra işe "
              f"girenler listede yok", styles.AMBER_FILL)
+
+
+def _tags_label(tags: frozenset[str]) -> str:
+    """A day's tags in words, in a stable order.
+
+    Sorted by the display text rather than by the internal name, so the column reads
+    alphabetically to somebody who cannot see the internal names. An unknown tag is
+    printed as it stands: tags come from `merge.py`, and a silently dropped one would
+    be a fact removed from the audit trail.
+    """
+    return ", ".join(sorted(TAG_TEXT.get(tag, tag) for tag in tags))
 
 
 def _day_sources_label(workday: WorkDay) -> str:

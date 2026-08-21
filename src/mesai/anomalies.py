@@ -154,6 +154,34 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
         "Diğer"),
 }
 
+# A day's tags, in words. `merge.py` sets short internal names on a WorkDay; the daily
+# detail sheet printed them raw — `kısa-gün`, `uzaktan-çakışma`, and two that differ by
+# one word: `çapraz-tesis` and `çapraz-eşleşti`. That was a THIRD vocabulary for facts
+# the rest of the program already had names for, and the operator asked what the
+# difference between the two cross ones was, which is the question a leaked identifier
+# always produces. ADR-050.
+#
+# Where a tag means the same thing as a note label, it uses the label's exact words. The
+# two that have no label say what they are:
+#
+#   çapraz-tesis    an interval carrying BOTH sites' records — the person appears in
+#                   two files at the same hours, and the overlap was counted once.
+#   çapraz-eşleşti  a MISSING punch resolved from the other site's record. Sometimes
+#                   that added time (then the `Tesis birleştirme` note is raised too),
+#                   sometimes the stamp simply fell inside a known interval and nothing
+#                   had to be added — which is why this is broader than that note and
+#                   cannot borrow its words.
+TAG_TEXT = {
+    "uzaktan": "Uzaktan çalışma",
+    "uzaktan-çakışma": "Uzaktan + kart kaydı",
+    "gece-geçişi": "Gece geçişi",
+    "kısa-gün": "Günlük süre çok kısa (<2 saat)",
+    "uzun-gün": "Günlük süre çok uzun (>16 saat)",
+    "çapraz-tesis": "İki tesisin kaydı çakışıyor",
+    "çapraz-eşleşti": "Eksik kayıt diğer tesisten tamamlandı",
+}
+
+
 # The single source of truth for "what happened to this record". The report imports
 # it rather than keeping its own copy, so adding a severity here cannot leave a sheet
 # raising KeyError on a month-end run.

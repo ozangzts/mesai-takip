@@ -124,7 +124,9 @@ def test_a_midnight_crossing_is_repaired(result):
     """VELİ, 2nd: the source says -21:00 for a 23:00 -> 02:00 night shift."""
     day = next(w for w in _workdays(result) if w[1] == "02.06.2026")
     assert day[6] == "3:00"
-    assert "gece-geçişi" in (day[9] or "")
+    # The column prints the tag in words now, in the same wording as the
+    # note label — the internal `gece-geçişi` never reaches a reader (ADR-050).
+    assert "Gece geçişi" in (day[9] or "")
 
 
 def test_an_unrepairable_missing_punch_contributes_nothing(result):
@@ -342,3 +344,50 @@ def test_no_reworded_note_survives(result):
     for gone in ("Ayın çoğu açıklanmıyor", "Uzaktan çalışma kart kaydıyla çakışıyor",
                  "Gece vardiyası düzeltmesi var"):
         assert gone not in text, gone
+
+
+def test_no_internal_tag_name_reaches_the_workbook(result):
+    """`kısa-gün`, `uzaktan-çakışma`, `çapraz-tesis` are identifiers, not wording.
+
+    The daily detail printed them raw, which made a third vocabulary for facts the rest
+    of the program already had names for — and two of them differed by one word, so the
+    operator had to ask what `çapraz-tesis` and `çapraz-eşleşti` meant. ADR-050.
+    """
+    from mesai.anomalies import TAG_TEXT
+
+    book = openpyxl.load_workbook(result["output"], read_only=True)
+    rows = list(book["Günlük Detay"].iter_rows(values_only=True))
+    header = next(r for r in rows if r and r[0] == "Ad Soyad")
+    column = header.index("Etiket")
+
+    # The column's own cells, split the way they are joined. A plain substring search
+    # over the whole workbook is too crude: `uzaktan` is also an ordinary word inside
+    # the explanatory banners.
+    printed = set()
+    for row in rows[rows.index(header) + 1:]:
+        if row and row[column]:
+            printed.update(part.strip() for part in str(row[column]).split(","))
+
+    assert printed, "hiç etiket yazılmamış — test bir şey kontrol etmiyor"
+    leaked = printed & set(TAG_TEXT)
+    assert not leaked, f"ham hâliyle yazılmış: {sorted(leaked)}"
+    assert printed <= set(TAG_TEXT.values()), sorted(
+        printed - set(TAG_TEXT.values()))
+
+
+def test_every_tag_the_program_can_set_has_wording():
+    """A tag with no entry would print its identifier and nothing would fail.
+
+    Read out of `merge.py` rather than listed here, so a tag added there without an
+    entry in `TAG_TEXT` fails this instead of quietly leaking into the report.
+    """
+    import re as regex
+    from pathlib import Path
+
+    from mesai.anomalies import TAG_TEXT
+
+    source = Path("src/mesai/merge.py").read_text(encoding="utf-8")
+    set_in_merge = set(regex.findall(r'tags\.add\("([^"]+)"\)', source))
+
+    assert set_in_merge, "merge.py'de tag bulunamadı — desen mi değişti?"
+    assert set_in_merge <= set(TAG_TEXT), sorted(set_in_merge - set(TAG_TEXT))

@@ -2850,3 +2850,56 @@ order the data does not have.
   five old notes were added in exactly that position.
 - July's cross-site day shapes, for the record: 2 437 at one site, 286 with a merged
   interval at one end, 8 that genuinely start at one site and end at the other.
+
+---
+
+## ADR-050 — The day's tags are printed in words, in the vocabulary that already exists
+
+2026-08-21 · Status: **Accepted** · Extends **ADR-049** · Decided by: project owner
+
+### Context
+
+Asked, about the daily detail sheet: *"what is the difference between `çapraz-eşleşti`
+and `çapraz-tesis`?"*
+
+A fair question, and the answer was only readable in `merge.py`:
+
+- **`çapraz-tesis`** — an interval carrying **both** sites' records. The person appears
+  in two files at the same hours; the overlap was counted once (ADR-001).
+- **`çapraz-eşleşti`** — a **missing** punch resolved from the other site's record.
+  Sometimes that added time, in which case the `Tesis birleştirme` note is raised too;
+  sometimes the stamp simply fell inside a known interval and nothing had to be added.
+
+Two facts one word apart, printed as internal identifiers. And they were not alone:
+`kısa-gün`, `uzun-gün`, `uzaktan-çakışma`, `gece-geçişi` were in the same column, in the
+same shape. That was a **third vocabulary**, after the note labels and the summary's
+hand-written strings that ADR-049 had just merged — for facts the program already had
+names for. Five of the seven tags mean exactly what a note label means.
+
+### Decision
+
+**`Etiket` prints words, from `anomalies.TAG_TEXT`.** Where a tag means the same thing
+as a note label it uses the label's exact words, so `kısa-gün` reads
+`Günlük süre çok kısa (<2 saat)` — the same string the filter list and the `Not` column
+use. The two with no label say what they are: `İki tesisin kaydı çakışıyor` and
+`Eksik kayıt diğer tesisten tamamlandı`.
+
+`çapraz-eşleşti` deliberately does **not** borrow `Tesis birleştirme`'s words. The tag is
+broader than the note: it also covers the case where nothing had to be added, and
+printing the note's wording there would claim time was added when it was not.
+
+### Consequences
+
+- Two tests. One reads the `Etiket` column and asserts every value printed is a wording
+  and none is an identifier — narrowed to that column, because a whole-workbook
+  substring search trips on `uzaktan` appearing as an ordinary word in a banner. The
+  other greps `merge.py` for `tags.add(...)` and fails if a tag has no wording, so
+  adding one there without an entry cannot leak silently.
+- July's column now reads, in order of frequency: `Eksik kayıt diğer tesisten
+  tamamlandı` (276), `İki tesisin kaydı çakışıyor` (154), `Uzaktan çalışma` (99),
+  `Gece geçişi` (20), `Günlük süre çok kısa (<2 saat)` (12).
+- The internal names stay internal. `merge.py` keeps setting `kısa-gün`; nothing about
+  the pipeline changed, and no figure moved.
+- Three vocabularies are now one, in three sheets: the filter list, the `Not` column
+  (ADR-049) and the `Etiket` column say the same words for the same fact. That was the
+  whole point of ADR-027, one sheet at a time.
