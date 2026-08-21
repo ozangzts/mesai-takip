@@ -97,7 +97,7 @@ def test_both_the_workbook_and_the_snapshot_are_written(result):
     assert result["snapshot"].exists()
 
     book = openpyxl.load_workbook(result["output"], read_only=True)
-    assert book.sheetnames == ["Aylık Özet", "Günlük Detay", "Sorulacaklar",
+    assert book.sheetnames == ["Aylık Özet", "Günlük Detay", "İnceleme Listesi",
                                "Şüpheli Kayıtlar", "İzin Özeti", "Kontrol"]
 
 

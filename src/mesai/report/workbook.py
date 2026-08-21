@@ -88,7 +88,7 @@ def build(
                    anomalies, stats, settings, footer)
     _sheet_daily(workbook.create_sheet("Günlük Detay"), workdays, employees,
                  settings, footer)
-    _sheet_worklist(workbook.create_sheet("Sorulacaklar"), period, anomalies,
+    _sheet_worklist(workbook.create_sheet("İnceleme Listesi"), period, anomalies,
                     employees, settings, footer)
     _sheet_anomalies(workbook.create_sheet("Şüpheli Kayıtlar"), anomalies,
                      employees, footer)
@@ -324,7 +324,7 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
 
 
 # ---------------------------------------------------------------------------
-# Sheet 3 — Sorulacaklar (per-person worklist)
+# Sheet 3 — İnceleme Listesi (per-person worklist)
 # ---------------------------------------------------------------------------
 
 # "Sorun" is a keyword now, so the sentence it used to be goes in its own column.
@@ -347,11 +347,11 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
     """
     span = len(_WORKLIST_HEADERS)
     styles.write_title(sheet, 1,
-                       f"SORULACAKLAR — kişi bazlı eksik kayıt listesi "
+                       f"İNCELEME LİSTESİ — kişi bazlı eksik kayıt listesi "
                        f"({_period_label(period)})", span)
     styles.write_banner(
         sheet, 2,
-        "Bu sayfa sorulması gereken kayıtların listesi: her satır bir kişi ve "
+        "Bu sayfa incelenmesi gereken kayıtların listesi: her satır bir kişi ve "
         "bir konu, hangi günlerde olduğu yazılı. KIRMIZI: o günler 0 saat sayıldı, "
         "kayıp saat var. SARI: sayıldı ama bakılması iyi olur. GRİ: beklenen durum, "
         "sorun değil — bilgi için listelenmiştir. Satır bazlı denetim izi için "

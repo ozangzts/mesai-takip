@@ -97,7 +97,7 @@ def test_every_anomaly_kind_can_be_written(tmp_path, settings):
     assert path.exists()
 
     book = openpyxl.load_workbook(path, read_only=True)
-    assert book.sheetnames == ["Aylık Özet", "Günlük Detay", "Sorulacaklar",
+    assert book.sheetnames == ["Aylık Özet", "Günlük Detay", "İnceleme Listesi",
                                "Şüpheli Kayıtlar", "İzin Özeti", "Kontrol"]
 
 
@@ -358,6 +358,21 @@ def test_no_developer_references_reach_the_workbook(tmp_path, settings):
 # naive `in` check would fail on the report's own warnings.
 _DEPARTMENTS = ("İK", "IK", "IT", "HR")
 
+# Phrases that hand the reader off to somebody, or credit a decision to somebody.
+# Matched as substrings, which is safe because none of them is a fragment of an
+# ordinary word. Lower-cased before comparison.
+_HANDOFFS = (
+    "onay bekl",          # "İK onayı bekliyor"
+    "onayı bekl",
+    "talebiyle",          # "45 dk kesinti İK talebiyle kapatıldı"
+    "talimatıyla",
+    "isteğiyle",
+    "sorulacak",          # sheet 3 was called "Sorulacaklar"
+    "sorulmalı",
+    "sormak için",
+    "ile kontrol edilmeli",   # "İK/IT ile kontrol edilmeli"
+)
+
 
 def _tokens(text: str) -> set[str]:
     """Upper-case words, with a Turkish suffix apostrophe cut off (`İK'ya` -> `İK`)."""
@@ -409,14 +424,29 @@ def test_the_workbook_never_says_who_to_ask(tmp_path, settings):
 
     offenders: list[str] = []
     book = openpyxl.load_workbook(path, read_only=True)
+    names = [sheet.title for sheet in book.worksheets]
     for sheet in book.worksheets:
         for row in sheet.iter_rows(values_only=True):
             for cell in row:
-                if isinstance(cell, str) and cell not in passed_through:
-                    for word in _tokens(cell) & set(_DEPARTMENTS):
-                        offenders.append(f"{sheet.title}: {word!r} in {cell[:70]!r}")
+                if not isinstance(cell, str) or cell in passed_through:
+                    continue
+                for word in _tokens(cell) & set(_DEPARTMENTS):
+                    offenders.append(f"{sheet.title}: {word!r} in {cell[:70]!r}")
+                for phrase in _HANDOFFS:
+                    if phrase in cell.lower():
+                        offenders.append(
+                            f"{sheet.title}: {phrase!r} in {cell[:70]!r}")
 
-    assert not offenders, "the workbook names a department:\n" + "\n".join(offenders)
+    # Sheet names are wording too — sheet 3 was called `Sorulacaklar`.
+    for name in names:
+        for phrase in _HANDOFFS:
+            if phrase in name.lower():
+                offenders.append(f"sayfa adı: {phrase!r} in {name!r}")
+        for word in _tokens(name) & set(_DEPARTMENTS):
+            offenders.append(f"sayfa adı: {word!r} in {name!r}")
+
+    assert not offenders, ("the workbook names somebody or hands off to them:\n"
+                           + "\n".join(offenders))
 
 
 def test_the_check_would_catch_the_wording_that_was_removed():
@@ -438,6 +468,17 @@ def test_the_check_would_catch_the_wording_that_was_removed():
         "the token check does see it — which is why such cells are skipped by name"
     assert not _tokens("İKİ kişinin saatleri birleşmiş olur") & set(_DEPARTMENTS)
     assert not _tokens("Mola için süre düşülmedi") & set(_DEPARTMENTS)
+
+    # The handoff phrases, which is the other half of the rule.
+    assert any(p in "aşağıdaki eşleştirmeler uygulandı ama i̇k onayı bekliyor"
+               for p in _HANDOFFS)
+    assert any(p in "45 dk kesinti i̇k talebiyle kapatıldı" for p in _HANDOFFS)
+    assert any(p in "sorulacaklar" for p in _HANDOFFS)
+    assert not any(
+        p in "i̇ki yazımın aynı kişi olduğu varsayıldı; yanlışsa iki kişinin "
+             "saatleri birleşmiş olur" for p in _HANDOFFS)
+    assert not any(p in "süre sayıldı — kontrol edilmeli" for p in _HANDOFFS), \
+        "an impersonal 'should be checked' names nobody and stays"
 
 
 # --- the window must say where it put things --------------------------------
@@ -521,7 +562,7 @@ def test_the_remote_pair_names_the_kind_that_actually_fires():
 
 def test_the_worklist_prints_the_explanation_beside_the_keyword(tmp_path, settings):
     book = openpyxl.load_workbook(_build(tmp_path, settings), read_only=True)
-    rows = list(book["Sorulacaklar"].iter_rows(values_only=True))
+    rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
     header = [c for c in rows[3] if c is not None]
 
     assert header[4] == "Sorun" and header[5] == "Açıklama"

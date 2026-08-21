@@ -448,7 +448,7 @@ That is the true state of the input data, and hiding it would be the actual bug.
 `openpyxl` only. Six sheets, one function each in `workbook.py`, taking computed
 data and writing cells. No sheet function computes anything.
 
-`Aylık Özet`, `Günlük Detay`, `Sorulacaklar`, `Şüpheli Kayıtlar`, `İzin Özeti`,
+`Aylık Özet`, `Günlük Detay`, `İnceleme Listesi`, `Şüpheli Kayıtlar`, `İzin Özeti`,
 `Kontrol` — see `OUTPUT-SPEC.md`. Every user-facing ordering goes through
 `normalize.sort_key()` for Turkish alphabetical order; Python's default sort puts
 Ç Ğ İ Ö Ş Ü after Z.

@@ -397,7 +397,7 @@ these at `info` severity: expected, not a defect (ADR-017).
 
 The residue is the interesting part: **2 May records and 7 June records overlap a real
 punch.** Those are the only cases where somebody declared remote work and a turnstile
-genuinely recorded them, and they appear on `Sorulacaklar` as their own question.
+genuinely recorded them, and they appear on `İnceleme Listesi` as their own line.
 
 **Free-text fields contain sensitive personal detail** (medical reasons, personal
 excuses). They must not be reproduced in any report that is circulated more widely

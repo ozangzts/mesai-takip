@@ -2640,3 +2640,59 @@ the operator, the ADR says the operator.
   those questions do need somebody outside the team — whether the Macunköy export covers
   every turnstile is not answerable from here — but the program should not decide whose
   desk that is.
+
+---
+
+## ADR-047 — Nothing the program shows names a person, a team or a department
+
+2026-08-21 · Status: **Accepted** · Generalises **ADR-046** · Decided by: project owner
+
+### Context
+
+ADR-046 removed four specific lines that named `İK` or `IT`. The operator then stated the
+rule behind them, and it is broader than four strings:
+
+> Among ourselves, in development, we can talk that way. In the application we do not use
+> "somebody's approval is pending", "to be asked to person X" and so on. It will always
+> be wording that names no person and no team. This is not a school project — a company
+> is going to use this. It has to be professional.
+
+That is a standing convention rather than a fix, so it belongs where conventions live
+and in a check, not only in a changed string.
+
+### Decision
+
+**Nothing the program produces may name a person, a team or a department, or state that
+somebody's approval is pending.** The workbook, the window and the CLI alike. It says
+what it did and what is unresolved, in wording that names nobody.
+
+The line that stays worth drawing: **among ourselves the attribution is the record.**
+`docs/`, the ADR log and commit messages should say who decided what — that is exactly
+what a decision log is for, and removing it would cost the project its memory. In
+anything the program prints, the same sentence is unusable and often untrue.
+
+Two things followed beyond wording:
+
+- **Sheet 3, `Sorulacaklar`, is now `İnceleme Listesi`.** It named no department, but
+  `sorulacak` was the operator's own example of what not to write, and the sheet's
+  content is a list of records to review — not an instruction about interrogating
+  somebody.
+- The guard is extended from department **words** to handoff **phrases** —
+  `onay bekl`, `talebiyle`, `talimatıyla`, `sorulacak`, `sormak için`,
+  `ile kontrol edilmeli` — and it now checks **sheet names** too, which is what the old
+  name would have slipped past.
+
+### Consequences
+
+- Written into `AGENTS.md` §6 and `OUTPUT-SPEC.md` §1c, so it is read on day one rather
+  than rediscovered, and saved to the agent's own notes so a fresh session starts with
+  it.
+- `README.md` lost the same attributions, one of which was plainly wrong: it told the
+  reader that section 8 of the `Kontrol` sheet says *which rule is awaiting HR approval*.
+  Nothing was awaiting anybody, and it is section 9.
+- Impersonal urgency is untouched: `kontrol edilmeli`, `Süre sayıldı — kontrol edilmeli`,
+  `Doğrulanmadı`, `BU RAPOR EKSİK` all name nobody and all stay. The rule is about
+  handing the reader off to a person, not about softening a warning — a test asserts
+  that distinction directly.
+- Checked the only way a guard should be: the old sheet name was put back and the test
+  failed with `sayfa adı: 'sorulacak' in 'Sorulacaklar'`.

@@ -25,7 +25,7 @@ is git-ignored by name, wherever the user pointed the output.
 Sheet names, column headers and all visible text are **Turkish** — HR reads this.
 
 The `Sorun` column holds a **keyword**, not a sentence — it is what the people screen
-filters on — and `Sorulacaklar` prints the sentence beside it in `Açıklama`. No two
+filters on — and `İnceleme Listesi` prints the sentence beside it in `Açıklama`. No two
 kinds may share a label; a test enforces that, because the label is the filter key
 (ADR-027).
 
@@ -175,7 +175,24 @@ questionable days — 49 exceed 1 h in May 2026, 13 exceed 2 h.
 With `break.deduct: true`, G–H become the three-column `Brüt` / `Öğle Kesintisi` /
 `Net` layout and I–J shift right by one.
 
-### Sheet 3 — `Sorulacaklar`
+## 1c. The workbook names nobody
+
+No person, team or department appears in any wording the program produces, and nothing
+is described as awaiting somebody's approval. `İK`, `IT`, a job title, "X talebiyle",
+"onay bekliyor", "şu kişiye sorulacak" — none of it.
+
+It reads as unprofessional, it is unusable (the reader cannot act on a pointer to a
+department they may have no contact with), and it was **false**: the break line credited
+a request that was never made, and the alias table claimed a confirmation nobody had
+been asked for. Sheet 3 was called `Sorulacaklar` for the same reason and is now
+`İnceleme Listesi` — the content, not an instruction about who to interrogate.
+
+Enforced by `test_the_workbook_never_says_who_to_ask`, which matches whole words (`İK`
+is a substring of `EKSİK`) and skips cells holding roster text, because real departments
+and titles contain the word and the report is only passing them through. ADR-046,
+ADR-047.
+
+### Sheet 3 — `İnceleme Listesi`
 
 The sheet you take to HR or IT and ask about. `Şüpheli Kayıtlar` is the audit trail
 — one row per defective record, 245 of them for May 2026. This one collapses those
@@ -217,7 +234,7 @@ month) show `tüm ay` in column G.
 ### Sheet 4 — `Şüpheli Kayıtlar`
 
 Every anomaly, with a pointer back to the original file — 245 rows for May 2026,
-mostly `MISSING_EXIT`. Use `Sorulacaklar` to ask questions; use this to verify one.
+mostly `MISSING_EXIT`. `İnceleme Listesi` is the per-person view; this one is the per-record audit trail.
 
 | # | Header | Notes |
 | --- | --- | --- |

@@ -60,7 +60,7 @@ Completed 2026-08-03.
 - [x] `merge.py` — interval union, cross-site repair (ADR-001, ADR-003)
 - [x] `rules/worktime.py` — midnight crossing, daily measure, residual break
 - [x] Report sheets per `OUTPUT-SPEC.md §2` — six of them, including
-      `Sorulacaklar` (per-person worklist) and `Kontrol` (reconciliation)
+      `İnceleme Listesi` (per-person worklist) and `Kontrol` (reconciliation)
 - [x] `cli.py` plus `rapor.cmd` — runs without activating the conda environment
 - [x] 127 unit tests, all passing
 - [x] Determinism verified: two runs produce 23 273 identical cells
@@ -322,7 +322,7 @@ mi), **Q18** (işe giriş/çıkış tarihleri),
 | Q3a | Gün içindeki boşluklar ödenecek mi? | **Evet.** Gün, ilk girişten son çıkışa kadar ölçülüyor; aradaki boşluk düşülmüyor. Mayıs'ta 174 kişi-günde +172:41 (ADR-018 sonrası nihai değer). ADR-015 |
 | Q11 | `ZİYARETÇİ*` / `GEÇİCİ*` / `STJ*` kartları raporlanacak mı? | **Hayır, tamamen düşüyor** (proje sahibi, 2026-08-18). Kart numaralı, isimli değil; saatler bir kişiye atfedilemiyor. Zaten mevcut davranış bu — `config/personel.yaml:exclude_prefixes`. Düşen satır sayısı `Kontrol` sayfasında raporlanıyor, yani gizlenmiyor |
 | Q20 | `Uzaktan Çalışma` kaydı aynı gün kart kaydıyla çakışanlar (Mayıs 37, Haziran 80) sorun mu? | **Hayır, beklenen durum.** Kaynak sistemde nasıl oluştuğu bizi ilgilendirmiyor; o gün kaydı varsa sayılıyor. Rapora `bilgi` seviyesinde düşüyor, kimsenin `Şüpheli Kayıt` sayısını artırmıyor. Çakışmaların %94'ünde (Mayıs) / %91'inde (Haziran) puantaj tarafı nominal `09:00–18:00` satırı, gerçek turnike okuması değil. ADR-017 |
-| Q20b | Çakışmaların içinde gerçekten sorulacak olan var mı? | **Evet, ama sadece 2 (Mayıs) ve 5 (Haziran) kayıt** — puantaj tarafı gerçek turnike okuması olanlar. `Sorulacaklar`'da ayrı bir satır türü olarak, sarı renkte duruyorlar. ADR-017 |
+| Q20b | Çakışmaların içinde gerçekten sorulacak olan var mı? | **Evet, ama sadece 2 (Mayıs) ve 5 (Haziran) kayıt** — puantaj tarafı gerçek turnike okuması olanlar. `İnceleme Listesi`'nde ayrı bir satır türü olarak, sarı renkte duruyorlar. ADR-017 |
 | Q20c | Uzaktan çalışılan günde puantajdaki nominal gün ne olacak? | **Uzaktan saatler esas alınıyor, nominal gün hesaba katılmıyor** (İK talimatı, 2026-08-17). Ama gerçek turnike okuması varsa hiçbir şey atılmıyor — 7 kişi-gün böyle. Mayıs −64:15, Haziran −129:45. ADR-018 |
 | Q22 | Günlük süresi 2 saatten az olanlar tespit edilsin | **Eklendi.** Eşik `plausibility.short_day_hours: 2.0`, kişi-gün bazında. Mayıs'ta 15, Haziran'da 20 gün. Daha önce yapılmıyordu — mevcut 5 dakikalık eşik kayıt bazlıydı ve günü hiç bakmıyordu. ADR-019 |
 | Q5'in bir parçası | Standart iş günü kaç saat? | **9 saat.** İzin dosyasının kendi `Kullanılan Gün` kolonu saati 9'a bölüyor (347 kaydın 346'sında oran tam 9,0). Haziran'da bir gün `Mazeret 0,44` + `Uzaktan 0,56` = tam `1,00`. ADR-016 sonrası ödediğimiz tam gün de 9 saat. `DATA-SOURCES.md` D13 |

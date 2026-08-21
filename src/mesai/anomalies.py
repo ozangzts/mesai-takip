@@ -49,7 +49,7 @@ SEVERITIES = ("excluded", "included", "info")
 # `label` is a keyword, not a sentence, because it is what somebody filters on: the
 # people screen builds its dropdown from these, and a dropdown of full sentences cannot
 # be scanned. `explanation` carries the meaning the short form drops, so the report is
-# no less clear than before — the Sorulacaklar sheet prints it in its own column.
+# no less clear than before — the İnceleme Listesi sheet prints it in its own column.
 #
 # Two pairs are deliberately split rather than sharing a word:
 #

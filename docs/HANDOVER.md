@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (46 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (47 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -260,6 +260,16 @@ sayısı ve hiç görülmemiş olanlar işaretli.
   yazı tipi, yerel onay kutusu.
 - **`unbind_all("<MouseWheel>")`** yalnızca bu pencerede başka hiçbir şey o olayı
   `all` etiketine bağlamadığı için güvenli. Bağlayan bir şey eklenirse bu değişmeli.
+- **Uygulamanın gösterdiği hiçbir şey kişi, ekip ya da departman adlandırmaz** ve
+  hiçbir yerde "onay bekleniyor" demez (ADR-046, ADR-047). `İK`, `IT`, unvan,
+  "X talebiyle", "onay bekliyor", "şu kişiye sorulacak" — hiçbiri. Kendi aramızda
+  (`docs/`, ADR, commit mesajı) kimin ne dediğini yazmak doğru ve gerekli, kayıt o;
+  programın yazdığı yerde ise hem kullanılamaz hem de çoğu zaman yanlıştı — rapor
+  hiç yapılmamış bir talebi ve hiç sorulmamış bir onayı yazıyordu. 3. sayfanın adı
+  bu yüzden `Sorulacaklar` değil **`İnceleme Listesi`**. Testle sabit
+  (`test_the_workbook_never_says_who_to_ask`): tam kelime eşleşmesi, çünkü `İK`
+  `EKSİK`'in içinde geçiyor; personel listesinden gelen hücreler atlanıyor, çünkü
+  gerçek departman ve unvan adları o kelimeyi taşıyor.
 - **Test pencereleri ekranın dışına park ediliyor** (`+6000+6000`). Tam koşu
   140'tan fazla gerçek pencere açıp kapatıyor ve bunlar otuz saniye boyunca
   kullanıcının önünde yanıp sönüyordu. Sadece konum — buradaki bütün geometri

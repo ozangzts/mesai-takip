@@ -383,9 +383,28 @@ of whom 24 have no attendance record at all and must be reported as
 ## 6. Conventions
 
 **Nothing in the workbook may reference this repository.** No `ADR-0NN`, no
-`ROADMAP.md Q4`, no `config/` paths, no module or phase names. HR opens the report and
-never the code, so such a pointer is noise. Write the explanation so it stands alone.
-A test enforces this — `OUTPUT-SPEC.md §1b`.
+`ROADMAP.md Q4`, no `config/` paths, no module or phase names. Whoever opens the report
+never opens the code, so such a pointer is noise. Write the explanation so it stands
+alone. A test enforces this — `OUTPUT-SPEC.md §1b`.
+
+**Nothing the program shows may name a person, a team or a department, and nothing may
+say that somebody's approval is pending.** Not the workbook, not the window, not the
+CLI. No `İK`, no `IT`, no job title, no "X talebiyle", no "onay bekliyor", no "şu kişiye
+sorulacak". This is a professional tool used inside a company, not a school project: it
+states what it did and what is unresolved, in wording that names nobody.
+
+Two reasons, and the second is the serious one. Such a line is unusable — the reader
+cannot follow it anywhere. And it is usually **false**: the report said
+`45 dk kesinti İK talebiyle kapatıldı` and no such request had ever been made, and
+`İK onayı bekliyor` beside a name match nobody had ever been asked about. An
+implementation choice was dressed up as a department's instruction, and the same
+attribution then leaked into two ADRs. Between ourselves, in `docs/` and in commit
+messages, saying who decided what is right and necessary — that is the record. In
+anything the program prints, it is neither.
+
+A test enforces it (`tests/test_report.py`), on whole words, skipping cells that carry
+roster text — real departments and job titles contain `İK` and the report only passes
+those through. See ADR-046 and ADR-047.
 
 **Language.** Code, identifiers, comments, `docs/`: English.
 **Commit messages: Turkish**, matching the existing history (all commits to date).

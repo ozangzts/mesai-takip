@@ -14,7 +14,7 @@ otomatik olarak hesaplayıp tek bir temiz Excel raporuna dönüştüren araç.
 
 ## Neden
 
-Her ay iki ayrı lokasyondan gelen ham giriş-çıkış dosyaları İK tarafından elle
+Her ay iki ayrı lokasyondan gelen ham giriş-çıkış dosyaları elle
 işleniyor. Kaynak veri sağlıklı değil: Macunköy dosyasındaki 1 209 satırın 388'inde
 giriş veya çıkış kaydı eksik, 29 satırda süre negatif çıkıyor, 23 kayıt aslında
 personel değil (ziyaretçi/geçici kart). Üstelik **76 kişi iki dosyada birden** yer
@@ -25,7 +25,7 @@ gidiyor.)
 Bu araç bunları otomatik ve her seferinde aynı şekilde hallediyor.
 
 > **Sayılar nasıl çıkıyor?** Bütün hesaplama kuralları tek yerde ve sade Türkçe:
-> **[docs/KURALLAR.md](docs/KURALLAR.md)**. Yöneticiye ya da İK'ya gösterilebilir.
+> **[docs/KURALLAR.md](docs/KURALLAR.md)**. Rapordaki bir sayıyı sorgulayan herkese gösterilebilir.
 
 ## Girdi dosyaları ve klasör yapısı
 
@@ -38,7 +38,7 @@ data/
 │   ├── Teknopark - Mayıs Mesai Takip Exceli.xlsx
 │   └── HCMT34_MAYIS_IZIN.xlsx
 └── out/2026-05/                    ← komut satırından çalıştırılırsa buraya
-    ├── mesai-raporu-2026-05.xlsx   ← İK'nın açtığı dosya
+    ├── mesai-raporu-2026-05.xlsx   ← açılacak rapor dosyası
     └── gonderim-2026-05.json       ← raporun makine-okunur eşleniği
 
 Masaüstü/                           ← pencereden çalıştırılırsa buraya (varsayılan)
@@ -106,7 +106,7 @@ Klonlamak yetmiyor, ikisini elden almak gerekiyor:
 | Dosya | Nereden |
 | --- | --- |
 | `config/personel.yaml` | Çalışan bir kurulumdan kopyala. Gerçek isim eşleştirmeleri içerdiği için git'te yok |
-| `data/personel/` içindeki çalışan listesi | İK'dan / mevcut kurulumdan |
+| `data/personel/` içindeki çalışan listesi | mevcut kurulumdan |
 
 `personel.yaml` olmadan program çalışır ama **sessizce eksik çalışır**: soyadı
 değişmiş ya da ilk adı kısaltılmış kişiler raporda ikiye bölünür ve hiçbir uyarı
@@ -358,7 +358,7 @@ Raporu paylaşmadan önce **`Kontrol` sayfasına bak**, üç şeye:
 1. **Bölüm 3 — Dönem kapsamı.** Her kaynak dosya ayın tamamını kapsıyor mu? Bir dosya
    ay bitmeden alınmışsa rapor eksiktir ve saatler bordroya uygun değildir.
 2. **Bölüm 4 — Hesaplama mutabakatı.** `TAMAM` yazıyor mu?
-3. **Bölüm 8 — Doğrulanmamış varsayımlar.** Hangi kural İK onayı bekliyor.
+3. **Bölüm 9 — Doğrulanmamış varsayımlar.** Hangi kural doğrulanmadı.
 
 Program kapsama sorununu bulursa `5` koduyla çıkar ve raporun en üstüne kırmızı bir
 satır yazar; yani gözden kaçması için özellikle uğraşmak gerekir.
@@ -471,7 +471,7 @@ Rapor 6 sayfadan oluşuyor:
 | --- | --- |
 | **Aylık Özet** | Kişi başı toplam çalışma süresi — asıl istenen çıktı |
 | **Günlük Detay** | Kişi-gün bazında döküm, özetin denetim izi |
-| **Sorulacaklar** | Kişi başına eksik kayıt günleri — İK'ya/IT'ye sormak için |
+| **İnceleme Listesi** | Kişi başına eksik kayıt günleri, incelenmek üzere |
 | **Şüpheli Kayıtlar** | Eksik/hatalı her kayıt, kaynak dosya ve satır numarasıyla |
 | **İzin Özeti** | HCM sisteminden gelen izin günleri |
 | **Kontrol** | Mutabakat, doğrulanmamış varsayımlar, raporun kapsamadıkları |
@@ -497,7 +497,7 @@ Ayrıntılı sayfa ve kolon tasarımı: [docs/OUTPUT-SPEC.md](docs/OUTPUT-SPEC.m
 kapsıyor. Karşılaştırma için kullanılmamalı.
 
 Mayıs ve Haziran toplamları 2026-08-17'de yükseldi: öğle arası kesintisi kaldırıldı
-(İK talimatı) ve gün "ilk giriş → son çıkış" olarak ölçülmeye başlandı. Mayıs için
+ve gün "ilk giriş → son çıkış" olarak ölçülmeye başlandı. Mayıs için
 eski değer `15 717:08` net / `17 009:01` brüt idi. Uzaktan çalışma günlerinde puantaja
 otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü.
 
@@ -564,7 +564,7 @@ Kod tarafı bir günlük iş; bu ikisi çözülmeden başlanmamalı.
 | Dosya | İçerik |
 | --- | --- |
 | [AGENTS.md](AGENTS.md) | Projede çalışacak AI ajanları için çalışma kuralları |
-| [docs/PRODUCT.md](docs/PRODUCT.md) | İK'nın talep listesi (MEYER toplantı dökümanından) |
+| [docs/PRODUCT.md](docs/PRODUCT.md) | Müşteri talep listesi (MEYER toplantı dökümanından) |
 | [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md) | Her kaynak dosyanın yapısı ve tespit edilen tüm hataları |
 | [docs/DOMAIN-RULES.md](docs/DOMAIN-RULES.md) | Hesaplama kuralları — işin matematiği |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Modül yapısı ve veri akışı |
