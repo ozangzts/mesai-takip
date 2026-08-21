@@ -449,6 +449,14 @@ single-container glob.**
 name, implausible duration) are collected into a structured list and written to a
 report sheet. They are not printed warnings and not silent skips.
 
+**One note has one wording, everywhere.** The monthly summary's `Not` column was
+five hand-written strings while every other list used the note labels: four were
+re-wordings (`Ayın çoğu açıklanmıyor` for `Ay büyük ölçüde boş`) and the other eleven
+labels never appeared at all, so most people with a problem had an empty `Not` cell.
+Notes are assembled once, by `Collector.labels_by_key()`, and a test refuses any note in
+the column that is not a label (ADR-049). The single exception is
+`Personel listesinde yok`, which is a roster fact rather than a problem.
+
 Anomaly **labels are keywords, and they are filter keys** (ADR-027) — the people
 screen builds its dropdown from them. Two kinds may never share a label, no label may
 grow back into a sentence, and the sentence lives in the kind's `explanation` instead.

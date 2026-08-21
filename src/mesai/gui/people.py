@@ -408,9 +408,6 @@ class PeopleScreen:
         header = tk.Frame(self.notes_frame, background=w.CARD)
         header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
         header.columnconfigure(0, weight=1)
-        tk.Label(header, text="HANGİ NOTLAR SAYILACAK", background=w.CARD,
-                 foreground=w.MUTED, font=(w.FACE, 8, "bold"), anchor="w").grid(
-            row=0, column=0, sticky="w")
         w.button(header, "Hepsi", self._count_all, primary=False).grid(
             row=0, column=1, padx=(8, 0))
         w.button(header, "Temizle", self._count_none, primary=False).grid(

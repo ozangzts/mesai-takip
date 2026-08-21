@@ -175,6 +175,17 @@ questionable days — 49 exceed 1 h in May 2026, 13 exceed 2 h.
 With `break.deduct: true`, G–H become the three-column `Brüt` / `Öğle Kesintisi` /
 `Net` layout and I–J shift right by one.
 
+## 1d. One note, one wording
+
+The `Not` column on `Aylık Özet` prints the person's **note labels** — the same strings
+the filter list, `İnceleme Listesi` and `Şüpheli Kayıtlar` use, in the same family order.
+It is not a separate list of sentences, and it was: five hand-written strings, four of
+them re-wordings of a label and eleven labels missing, so 49 rows carried a note while
+107 people had a problem. `Personel listesinde yok` is the one note that is not a label,
+because it is a fact about the roster rather than a problem (ADR-011, ADR-049).
+
+Enforced by `test_the_summary_notes_use_the_same_words_as_everything_else`.
+
 ## 1c. The workbook names nobody
 
 No person, team or department appears in any wording the program produces, and nothing

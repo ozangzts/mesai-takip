@@ -256,3 +256,89 @@ def _workdays(result) -> list[tuple]:
     header = next(i for i, row in enumerate(rows) if row[0] == "Ad Soyad")
     return [row for row in rows[header + 1:]
             if row[0] and not str(row[0]).startswith(("Oluşturulma", "Kaynak", "Bu "))]
+
+
+# --- one vocabulary for notes (ADR-049) -------------------------------------
+#
+# The monthly summary's `Not` column used to be five hand-written strings built in the
+# pipeline. Four were re-wordings of a note label — `Ayın çoğu açıklanmıyor` for
+# `Ay büyük ölçüde boş` — and the other eleven labels never reached the column at all,
+# so most people with a problem had an empty `Not` cell while the filter list showed
+# them under a note. The operator found it by reading the report: "why do most of them
+# have no note even though they have a problem, and what decides what is written?"
+
+def _summary_notes(path):
+    """`{person: [note, ...]}` from the monthly summary sheet."""
+    book = openpyxl.load_workbook(path, read_only=True)
+    rows = list(book["Aylık Özet"].iter_rows(values_only=True))
+    header = next(r for r in rows if r and r[0] == "Ad Soyad")
+    column = header.index("Not")
+    found = {}
+    for row in rows[rows.index(header) + 1:]:
+        if not row or not row[0] or str(row[0]).startswith("TOPLAM"):
+            continue
+        found[row[0]] = [n for n in str(row[column] or "").split("; ") if n]
+    return found
+
+
+def test_the_summary_notes_use_the_same_words_as_everything_else(result):
+    """Every note in the column is either a note label or the one roster fact.
+
+    This is the guard against re-introducing a hand-written re-wording: a new string
+    invented here would have to be added to the exception below, which is the moment
+    somebody notices they are inventing a second vocabulary.
+    """
+    from mesai.anomalies import DESCRIPTIONS
+
+    path = result["output"]
+    known = {label for label, _s, _e, _g in DESCRIPTIONS.values()}
+    known.add("Personel listesinde yok")     # a roster fact, not a problem — ADR-011
+
+    for name, notes in _summary_notes(path).items():
+        for note in notes:
+            assert note in known, f"{name}: {note!r} hiçbir etikete karşılık gelmiyor"
+
+
+def test_everybody_with_a_problem_has_a_note_in_the_summary(result):
+    """The complaint, stated as a test. `Şüpheli Kayıt` counted them; `Not` was empty."""
+    path = result["output"]
+    book = openpyxl.load_workbook(path, read_only=True)
+    rows = list(book["Aylık Özet"].iter_rows(values_only=True))
+    header = next(r for r in rows if r and r[0] == "Ad Soyad")
+    count_col, note_col = header.index("Şüpheli Kayıt"), header.index("Not")
+
+    for row in rows[rows.index(header) + 1:]:
+        if not row or not row[0] or str(row[0]).startswith("TOPLAM"):
+            continue
+        if row[count_col]:
+            assert row[note_col], f"{row[0]}: {row[count_col]} şüpheli kayıt, not yok"
+
+
+def test_the_notes_the_column_used_to_omit_now_reach_it(result):
+    """The two failure modes the operator hit, one each.
+
+    `Çıkış yok` was one of the eleven labels that never got into this column at all —
+    `VELİ`'s third day has an exit that cannot be repaired, and his `Not` cell was
+    empty while the filter list listed him under it.
+
+    `ZEYNEP` shows the other: her note was printed, in different words. The column said
+    `Ayın çoğu açıklanmıyor` and every other list in the program said
+    `Ay büyük ölçüde boş`.
+    """
+    notes = _summary_notes(result["output"])
+
+    assert "Çıkış yok" in notes["VELİ ÖRNEK"], notes["VELİ ÖRNEK"]
+    assert "Ay büyük ölçüde boş" in notes["ZEYNEP TASLAK"], notes["ZEYNEP TASLAK"]
+
+
+def test_no_reworded_note_survives(result):
+    """The four strings that were saying the same thing in different words."""
+    path = result["output"]
+    book = openpyxl.load_workbook(path, read_only=True)
+    text = "\n".join(
+        " ".join(str(c) for c in row if c is not None)
+        for sheet in book.worksheets for row in sheet.iter_rows(values_only=True))
+
+    for gone in ("Ayın çoğu açıklanmıyor", "Uzaktan çalışma kart kaydıyla çakışıyor",
+                 "Gece vardiyası düzeltmesi var"):
+        assert gone not in text, gone

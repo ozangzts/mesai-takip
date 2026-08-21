@@ -2772,3 +2772,81 @@ our own labels from `anomalies.py`, which is the line AGENTS.md §6 draws.
   column is shorter.
 - The mail step itself is untouched. This decides who the list is; nothing sends
   anything.
+
+---
+
+## ADR-049 — One vocabulary for notes, and the day says where it started
+
+2026-08-21 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+Reading a July report, the operator asked three things that turn out to be one thing:
+
+> Why is there a note like `Ayın çoğu açıklanmıyor` in the Excel when the filter says
+> `Ay büyük ölçüde boş`? `Tesis birleştirme` shows up in the filters but I could not
+> find it in the monthly summary — is that a bug? And why do most of the people who
+> *have* a problem have no note at all? What decides what gets written there?
+
+What decided it: **the `Not` column was five hand-written strings**, built in
+`pipeline.py` and unrelated to the note labels used everywhere else.
+
+| the `Not` column said | every other list said |
+| --- | --- |
+| `Mesai verisi yok` | the same |
+| `Ayın çoğu açıklanmıyor` | `Ay büyük ölçüde boş` |
+| `Uzaktan çalışma kart kaydıyla çakışıyor` | `Uzaktan + kart kaydı` |
+| `Gece vardiyası düzeltmesi var` | `Gece geçişi` |
+| `Personel listesinde yok` | — |
+
+So four of the five were re-wordings, and **the other eleven labels never reached the
+column at all**. Measured on July: 49 rows carried a note while 107 people had a
+problem. `Tesis birleştirme` was not a bug — it was one of the eleven.
+
+This is the same mistake ADR-027 fixed for the filter list, one sheet over: the same
+fact told in two vocabularies, where nobody can see both at once to notice.
+
+Separately, and from the same reading: for a day whose first punch is at one site and
+last at the other, the report printed the union — `Macunköy + Teknopark` — which is
+also what it printed for a day whose records merely overlap. Two different situations,
+one string.
+
+### Decision
+
+**The `Not` column is the person's own note labels**, in the family order every list in
+the program uses, so a person's notes read the same words wherever they are printed.
+`Collector.labels_by_key()` is the single place that assembles them; the snapshot and the
+workbook both read it.
+
+`Personel listesinde yok` stays as the one note that is not a label. It is a fact about
+the roster, not a problem — somebody absent from it worked and keeps every hour
+(ADR-011) — so it must not become an anomaly, and it is added alongside.
+
+**`Kaynak` in the daily detail distinguishes the two cross-site shapes:**
+
+| shape | printed |
+| --- | --- |
+| one site all day | `Teknopark` |
+| first punch one site, last punch the other | `Macunköy → Teknopark` |
+| an interval built from both sites' records | `Macunköy + Teknopark` |
+
+The arrow is only used when both ends are unambiguous. When the first interval itself
+carries both sites the day did not start at one of them, and an arrow would invent an
+order the data does not have.
+
+### Consequences
+
+- Measured on July after the change: **109 of 179 rows carry a note**, up from 49, and
+  every label in the column is one a reader can also pick in the filter list.
+- Nobody's hours changed. This is a display change; the anomalies themselves were always
+  being collected and counted.
+- The `Not` column is widened from 34 to 52. Measured over three months: at most four
+  notes on one person, longest text 93 characters.
+- **A test asserts every note in the column is either a label or that one roster fact.**
+  Inventing a sixth string would fail it — which is the moment somebody notices they are
+  starting a second vocabulary.
+- `MonthSummary.notes` is no longer built inside the summarising loop. It is assembled
+  after it, because an anomaly added during the loop has to be included, and two of the
+  five old notes were added in exactly that position.
+- July's cross-site day shapes, for the record: 2 437 at one site, 286 with a merged
+  interval at one end, 8 that genuinely start at one site and end at the other.

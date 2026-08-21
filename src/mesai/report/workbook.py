@@ -120,7 +120,9 @@ _SUMMARY_HEAD = ["Ad Soyad", "Sicil No", "Departman", "Görev", "Tesis",
                  "Kayıt Kaynağı", "Çalışılan Gün"]
 _SUMMARY_HEAD_WIDTHS = [28, 10, 30, 32, 17, 20, 13]
 _SUMMARY_TAIL = ["Uzaktan Çalışma (Gün)", "İzin Günü", "Şüpheli Kayıt", "Not"]
-_SUMMARY_TAIL_WIDTHS = [14, 11, 12, 34]
+# The Not column carries every note the person has, in the same words as the filter
+# list. Measured over three months: at most four notes, the longest text 93 characters.
+_SUMMARY_TAIL_WIDTHS = [14, 11, 12, 52]
 
 
 def _hours_columns(settings: Settings) -> tuple[list[str], list[int]]:
@@ -276,8 +278,9 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
     styles.write_banner(
         sheet, 2,
         "Her satır bir kişi-gün. 'Aralık Sayısı' 1'den büyükse gün bölünmüş "
-        "(ara giriş-çıkış) demektir. Kaynak birden fazlaysa iki tesisin kaydı "
-        "birleştirilmiştir; çakışan süre bir kez sayılır.", span)
+        "(ara giriş-çıkış) demektir. Kaynak 'Macunköy → Teknopark' ise ilk giriş bir "
+        "tesiste, son çıkış diğerinde; '+' ise iki tesisin kaydı aynı aralıkta "
+        "birleşmiştir ve çakışan süre bir kez sayılmıştır.", span)
     styles.write_banner(sheet, 3, _hours_rule_note(settings), span)
     styles.write_header(sheet, 4, headers, widths)
 
@@ -304,7 +307,7 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
             workday.last_exit.strftime("%H:%M") if workday.last_exit else "",
             len(workday.intervals),
             *middle_values,
-            _sources_label(workday.sources),
+            _day_sources_label(workday),
             ", ".join(sorted(workday.tags)),
         ]
         for index, value in enumerate(values, start=1):
@@ -798,6 +801,27 @@ def _roster_age_line(line, stats: RunStats, period: str) -> None:
         line("Personel listesi tarihi", stamp,
              f"Rapor döneminden {-gap} ay ÖNCE alınmış. O tarihten sonra işe "
              f"girenler listede yok", styles.AMBER_FILL)
+
+
+def _day_sources_label(workday: WorkDay) -> str:
+    """Where the day began and where it ended, when those are different places.
+
+    `Macunköy → Teknopark` reads as one sentence and needs no second column. The plain
+    site name is kept for the ordinary case, and `+` for a day whose first or last
+    interval was itself built from both sites' records — there the question has no
+    single answer, and inventing one would be worse than saying so.
+
+    Measured on July 2026: 2 437 person-days at one site, 286 with a merged interval at
+    one end, and 8 that genuinely start at one site and end at the other.
+    """
+    if not workday.intervals:
+        return ""
+    first = _sources_label(workday.intervals[0].sources)
+    last = _sources_label(workday.intervals[-1].sources)
+    if first and last and first != last and "+" not in first and "+" not in last:
+        return f"{first} → {last}"
+    return _sources_label(
+        frozenset().union(*(iv.sources for iv in workday.intervals)))
 
 
 def _sources_label(sources: frozenset[str]) -> str:

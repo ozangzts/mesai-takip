@@ -352,6 +352,76 @@ def test_no_developer_references_reach_the_workbook(tmp_path, settings):
     assert not offenders, "developer jargon in the workbook:\n" + "\n".join(offenders)
 
 
+# --- where the day started and where it ended -------------------------------
+
+def _day_label(workday, settings):
+    from mesai.report.workbook import _day_sources_label
+    return _day_sources_label(workday)
+
+
+def test_a_day_at_one_site_is_named_plainly(settings):
+    from mesai.models import Interval, WorkDay
+
+    day = WorkDay(key=KEY, date=date(2026, 7, 1),
+                  intervals=(Interval(datetime(2026, 7, 1, 8),
+                                      datetime(2026, 7, 1, 17),
+                                      frozenset({"teknopark"})),),
+                  gross=timedelta(hours=9), break_deduction=timedelta(),
+                  net=timedelta(hours=9))
+
+    assert _day_label(day, settings) == "Teknopark"
+
+
+def test_a_day_that_starts_at_one_site_and_ends_at_the_other_says_so(settings):
+    """The operator's request: first punch at Macunköy, last at Teknopark — say it.
+
+    Measured on July 2026: 8 person-days out of 2 731. Rare, and impossible to work out
+    from the old column, which printed the union — `Macunköy + Teknopark` — for both
+    this and the merged case below.
+    """
+    from mesai.models import Interval, WorkDay
+
+    day = WorkDay(key=KEY, date=date(2026, 7, 1),
+                  intervals=(Interval(datetime(2026, 7, 1, 8),
+                                      datetime(2026, 7, 1, 9),
+                                      frozenset({"macunkoy"})),
+                             Interval(datetime(2026, 7, 1, 10),
+                                      datetime(2026, 7, 1, 17),
+                                      frozenset({"teknopark"}))),
+                  gross=timedelta(hours=9), break_deduction=timedelta(),
+                  net=timedelta(hours=9))
+
+    assert _day_label(day, settings) == "Macunköy → Teknopark"
+
+
+def test_a_merged_interval_is_still_shown_with_a_plus(settings):
+    """284 of July's cross-site days are this shape, and the arrow would be a lie.
+
+    When the first interval itself carries both sites, the day did not start at one of
+    them — the two records overlap. Saying `Macunköy → Teknopark` would invent an order
+    that the data does not have.
+    """
+    from mesai.models import Interval, WorkDay
+
+    day = WorkDay(key=KEY, date=date(2026, 7, 1),
+                  intervals=(Interval(datetime(2026, 7, 1, 8),
+                                      datetime(2026, 7, 1, 17),
+                                      frozenset({"macunkoy", "teknopark"})),),
+                  gross=timedelta(hours=9), break_deduction=timedelta(),
+                  net=timedelta(hours=9))
+
+    assert _day_label(day, settings) == "Macunköy + Teknopark"
+
+
+def test_a_day_with_no_interval_says_nothing(settings):
+    from mesai.models import WorkDay
+
+    day = WorkDay(key=KEY, date=date(2026, 7, 1), intervals=(),
+                  gross=timedelta(), break_deduction=timedelta(), net=timedelta())
+
+    assert _day_label(day, settings) == ""
+
+
 # --- the workbook does not name who to ask ----------------------------------
 
 # Whole words only. `İK` is a substring of ordinary Turkish — `EKSİK`, `İKİ` — so a

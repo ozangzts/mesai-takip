@@ -170,6 +170,14 @@ Kullanılan resmi tatil listesi raporun `Kontrol` sayfasında tarih tarih yazıl
 
 ## 5. Raporun düştüğü notlar
 
+`Aylık Özet` sayfasındaki `Not` kolonu, o kişinin notlarını **aynı kelimelerle** yazar —
+pencerede filtre olarak seçtiğin, `İnceleme Listesi`'nde ve `Şüpheli Kayıtlar`'da
+gördüğün adlarla birebir aynı. Sorunu olan herkesin notu vardır; boş bir `Not` hücresi
+"bu kişide bir şey yok" demektir.
+
+Tek istisna `Personel listesinde yok`: bu bir sorun değil, personel listesiyle ilgili bir
+bilgi. O kişi çalışmıştır ve bütün saatlerini alır.
+
 Her notun bir **ağırlığı** var:
 
 | Renk | Anlamı |

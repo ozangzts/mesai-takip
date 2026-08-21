@@ -217,6 +217,35 @@ class Collector:
     def extend(self, anomalies: list[Anomaly]) -> None:
         self.items.extend(anomalies)
 
+    def labels_by_key(self) -> dict[NameKey, tuple[str, ...]]:
+        """Per-person problem labels, in the order every list in the program uses.
+
+        Family first, then declaration order — the same ordering as the filter list and
+        the snapshot (ADR-029), so a person's notes read the same way wherever they are
+        printed. This exists because they were NOT the same: the monthly summary's `Not`
+        column was five hand-written strings, four of them re-wordings of a label
+        (`Ayın çoğu açıklanmıyor` for `Ay büyük ölçüde boş`) and the other eleven labels
+        missing entirely. See ADR-049.
+
+        `info` items are excluded for the same reason they are excluded from the count:
+        expected behaviour is not somebody's note (ADR-017).
+        """
+        family = {label: group for label, _s, _e, group in DESCRIPTIONS.values()}
+        order = {name: index for index, name in enumerate(GROUPS)}
+        declared = {label: index for index, (label, _s, _e, _g)
+                    in enumerate(DESCRIPTIONS.values())}
+
+        found: dict[NameKey, set[str]] = {}
+        for anomaly in self.items:
+            if anomaly.key and anomaly.is_problem:
+                found.setdefault(anomaly.key, set()).add(anomaly.label)
+        return {
+            key: tuple(sorted(
+                labels,
+                key=lambda label: (order.get(family.get(label, ""), len(GROUPS)),
+                                   declared.get(label, len(declared)), label)))
+            for key, labels in found.items()}
+
     def count_by_key(self) -> dict[NameKey, int]:
         """Per-person count of actual problems — `info` items are not problems."""
         counts: dict[NameKey, int] = {}

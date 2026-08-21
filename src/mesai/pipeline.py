@@ -419,10 +419,11 @@ def _summarise(
             gross += workday.gross
             net += workday.net
 
-        notes: list[str] = []
+        # The displayed notes are not built here any more — they are the person's own
+        # note labels, assembled after this loop so that every anomaly added inside it
+        # is included. See the `notes=` pass below and ADR-049.
         has_attendance = bool(days)
         if not has_attendance:
-            notes.append("Mesai verisi yok")
             anomalies.add(Anomaly(
                 kind=AnomalyKind.NO_ATTENDANCE_DATA, source="izin", source_row=0,
                 key=key, raw_name=employee.display_name,
@@ -435,7 +436,6 @@ def _summarise(
             covered = len(days) + leave_days.get(key, 0.0)
             share = covered / expected_days
             if share < settings.plausibility.sparse_month_ratio:
-                notes.append("Ayın çoğu açıklanmıyor")
                 anomalies.add(Anomaly(
                     kind=AnomalyKind.SPARSE_MONTH, source="izin", source_row=0,
                     key=key, raw_name=employee.display_name,
@@ -443,13 +443,6 @@ def _summarise(
                            f"açıklanıyor (%{share * 100:.0f}) — çalışma "
                            f"{len(days)} gün, izin {leave_days.get(key, 0.0):g} gün",
                 ))
-        if not employee.in_roster:
-            notes.append("Personel listesinde yok")
-        if any("uzaktan-çakışma" in w.tags for w in days):
-            notes.append("Uzaktan çalışma kart kaydıyla çakışıyor")
-        if any("gece-geçişi" in w.tags for w in days):
-            notes.append("Gece vardiyası düzeltmesi var")
-
         summaries.append(MonthSummary(
             employee=employee,
             period=period,
@@ -460,18 +453,27 @@ def _summarise(
             leave_days=round(leave_days.get(key, 0.0), 2),
             anomaly_count=anomaly_counts.get(key, 0),
             has_attendance=has_attendance,
-            notes=tuple(notes),
         ))
 
-    # Anomalies added above are not yet in the per-person counts; refresh them.
+    # Anomalies added above are not yet in the per-person counts; refresh them, and
+    # build each person's displayed notes from their own labels. One vocabulary: the
+    # filter list, the review list and this column now say the same words, because they
+    # read the same strings (ADR-049).
+    #
+    # `Personel listesinde yok` is the one note that is not a label. It is a fact about
+    # the roster rather than a problem — somebody absent from it worked and keeps every
+    # hour (ADR-011) — so it must not become an anomaly, and it is added here.
     refreshed = anomalies.count_by_key()
+    labels = anomalies.labels_by_key()
     return [
         MonthSummary(
             employee=s.employee, period=s.period, gross=s.gross, net=s.net,
             worked_days=s.worked_days, remote_days=s.remote_days,
             leave_days=s.leave_days,
             anomaly_count=refreshed.get(s.employee.key, 0),
-            has_attendance=s.has_attendance, notes=s.notes,
+            has_attendance=s.has_attendance,
+            notes=(labels.get(s.employee.key, ())
+                   + (() if s.employee.in_roster else ("Personel listesinde yok",))),
         )
         for s in summaries
     ]
