@@ -351,7 +351,7 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
                        f"({_period_label(period)})", span)
     styles.write_banner(
         sheet, 2,
-        "Bu sayfa İK'ya / IT'ye sormak için hazırlanmıştır: her satır bir kişi ve "
+        "Bu sayfa sorulması gereken kayıtların listesi: her satır bir kişi ve "
         "bir konu, hangi günlerde olduğu yazılı. KIRMIZI: o günler 0 saat sayıldı, "
         "kayıp saat var. SARI: sayıldı ama bakılması iyi olur. GRİ: beklenen durum, "
         "sorun değil — bilgi için listelenmiştir. Satır bazlı denetim izi için "
@@ -670,8 +670,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     line("Raporda yer alan kişi", len(summaries))
     line("Mesai verisi olan", sum(1 for s in summaries if s.has_attendance))
     line("Mesai verisi olmayan", sum(1 for s in summaries if not s.has_attendance),
-         "İzin kaydı var, kart kaydı yok. Bu kişilerin ayı eksik — İK/IT ile "
-         "kontrol edilmeli", styles.RED_FILL)
+         "İzin kaydı var, kart kaydı yok. Bu kişilerin ayı eksik", styles.RED_FILL)
     line("Personel listesinde olmayan",
          sum(1 for s in summaries if not s.employee.in_roster),
          "Dönemde çalışıp personel listesi alınana kadar ayrılmış olabilir")
@@ -695,11 +694,11 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
         line("Yok")
     row += 1
 
-    section("7. Onay bekleyen isim eşleştirmeleri")
+    section("7. Doğrulanmamış isim eşleştirmeleri")
     if settings.personnel.alias_pairs:
-        line("Aşağıdaki eşleştirmeler UYGULANDI ama İK onayı bekliyor", "",
-             "Yanlışsa iki kişinin saatleri birleşmiş olur — İK onayı bekliyor",
-             styles.AMBER_FILL)
+        line("Aşağıdaki eşleştirmeler UYGULANDI ama doğrulanmadı", "",
+             "İki yazımın aynı kişi olduğu varsayıldı; yanlışsa iki kişinin "
+             "saatleri birleşmiş olur", styles.AMBER_FILL)
         for variant, canonical in settings.personnel.alias_pairs:
             line(f"  {variant}", "->", canonical, styles.AMBER_FILL)
     else:
@@ -745,7 +744,7 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
              f"{settings.brk.window_to:%H:%M} arası")
     else:
         line("Öğle arası kesintisi", "YOK",
-             f"{settings.brk.minutes} dk kesinti İK talebiyle kapatıldı")
+             "Mola için süre düşülmedi; kart süresi olduğu gibi sayıldı")
     line("Günlük süre ölçümü",
          "ilk giriş → son çıkış" if settings.daily_hours == "envelope"
          else "aralıkların toplamı",

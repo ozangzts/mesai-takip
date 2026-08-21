@@ -2581,3 +2581,62 @@ block is removed on the next save.
   justification built on an unchecked number is not a justification.** The "a month
   before" figure was written into two ADRs and repeated to the operator before anybody
   compared it to the dates in the git log.
+
+---
+
+## ADR-046 — The workbook names no department, and "HR confirmed" was never true
+
+2026-08-21 · Status: **Accepted** · Decided by: project owner
+
+### Context
+
+The July report's `Kontrol` sheet said `45 dk kesinti İK talebiyle kapatıldı`. Elsewhere
+it said `İK onayı bekliyor` beside the name matches, `İK'ya / IT'ye sormak için
+hazırlanmıştır` on the anomaly sheet, and `İK/IT ile kontrol edilmeli` beside the people
+with no badge record.
+
+The operator, who is the person who runs this every month: *"drop this HR business, I am
+not even in contact with them most of the time."*
+
+Which exposes something worse than clutter. **Those lines were not true.** No request
+came from HR to switch the break deduction off; no confirmation was ever pending with
+them for the alias table. The wording was written by whoever implemented the rule, and it
+dressed an implementation choice up as an instruction from a department. The same
+attribution reached the decision log: **ADR-037 says "HR confirmed this" about training
+being leave, and ADR-040 leans on the same word — in both cases it was the project owner
+who said it, from what they knew.** Those ADRs stay as written, as the log requires; this
+is the correction.
+
+### Decision
+
+**The workbook states what was done and what is unresolved, and never names who to take
+it to.** Concretely:
+
+| was | is |
+| --- | --- |
+| `45 dk kesinti İK talebiyle kapatıldı` | `Mola için süre düşülmedi; kart süresi olduğu gibi sayıldı` |
+| `7. Onay bekleyen isim eşleştirmeleri` / `İK onayı bekliyor` | `7. Doğrulanmamış isim eşleştirmeleri` / `İki yazımın aynı kişi olduğu varsayıldı` |
+| `Bu sayfa İK'ya / IT'ye sormak için hazırlanmıştır` | `Bu sayfa sorulması gereken kayıtların listesi` |
+| `Bu kişilerin ayı eksik — İK/IT ile kontrol edilmeli` | `Bu kişilerin ayı eksik` |
+
+A test enforces it, in the same shape as the developer-jargon test and for the same
+reason: the reader cannot follow such a pointer anywhere, and pointing at the wrong
+department is worse than pointing at none.
+
+**Nothing may be attributed to a department that did not say it.** If a rule came from
+the operator, the ADR says the operator.
+
+### Consequences
+
+- The check is on **whole words**, because `İK` is a substring of ordinary Turkish —
+  `EKSİK`, `İKİ` — and a naive `in` would fail on the report's own warnings.
+- It skips cells carrying roster text. Real departments and titles contain the word
+  (`İK VE OPERASYONLAR EKİBİ`, `KALİTE KURUMSAL GELİŞİM VE İK MÜDÜRÜ`) and the report is
+  only passing those through. The test's own assertions pin both halves, and the guard
+  was checked by restoring the removed wording and watching it fail.
+- `docs/KURALLAR.md` loses the same attributions. It is the document that gets shown to
+  somebody, and it claimed HR had confirmed the leave-type list; the operator did.
+- HANDOVER's pending-questions table is no longer addressed to `İK'dan / IT'den`. Some of
+  those questions do need somebody outside the team — whether the Macunköy export covers
+  every turnstile is not answerable from here — but the program should not decide whose
+  desk that is.

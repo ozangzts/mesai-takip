@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (45 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (46 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — yöneticiye gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -21,7 +21,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **387 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **389 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -99,7 +99,7 @@ davranılmamalı.
 
 ---
 
-## İK'dan / IT'den beklenen cevaplar
+## Cevap bekleyen sorular
 
 Proje sahibi soracak. Öncelik sırasıyla:
 
@@ -196,7 +196,7 @@ diyen test paketine yakalanmamıştı (ADR-038):
 Yoksa 60 satırın ortasında bir kutu işaretleyen kişi her seferinde en üste fırlar —
 birinci hatayı düzeltirken ikinci hata üretilmiş olurdu.
 
-**Bir açık soru kapandı: `Eğitim İzni` izin sayılıyor, İK onayladı.** Çalışma sayılan
+**Bir açık soru kapandı: `Eğitim İzni` izin sayılıyor.** Çalışma sayılan
 izin türü listesi tek girdiyle **kapalı** (ADR-037). Program zaten böyle davranıyordu,
 yani kod/config değişmedi — değişen şey, bunun artık gözden geçirilmemiş bir varsayılan
 değil karar olması. Bir test listeyi sabitliyor, ikinci bir girdi eklemek yeni bir ADR

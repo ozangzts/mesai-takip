@@ -352,6 +352,94 @@ def test_no_developer_references_reach_the_workbook(tmp_path, settings):
     assert not offenders, "developer jargon in the workbook:\n" + "\n".join(offenders)
 
 
+# --- the workbook does not name who to ask ----------------------------------
+
+# Whole words only. `İK` is a substring of ordinary Turkish — `EKSİK`, `İKİ` — so a
+# naive `in` check would fail on the report's own warnings.
+_DEPARTMENTS = ("İK", "IK", "IT", "HR")
+
+
+def _tokens(text: str) -> set[str]:
+    """Upper-case words, with a Turkish suffix apostrophe cut off (`İK'ya` -> `İK`)."""
+    import re
+
+    words = re.split(r"[^0-9A-Za-zÇĞİÖŞÜçğıöşü']+", text)
+    return {word.split("'", 1)[0].upper() for word in words if word}
+
+
+def test_the_workbook_never_says_who_to_ask(tmp_path, settings):
+    """It said `İK talebiyle kapatıldı`, `İK onayı bekliyor`, `İK'ya / IT'ye sormak`.
+
+    The operator who runs this monthly is often not in contact with HR at all, so those
+    lines described a process that was not happening and put words in somebody's mouth.
+    A report states what was done and what is unresolved; who to take it to is not its
+    business, and naming the wrong department is worse than naming none.
+
+    Same shape as the developer-jargon test above and for the same reason: the reader
+    cannot follow such a pointer anywhere.
+
+    **This is about the program's own wording, not about the data.** Real departments
+    and job titles contain the word — `İK VE OPERASYONLAR EKİBİ`, `... İK MÜDÜRÜ` — and
+    those are the roster's text passed straight through, so cells carrying them are
+    skipped rather than the check being weakened.
+    """
+    from mesai.models import SourceCoverage
+
+    employee = _employee()
+    passed_through = {employee.department, employee.job_title, employee.facility,
+                      employee.display_name}
+
+    stats = RunStats(
+        rows_read={"teknopark": 1}, records_built={"teknopark": 1},
+        intervals_accepted=2, union_total=timedelta(hours=8, minutes=57),
+        accepted_total=timedelta(hours=9, minutes=39),
+        files={"teknopark": "test.xlsx"}, roster_date=date(2026, 7, 28),
+        roster_duplicates=["AYŞE DENEME: iki hesap"],
+        out_of_period={"teknopark": 2}, out_of_period_leave=1,
+        coverage={"teknopark": SourceCoverage("teknopark", 13, 23,
+                                             (date(2026, 7, 20), date(2026, 7, 21))),
+                  "macunkoy": SourceCoverage("macunkoy", 23, 23, ())},
+    )
+    path = tmp_path / "kim.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: employee}, leave=[], anomalies=_all_kinds(), stats=stats,
+        settings=settings, generated_at=datetime(2026, 8, 21, 12, 0),
+    )
+
+    offenders: list[str] = []
+    book = openpyxl.load_workbook(path, read_only=True)
+    for sheet in book.worksheets:
+        for row in sheet.iter_rows(values_only=True):
+            for cell in row:
+                if isinstance(cell, str) and cell not in passed_through:
+                    for word in _tokens(cell) & set(_DEPARTMENTS):
+                        offenders.append(f"{sheet.title}: {word!r} in {cell[:70]!r}")
+
+    assert not offenders, "the workbook names a department:\n" + "\n".join(offenders)
+
+
+def test_the_check_would_catch_the_wording_that_was_removed():
+    """A guard nobody has seen fail is a guard nobody should trust.
+
+    Also pins the whole-word rule: the report's own `BU RAPOR EKSİK` contains `İK` and
+    must not trip it.
+    """
+    assert _tokens("45 dk kesinti İK talebiyle kapatıldı") & set(_DEPARTMENTS)
+    assert _tokens("Bu sayfa İK'ya / IT'ye sormak için hazırlanmıştır") & \
+        set(_DEPARTMENTS)
+    assert _tokens("Bu kişilerin ayı eksik — İK/IT ile kontrol edilmeli") & \
+        set(_DEPARTMENTS)
+
+    assert not _tokens("BU RAPOR EKSİK — kaynak dosyalar dönemin tamamını içermiyor") \
+        & set(_DEPARTMENTS)
+    # A real department, which the roster writes and the report only passes on.
+    assert _tokens("İK VE OPERASYONLAR EKİBİ") & set(_DEPARTMENTS), \
+        "the token check does see it — which is why such cells are skipped by name"
+    assert not _tokens("İKİ kişinin saatleri birleşmiş olur") & set(_DEPARTMENTS)
+    assert not _tokens("Mola için süre düşülmedi") & set(_DEPARTMENTS)
+
+
 # --- the window must say where it put things --------------------------------
 
 def test_the_result_panel_names_both_output_paths(tmp_path, settings, monkeypatch):

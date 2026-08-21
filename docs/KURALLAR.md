@@ -1,7 +1,7 @@
 # Mesai Raporu — Hesaplama Kuralları
 
 **Bu belge, raporun sayılarının nasıl çıktığını teknik bilgi gerektirmeden anlatır.**
-Yöneticiye, İK'ya ya da rapordaki bir sayıyı sorgulayan herkese gösterilebilir.
+Rapordaki bir sayıyı sorgulayan herkese gösterilebilir.
 
 Buradaki her eşik programın ayar dosyasında (`config/settings.yaml`) yazılıdır ve
 değiştirilebilir. Bir kural değişirse bu belge de değişir; ikisi birlikte
@@ -14,7 +14,7 @@ güncellenir.
 
 ## 1. Program ne yapıyor
 
-Her ay iki tesisten gelen ham kart okuyucu çıktıları ile İK'nın izin dosyasını okur,
+Her ay iki tesisten gelen ham kart okuyucu çıktıları ile izin dosyasını okur,
 kişi başına aylık çalışma süresini hesaplar ve tek bir Excel raporu yazar.
 
 Girdi dört dosya:
@@ -77,8 +77,7 @@ Sonuç: 12 saat 36 dakika — 50 dakika ikinci kez sayılmaz
 `İstirahat (Raporlu)`, `Doğum İzni (Tam Ödeme)`, `Babalık İzni`, `Ücretsiz İzin`,
 `Ücretli İzin`, `Evlilik İzni`, `Cenaze İzni`.
 
-**`Uzaktan Çalışma` dışında hepsi izin sayılır — `Eğitim İzni` dahil. İK bunu
-onayladı.** Liste kapalıdır: yeni bir türün çalışma sayılması ayrı bir karar gerektirir.
+**`Uzaktan Çalışma` dışında hepsi izin sayılır — `Eğitim İzni` dahil.** Liste kapalıdır: yeni bir türün çalışma sayılması ayrı bir karar gerektirir.
 
 Bir izin türü "çalışma" olabilir diye düşündürten şey, kayıtlarında saat bulunması
 olmuştu. Ama **her izin türünün her satırında saat var** — yıllık izin dahil. O saat
