@@ -9,11 +9,13 @@ The fixture's docstring claims it mirrors the real config. This makes that a che
 rather than a claim.
 """
 
+import re
 from pathlib import Path
 
 import pytest
 
 from mesai import config
+from mesai.anomalies import DESCRIPTIONS, AnomalyKind
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 REAL = pytest.mark.skipif(
@@ -70,6 +72,46 @@ def test_only_remote_work_counts_as_worked_time(real_settings):
     hours already fell inside a badged day and the interval union had counted them.
     """
     assert real_settings.worked_leave_types == frozenset({"Uzaktan Çalışma"})
+
+
+# --- thresholds a note quotes in its own words -------------------------------
+#
+# Three notes put their threshold in the label or the explanation, so somebody reading
+# a filter list knows what the rule is without looking it up. That copies a config
+# value into a string, and the copy has already drifted: `Giriş-çıkış tutarsız` said
+# "16 saati aşıyor" for the eleven weeks after ADR-033 raised the repair ceiling to 20,
+# so the report was explaining a rule the program did not apply. Nothing failed —
+# the number is prose to every other test.
+_QUOTED_THRESHOLDS = {
+    AnomalyKind.SHORT_DAY: "short_day",
+    AnomalyKind.LONG_DAY: "max_duration",
+    AnomalyKind.IMPLAUSIBLE_DURATION: "repair_max",
+}
+
+
+@REAL
+def test_every_threshold_a_note_quotes_matches_the_shipped_config(real_settings):
+    """A note may not name an hour figure the program is not using."""
+    for kind, field in _QUOTED_THRESHOLDS.items():
+        hours = getattr(real_settings.plausibility, field).total_seconds() / 3600
+        label, _severity, explanation, _group = DESCRIPTIONS[kind]
+        for where, text in (("etiket", label), ("açıklama", explanation)):
+            quoted = {float(n) for n in re.findall(r"(\d+(?:[.,]\d+)?)\s*saat", text)}
+            assert quoted == {hours}, (
+                f"{kind.name} {where}: {sorted(quoted)} yazıyor, "
+                f"plausibility.{field} {hours}")
+
+
+@REAL
+def test_a_note_that_quotes_no_threshold_is_not_silently_added(real_settings):
+    """The guard above only covers the notes it lists, so the list has to be complete.
+
+    Any note whose own words carry an hour figure must be checked against config; one
+    added later without an entry above would drift exactly the way the last one did.
+    """
+    quoting = {kind for kind, (label, _s, explanation, _g) in DESCRIPTIONS.items()
+               if re.search(r"\d+(?:[.,]\d+)?\s*saat", label + " " + explanation)}
+    assert quoting == set(_QUOTED_THRESHOLDS),         f"kontrol edilmeyen: {sorted(k.name for k in quoting - set(_QUOTED_THRESHOLDS))}"
 
 
 @REAL

@@ -2969,3 +2969,89 @@ Measured on July: 107 people have a problem, 78 of them have days.
 - Nothing sends anything. The three decisions ADR-028 left open — preview or send by
   default, whether a manual removal is recorded, whether an incomplete month may be
   mailed from — are still open.
+
+---
+
+## ADR-052 — A note quotes its own threshold, and a per-person figure gets its own column
+
+**Date:** 2026-08-24
+**Status:** Accepted
+**Supersedes nothing. Extends ADR-027, ADR-033, ADR-049.**
+
+### Context
+
+Two separate reports of the same shape: a note that knows a number and does not show it.
+
+**The threshold.** Three notes already carry theirs in their own words —
+`Günlük süre çok kısa (<2 saat)`, `Günlük süre çok uzun (>16 saat)` — so somebody
+scanning a filter list knows what the rule is without looking it up. `Giriş-çıkış
+tutarsız` did not, and its explanation named **the wrong number**: "16 saati aşıyor",
+eleven weeks after ADR-033 raised the repair ceiling to 20 precisely because 16 was
+costing two people a day they had worked. The report was explaining a rule the program
+does not apply. Nothing failed, because the number is prose to every test — and the
+config check in `test_config.py` compares the fixture to the shipped YAML, not the YAML
+to the sentences the reader sees.
+
+Measured on June 2026, the one record that fires this: duration repairs to `23:59`
+against a ceiling of `20:00`. Under the old wording a reader checking the arithmetic
+would have found 23:59 over a stated limit of 16 and concluded the ceiling was 16.
+
+**The per-person figure.** `Ay büyük ölçüde boş` computes the share of the month it could
+not account for and writes it into the anomaly's `detail`: `22 iş gününün 2 tanesi
+açıklanıyor (%9) — çalışma 1 gün, izin 1 gün`. That is the whole content of the note —
+9 % and 49 % are different conversations — and `İnceleme Listesi`, the sheet the figures
+are taken to, was not showing it. `Açıklama` could not: it is looked up from the label
+and is identical on every row carrying that note (ADR-049). So the only sheet with the
+number was `Şüpheli Kayıtlar`, the row-per-record audit trail, which is the sheet
+nobody takes to a meeting.
+
+### Decision
+
+1. `Giriş-çıkış tutarsız` → **`Giriş-çıkış tutarsız (>20 saat)`**, and its explanation
+   says 20. The trailing "o gün 0 saat sayıldı" is dropped: `IMPACT_TEXT` already prints
+   it in the `Etki` column, and a second number in the sentence is a second number to
+   keep in step.
+
+2. **A test compares every threshold a note quotes against the shipped config**
+   (`test_config.py`). Two tests, not one: the first checks the three known notes, the
+   second asserts that the set of notes quoting an hour figure *is* those three, so a
+   note added later cannot drift the way this one did.
+
+3. `İnceleme Listesi` gains an **`Ayrıntı`** column carrying the record's own words,
+   filled only where the row stands for **one** record.
+
+### Alternatives rejected
+
+**Derive the labels from config** — build `f"(<{hours} saat)"` at import. Rejected: a
+label is a snapshot value, a filter key and an exclusion-list key (ADR-027). Deriving it
+would make two installations with different YAML produce data files that silently fail to
+match each other's filters, which is a worse failure than a stale string a test can
+catch. The duplication is deliberate; the test is what makes it safe.
+
+**Leave the threshold out of the label and fix only the explanation.** Rejected for
+consistency: two of its three siblings in the `Süre` family carry theirs, and a filter
+list where one of three thresholds is invisible invites exactly the "what counts as
+inconsistent?" question the parenthesis answers.
+
+**Put the percentage in the `Not` column of `Aylık Özet`.** Rejected — ADR-049 closed
+that column to anything but a note label, and reopening it for one per-person number
+re-creates the hand-written strings that ADR replaced.
+
+**Fill `Ayrıntı` for multi-day rows too, from the first record.** Rejected: a row reading
+`15 gün` beside one day's sentence misdescribes fourteen days. Several records mean
+several sentences; the reader is sent to `Şüpheli Kayıtlar`, which has all of them.
+
+### Consequences
+
+- **A label changed, so `format_version` goes 4 → 5** and existing data files are
+  refused with "yeniden üretin", exactly as ADR-051's bump did. An exclusion list or a
+  saved filter written against `Giriş-çıkış tutarsız` matches nobody under the new
+  wording — silently, which is the whole reason the version guard exists.
+- Regenerating changes **no figure**. Verified on June 2026: 27 166:19 before and after,
+  163 people, 427 suspect records.
+- `İnceleme Listesi` is ten columns wide. Measured on June 2026: 76 of 213 rows carry an
+  `Ayrıntı` — every `Ay büyük ölçüde boş` and `Mesai verisi yok` row, and every
+  single-day row of any other note.
+- The threshold test would have caught the original drift on the day ADR-033 landed. It
+  now also fails if somebody edits `repair_max_hours` in YAML without touching the
+  wording, which is the more likely direction next time.

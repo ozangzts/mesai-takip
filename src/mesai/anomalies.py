@@ -86,10 +86,15 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
     # Was "Aralık çok uzun", and it was catching real 16-hour shifts. It now fires
     # only when the midnight-crossing repair produces an impossible figure — that is,
     # when OUR assumption failed, not when somebody worked a long day. ADR-032.
+    # The threshold said 16 for the eleven weeks after ADR-033 moved the repair
+    # ceiling to 20, so the report explained a rule the program was not applying.
+    # `test_config.py` now checks every quoted threshold against the shipped config.
+    # The "0 saat sayıldı" tail is gone: `IMPACT_TEXT` already prints it in its own
+    # column, and a second number in the sentence is a second thing to keep in step.
     AnomalyKind.IMPLAUSIBLE_DURATION: (
-        "Giriş-çıkış tutarsız", "excluded",
+        "Giriş-çıkış tutarsız (>20 saat)", "excluded",
         "Çıkış girişten önce görünüyor; gece geçişi varsayılıp düzeltilince süre "
-        "16 saati aşıyor. Kayıt kullanılamaz, o gün 0 saat sayıldı",
+        "20 saati aşıyor — kayıt kullanılamaz",
         "Süre"),
     # The threshold is in the label: somebody filtering a list should not have to look
     # up what "short" means, and the value is the whole content of the rule.

@@ -39,7 +39,11 @@ from .models import MonthSummary, RunStats, WorkDay
 #    written against "Çıkış kaydı yok" would quietly match nobody under "Çıkış yok".
 # 3: `expected` added — the `info`-severity labels, so they can be filtered on without
 #    joining `problems` and making expected behaviour look like a defect (ADR-028).
-FORMAT_VERSION = 4
+# 4: `days` added — the person's problem days, for the mail step (ADR-051).
+# 5: `Giriş-çıkış tutarsız` became `Giriş-çıkış tutarsız (>20 saat)`. A label, so the
+#    same breaking change as version 2: a filter or an exclusion list written against
+#    the old wording matches nobody under the new one, silently.
+FORMAT_VERSION = 5
 
 
 class SnapshotError(Exception):

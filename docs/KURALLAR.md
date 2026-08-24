@@ -227,7 +227,7 @@ duruyordu.
 | `Günlük süre çok kısa (<2 saat)` | Günün toplamı 2 saatin altında | 🟡 | 61 |
 | `Günlük süre çok uzun (>16 saat)` | Günün toplamı 16 saati aşıyor — **süre sayılır**, sadece kontrol için işaretlenir | 🟡 | 7 |
 | `Gece geçişi` | Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi | 🟡 | 51 |
-| `Giriş-çıkış tutarsız` | Çıkış girişten önce ve gece geçişi varsayılınca süre 20 saati aşıyor — kayıt kullanılamaz | 🔴 | 5 |
+| `Giriş-çıkış tutarsız (>20 saat)` | Çıkış girişten önce ve gece geçişi varsayılınca süre 20 saati aşıyor — kayıt kullanılamaz | 🔴 | 5 |
 | `Süre uyuşmazlığı` | Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil | 🟡 | — |
 
 **Uzun gün sayılır, atılmaz.** 16 saati aşan bir gün gerçek olabilir; program onu

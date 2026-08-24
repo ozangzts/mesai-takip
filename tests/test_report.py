@@ -632,6 +632,50 @@ def test_the_remote_pair_names_the_kind_that_actually_fires():
     assert label[AnomalyKind.REMOTE_OVERLAP_REAL] == "Uzaktan + kart kaydı"
 
 
+def test_the_worklist_carries_a_month_level_notes_own_figures(tmp_path, settings):
+    """`Ay büyük ölçüde boş` knows the share it could not account for. Show it.
+
+    The share is per person and `Açıklama` is per note, so before the `Ayrıntı` column
+    the only sheet carrying it was the row-per-record audit trail — which is not the
+    sheet anybody takes to a meeting. One record, its own words.
+    """
+    sparse = Anomaly(
+        kind=AnomalyKind.SPARSE_MONTH, source="izin", source_row=0, key=KEY,
+        raw_name="AYŞE DENEME",
+        detail="22 iş gününün 8 tanesi açıklanıyor (%36) — çalışma 8 gün, izin 0 gün")
+    collector = Collector()
+    collector.add(sparse)
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
+    header = [c for c in rows[3] if c is not None]
+    assert header[9] == "Ayrıntı"
+
+    row = next(r for r in rows[4:] if r and r[4] == "Ay büyük ölçüde boş")
+    assert row[9] == sparse.detail
+    assert "%36" in row[9]
+
+
+def test_the_worklist_leaves_the_detail_empty_when_several_days_disagree(tmp_path,
+                                                                        settings):
+    """Printing one day's sentence beside a count of five would misdescribe four days."""
+    collector = Collector()
+    for day, stamp in ((3, "07:41"), (9, "08:02")):
+        collector.add(Anomaly(
+            kind=AnomalyKind.MISSING_EXIT, source="macunkoy", source_row=day, key=KEY,
+            raw_name="AYŞE DENEME", date=date(2026, 5, day), raw_entry=stamp,
+            detail=f"giriş {stamp}, çıkış yok"))
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
+    row = next(r for r in rows[4:] if r and r[4] == "Çıkış yok")
+
+    assert row[6] == 2
+    assert not row[9]
+
+
 def test_the_worklist_prints_the_explanation_beside_the_keyword(tmp_path, settings):
     book = openpyxl.load_workbook(_build(tmp_path, settings), read_only=True)
     rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))

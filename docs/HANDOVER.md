@@ -1,6 +1,6 @@
 # HANDOVER.md — Nerede kaldık
 
-**Son güncelleme: 2026-08-21, commit `967b7bb`.**
+**Son güncelleme: 2026-08-24, commit `PENDING`.**
 
 > Bu dosya kalıcı bilgi tutmaz, sadece **akıştaki işi**, **beklenen cevapları** ve
 > **tuzakları** tutar. Kalıcı olan her şey aşağıdaki dosyalarda ve onlar güncel:
@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (51 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (52 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **431 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **435 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -30,8 +30,12 @@ Faz 1 çalışıyor, **üç ayın üçü de tam**, **431 test geçiyor**.
 | Kişi | 171 | 163 | 176 |
 | Şüpheli kayıt | 250 | 427 | 436 |
 
-Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Üç ayın raporu ve veri dosyası
-**Masaüstünde**, `format_version 4` ile yeniden üretilmiş durumda.
+Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam.
+
+> **Masaüstündeki üç ay `format_version 4`, program artık 5 istiyor** (ADR-052 bir etiketi
+> değiştirdi). O dosyalar "yeniden üretin" diye reddedilir, yani **Kişiler ekranı üç ayın
+> hiçbirini açamaz**. Üç ayı da yeniden üretmek gerekiyor; rakam değişmiyor, Haziran'da
+> ölçüldü — 27 166:19 önce ve sonra.
 
 Çalıştırma: `arayuz.cmd` (pencere) ya da `rapor.cmd --ay 2026-07` (komut satırı).
 
@@ -115,6 +119,40 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
+
+---
+
+## Bu turda ne yapıldı (2026-08-24)
+
+**Bir notun eşiği yanlıştı.** `Giriş-çıkış tutarsız` açıklaması "16 saati aşıyor" diyordu;
+gerçek üst sınır ADR-033'ten beri **20**. Yani rapor, programın uygulamadığı bir kuralı
+anlatıyordu on bir haftadır. Hiçbir test görmedi, çünkü o sayı testler için düz metin.
+
+Etiket artık **`Giriş-çıkış tutarsız (>20 saat)`** — `Süre` ailesindeki iki kardeşi gibi
+eşiği kendi yazıyor. **Bir test artık her notun yazdığı saat rakamını gerçek config'le
+karşılaştırıyor**, ve ikinci bir test "eşik yazan notlar tam olarak bunlar" diyor, yani
+sonra eklenen bir not aynı şekilde kayamaz. Eşiği YAML'da değiştirip kelimeyi unutmak da
+kırmızı düşüyor — bir sonraki sefer daha muhtemel olan yön bu.
+
+**`İnceleme Listesi`'ne `Ayrıntı` kolonu geldi** (ADR-052). `Ay büyük ölçüde boş` ayın
+yüzde kaçını açıklayamadığını zaten hesaplıyordu (`22 iş gününün 2 tanesi açıklanıyor
+(%9)`) ama o sayı yalnızca `Şüpheli Kayıtlar`'da duruyordu — kimsenin toplantıya
+götürmediği sayfa. `Açıklama` bunu taşıyamaz, o etiketten okunuyor ve her satırda aynı
+(ADR-049). Kolon **tek bir kaydı temsil eden satırlarda** dolu; on beş günlük bir satırın
+yanına bir günün cümlesini yazmak on dört günü yanlış anlatır. Haziran'da 213 satırın 76'sı
+dolu.
+
+**Etiket değiştiği için `format_version` 4 → 5.** Masaüstündeki üç ay yeniden üretilmeli;
+rakam değişmiyor.
+
+**Ölçülen bir soru: eksik kayıt notları birbirini kapsıyor mu?** Kapsamıyor. Bir *kayıt*
+için `Giriş yok` / `Çıkış yok` / `Giriş-çıkış yok` birbirini dışlıyor (`merge.py` tek dal
+seçiyor), ve üç ayın **820 sorunlu gününün hiçbiri** bunlardan birden fazlasını taşımıyor.
+Gün seviyesinde yapısal garanti **yok** — aynı gün iki tesisin kaydı olabilir ve
+`ProblemDay.problems` bir küme — ama pratikte hiç olmamış. *Kişi* seviyesinde ise çakışma
+bol: aynı kişinin bir günü girişsiz, başka günü çıkışsız olabiliyor (Mayıs 12, Haziran 20,
+Temmuz 17 kişi). Mail adımında önemi şu: yalnızca `Çıkış yok` işaretlenirse bu kişiler
+yine mail alır ama `Giriş yok` günleri mesajda yazmaz.
 
 ---
 
@@ -204,7 +242,9 @@ Buradaki her madde bir kez ısırdı.
 - **`tests/conftest.py` fixture'ı gerçek config'den sapabiliyor** ve birkaç kez saptı.
   Yeni bir config anahtarı eklerken fixture'a da ekle — yoksa bütün test paketi,
   kimsenin çalıştırmadığı bir kurala karşı geçmeye devam eder.
-- Snapshot `format_version` **4**. Eski dosyalar "yeniden üret" diye reddediliyor.
+- Snapshot `format_version` **5**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
+  **etiketi yeniden adlandırmak** bu sürümü yükseltir (ADR-027, ADR-052): eski yazımla
+  yazılmış bir filtre ya da istisna listesi yeni yazımda **sessizce kimseyi** tutmaz.
 - **`arayuz-ayarlari.json` `gui/settings.py` üzerinden yazılır** — oku, değiştir, yaz.
   Eskiden rapor ekranı kendi anahtarlarını bütün dosyanın üzerine yazıyordu; bir şey
   hatırlayan ikinci ekran birincisinin ayarını sessizce silecekti. Temizlenen değer

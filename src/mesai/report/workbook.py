@@ -332,11 +332,28 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
 
 # "Sorun" is a keyword now, so the sentence it used to be goes in its own column.
 # Without this the sheet would say "Gece geçişi" and leave the reader to guess.
+# `Ayrıntı` carries the record's OWN words, where the row is about a single record.
+# `Açıklama` is the note's meaning and is the same on every row with that note, so a
+# figure that differs per person had nowhere to go: `Ay büyük ölçüde boş` knows the
+# share of the month it could not account for (22 iş gününün 8'i, %36) and only the
+# row-per-record audit sheet was showing it. That is the sheet you do not take to a
+# meeting.
 _WORKLIST_HEADERS = [
     "Ad Soyad", "Sicil No", "Tesis", "Departman", "Sorun", "Açıklama",
-    "Gün Sayısı", "Günler", "Etki",
+    "Gün Sayısı", "Günler", "Etki", "Ayrıntı",
 ]
-_WORKLIST_WIDTHS = [28, 10, 14, 30, 22, 52, 11, 46, 24]
+_WORKLIST_WIDTHS = [28, 10, 14, 30, 22, 52, 11, 46, 24, 58]
+
+
+def _single_detail(found: list[str]) -> str:
+    """The record's own words, but only when the row stands for one record.
+
+    A month-level note is always one record, which is the case this exists for. A note
+    spanning several days has several details and gets none: the reader is sent to the
+    audit sheet rather than shown one day's sentence as if it covered the rest.
+    """
+    distinct = {text for text in found if text}
+    return distinct.pop() if len(found) == 1 and len(distinct) == 1 else ""
 
 
 def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
@@ -370,6 +387,10 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
     grouped: dict[tuple[NameKey | None, str], list[date]] = defaultdict(list)
     severity: dict[tuple[NameKey | None, str], str] = {}
     names: dict[NameKey | None, str] = {}
+    # Every detail the bucket's records wrote, so the column can be filled only when
+    # there is ONE of them. Several records mean several different sentences, and
+    # picking one of them to print would be a lie about the other days.
+    details: dict[tuple[NameKey | None, str], list[str]] = defaultdict(list)
 
     for anomaly in anomalies.items:
         bucket = (anomaly.key, anomaly.label)
@@ -377,6 +398,7 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
             grouped[bucket].append(anomaly.date)
         else:
             grouped[bucket]          # touch, so a dateless problem still gets a row
+        details[bucket].append(anomaly.detail)
         severity[bucket] = anomaly.severity
         employee = employees.get(anomaly.key) if anomaly.key else None
         names[anomaly.key] = employee.display_name if employee else anomaly.raw_name
@@ -401,12 +423,13 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
             len(unique_days) or "",
             _day_list(unique_days, period),
             _impact_text(severity[(key, label)]),
+            _single_detail(details[(key, label)]),
         ]
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
             if index == 7:
                 cell.alignment = styles.RIGHT
-            if index in (6, 8):
+            if index in (6, 8, 10):
                 cell.alignment = styles.LEFT
         level = severity[(key, label)]
         fill = {"excluded": styles.RED_FILL, "info": styles.GREY_FILL}.get(

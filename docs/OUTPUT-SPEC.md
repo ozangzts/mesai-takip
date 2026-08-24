@@ -225,15 +225,26 @@ into a per-person question: **144 rows**, each naming the days.
 | --- | --- | --- |
 | A | Ad Soyad | `MUSTAFA ALİ DENEME` |
 | B | Sicil No | |
-| C | Tesis | `DEICO TESİS` |
+| C | Tesis | `Teknopark` |
 | D | Departman | |
-| E | Sorun | `Çıkış kaydı yok` |
-| F | Gün Sayısı | `15` |
-| G | Günler | `4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 17, 18, 20 Mayıs` |
-| H | Etki | `Bu günler 0 saat sayıldı` |
+| E | Sorun | `Çıkış yok` |
+| F | Açıklama | `Giriş basılmış, çıkış kaydı yok` |
+| G | Gün Sayısı | `15` |
+| H | Günler | `4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 17, 18, 20 Mayıs` |
+| I | Etki | `Bu günler 0 saat sayıldı` |
+| J | Ayrıntı | `22 iş gününün 2 tanesi açıklanıyor (%9) — çalışma 1 gün, izin 1 gün` |
 
 One row per **(person, problem type)** pair — a person with both a missing entry and
 a missing exit gets two rows, because they are two different questions.
+
+`Açıklama` is the note's meaning and reads the same on every row carrying that note.
+`Ayrıntı` is the opposite: the record's **own** words, and it is filled only where the
+row stands for a single record. That is always true of a month-level note, which is the
+case the column exists for — `Ay büyük ölçüde boş` computes the share of the month it
+could not account for, and until ADR-052 the only sheet showing it was the row-per-record
+audit trail. A note spanning several days has several different sentences and gets none;
+printing one of them beside a count of fifteen would misdescribe fourteen days. Measured
+on June 2026: 76 of 213 rows carry an `Ayrıntı`.
 
 **Three colours, three meanings** (ADR-017):
 
