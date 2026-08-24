@@ -200,7 +200,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 435 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 441 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -469,6 +469,24 @@ grow back into a sentence, and the sentence lives in the kind's `explanation` in
 Changing a label is a breaking change to the snapshot, not a copy edit. Every note also
 declares a **family** (`anomalies.py:GROUPS`); the filter list is ordered by family then
 by declaration order, never by frequency, so it reads the same every month (ADR-029).
+
+**One note is a stricter case of two others, and only for selection**
+(`anomalies.py:IMPLIES`, ADR-053). `Giriş-çıkış yok` is a day with no entry *and* no
+exit, so a filter on `Giriş yok` returns it too — the labels read as predicates and a
+both-missing day satisfies them. Everything that selects goes through
+`anomalies.with_implied`; nothing that *reports* does, because the sheets state what
+happened to a record and a day with neither punch is one row, not three.
+
+Two consequences to know before adding an entry to that table:
+
+- **Note counts no longer partition.** June's punch days were 147 + 20 + 80 = 247 with
+  no overlap; now the same day is in two filters. Anything that adds note counts
+  together is wrong, and the people screen indents the stricter note so the containment
+  is visible.
+- **The window's counts are larger than `İnceleme Listesi`'s row counts** for those
+  notes. That is the design, not a discrepancy. A test asserts each count equals the
+  number of rows its filter returns, because the failure mode is a dropdown offering
+  `Giriş yok (48)` and handing back 15.
 
 Three severities, and the third one earns its keep: `excluded` (counted as zero
 hours), `included` (counted, worth a look), `info` (counted, **expected behaviour**).

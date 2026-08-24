@@ -22,9 +22,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from ..anomalies import DESCRIPTIONS
+from ..anomalies import DESCRIPTIONS, with_implied
 from ..normalize import sort_key
-from ..snapshot import Person, Snapshot
+from ..snapshot import Person, ProblemDay, Snapshot
 
 # Two filters that are not a note. Kept as sentinels rather than magic strings at the
 # call site so the window cannot invent a third by typo.
@@ -140,7 +140,7 @@ def matching(snapshot: Snapshot | None, filter_key: str,
         counted = (default_labels(snapshot) if labels is None
                    else frozenset(labels))
         people = tuple(p for p in snapshot.people
-                       if counted.intersection(p.problems))
+                       if counted.intersection(with_implied(p.problems)))
     else:
         people = snapshot.with_label(filter_key)
     return tuple(sorted(people, key=lambda p: sort_key(p.name)))
@@ -152,6 +152,29 @@ def selected(snapshot: Snapshot | None, filter_key: str, excluded: Iterable[str]
     removed = set(excluded)
     return tuple(p for p in matching(snapshot, filter_key, labels)
                  if p.name not in removed)
+
+
+def days_for(person: Person, labels: Iterable[str] | None = None,
+             snapshot: Snapshot | None = None) -> tuple[ProblemDay, ...]:
+    """The person's days the message may speak about: those the ticked notes are about.
+
+    The rule ADR-051 states — ticked notes choose both *who* and *which days* — lives
+    here rather than in the mail step, because it was stated only in a test and a rule
+    stated in a test gets re-implemented slightly differently by whoever writes the
+    caller. `with_implied` applies here for the same reason it applies to the person:
+    ticking `Giriş yok` must return the day that has no entry *and* no exit, or the
+    person is written to about a day the message then cannot mention.
+
+    `labels=None` means the default set, which needs the snapshot to know what notes
+    exist. Passing neither is "every day this person has a problem on".
+    """
+    if labels is None:
+        if snapshot is None:
+            return person.days
+        labels = default_labels(snapshot)
+    counted = frozenset(labels)
+    return tuple(day for day in person.days
+                 if counted.intersection(with_implied(day.problems)))
 
 
 def without_email(people: Iterable[Person]) -> tuple[Person, ...]:

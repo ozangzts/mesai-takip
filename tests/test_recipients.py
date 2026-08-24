@@ -300,3 +300,144 @@ def test_nothing_is_offered_or_admitted_without_a_snapshot():
     assert recipients.problem_labels(None) == ()
     assert recipients.default_labels(None) == frozenset()
     assert recipients.matching(None, recipients.PROBLEM) == ()
+
+
+# --- one note that is a stricter case of two others (ADR-053) ----------------
+#
+# `Giriş-çıkış yok` is a day with no entry AND no exit, so it is also a day with no
+# entry. The labels read as predicates, and a filter on `Giriş yok` that skipped those
+# days was the reading nobody expects: "teknik olarak o gün de giriş yok".
+
+def _both_missing():
+    return Snapshot(
+        period="2026-06", generated_at=datetime(2026, 8, 24, 10, 0), rules={},
+        coverage={"macunkoy": {"partial": False}},
+        people=(
+            # only the both-missing note: the person the old behaviour lost
+            person("KEREM DENEME", problems=("Giriş-çıkış yok",)),
+            person("ÇAĞLA DENEME", problems=("Çıkış yok",)),
+            person("AHMET SINAMA", problems=("Giriş yok",)),
+        ),
+    )
+
+
+def test_a_day_with_neither_punch_is_also_a_day_with_no_entry():
+    snap = _both_missing()
+
+    for label in ("Giriş yok", "Çıkış yok", "Giriş-çıkış yok"):
+        chosen = {p.name for p in recipients.matching(snap, label)}
+        assert "KEREM DENEME" in chosen, f"{label} bu kişiyi kaçırıyor"
+
+    assert {p.name for p in recipients.matching(snap, "Giriş yok")} == {
+        "KEREM DENEME", "AHMET SINAMA"}
+
+
+def test_the_implication_runs_one_way_only():
+    """A missing exit is NOT a day with neither punch — the entry is right there."""
+    snap = _both_missing()
+    chosen = {p.name for p in recipients.matching(snap, "Giriş-çıkış yok")}
+
+    assert chosen == {"KEREM DENEME"}
+    assert "ÇAĞLA DENEME" not in chosen and "AHMET SINAMA" not in chosen
+
+
+def test_the_count_beside_a_note_is_the_number_of_rows_it_shows():
+    """The bug this guards: the window offering `Giriş yok (48)` and handing back 15.
+
+    `label_counts` and `matching` apply the same relation, so they cannot drift. Checked
+    for every note in the list rather than the interesting one, because the next
+    implication added will be the one nobody re-checked.
+    """
+    snap = _both_missing()
+
+    for choice in recipients.choices(snap):
+        if choice.key in recipients.STANDING:
+            continue
+        assert choice.count == len(recipients.matching(snap, choice.key)), choice.key
+
+
+def test_the_problem_group_admits_a_person_through_an_implied_note():
+    """Ticking `Giriş yok` alone must still reach somebody who only has the strict note."""
+    snap = _both_missing()
+
+    chosen = {p.name for p in recipients.matching(snap, recipients.PROBLEM,
+                                                  labels={"Giriş yok"})}
+    assert chosen == {"KEREM DENEME", "AHMET SINAMA"}
+
+    # and unticking everything else does not smuggle them in through the group
+    assert recipients.matching(snap, recipients.PROBLEM, labels=set()) == ()
+
+
+# --- which days the message may speak about ---------------------------------
+
+def _with_days(*days):
+    from mesai.snapshot import ProblemDay
+    p = person("KEREM DENEME", problems=tuple(
+        {label for day in days for label in day.problems}))
+    return Person(**{**p.__dict__, "days": tuple(days)})
+
+
+def test_the_ticked_notes_choose_the_days_as_well_as_the_person():
+    """ADR-051's rule, now in a function instead of only in a test."""
+    from datetime import date
+
+    from mesai.snapshot import ProblemDay
+    bos = ProblemDay(date=date(2026, 6, 3), problems=("Giriş-çıkış yok",))
+    cikis = ProblemDay(date=date(2026, 6, 9), problems=("Çıkış yok",),
+                       entry="07:41", minutes=0)
+    kisa = ProblemDay(date=date(2026, 6, 11),
+                      problems=("Günlük süre çok kısa (<2 saat)",), minutes=105)
+    kisi = _with_days(bos, cikis, kisa)
+
+    # the both-missing day comes back under the broader note — the whole point
+    assert [d.date for d in recipients.days_for(kisi, {"Giriş yok"})] == [bos.date]
+    assert [d.date for d in recipients.days_for(kisi, {"Çıkış yok"})] == [
+        bos.date, cikis.date]
+    assert [d.date for d in recipients.days_for(kisi, {"Giriş-çıkış yok"})] == [bos.date]
+    assert recipients.days_for(kisi, set()) == ()
+    assert len(recipients.days_for(kisi)) == 3, "no labels given: every problem day"
+
+
+def test_the_report_is_not_inclusive_the_way_the_filter_is(tmp_path, settings):
+    """A day with neither punch is ONE row, labelled for what happened.
+
+    The relation is a selection rule, not a reporting one. Expanding it into the sheets
+    would triple the row and state two things the record does not say: that an entry was
+    read and that an exit was read.
+    """
+    import openpyxl
+
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+
+    from datetime import date
+    from mesai.report import workbook
+    from tests.test_report import KEY, _employee, _summary, _workday
+
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.EMPTY_RECORD, source="macunkoy", source_row=7, key=KEY,
+        raw_name="AYŞE DENEME", date=date(2026, 5, 4), detail="giriş de çıkış da boş"))
+
+    path = tmp_path / "rapor.xlsx"
+    workbook.build(
+        path=path, period="2026-05", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=collector,
+        stats=_stats_for_report(), settings=settings,
+        generated_at=datetime(2026, 8, 24, 12, 0))
+
+    rows = list(openpyxl.load_workbook(path, read_only=True)["İnceleme Listesi"]
+                .iter_rows(values_only=True))
+    notlar = [r[4] for r in rows[4:] if r and r[4]]
+
+    assert notlar == ["Giriş-çıkış yok"]
+    assert "Giriş yok" not in notlar and "Çıkış yok" not in notlar
+
+
+def _stats_for_report():
+    from datetime import date, timedelta
+
+    from mesai.models import RunStats
+    return RunStats(
+        rows_read={"macunkoy": 1}, records_built={"macunkoy": 1},
+        intervals_accepted=0, union_total=timedelta(), accepted_total=timedelta(),
+        files={"macunkoy": "test.xlsx"}, roster_date=date(2026, 7, 28))

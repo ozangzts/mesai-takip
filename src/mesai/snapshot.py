@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from datetime import date as date_type, datetime
 from pathlib import Path
 
-from .anomalies import DESCRIPTIONS, GROUPS, Collector
+from .anomalies import DESCRIPTIONS, GROUPS, Collector, with_implied
 from .config import Settings
 from .models import MonthSummary, RunStats, WorkDay
 
@@ -135,12 +135,16 @@ class Snapshot:
         """False when a source failed to cover the period — do not mail from this."""
         return not any(c.get("partial") for c in self.coverage.values())
 
+    # `with_implied` on both: a note that is a stricter case of another selects under
+    # the broader one too (`anomalies.IMPLIES`). Applied here rather than in each
+    # caller, so `label_counts` and the filters cannot disagree about who a label
+    # holds — the window showing 48 and handing back 15 is the bug this prevents.
     def with_problem(self, label: str) -> tuple[Person, ...]:
-        return tuple(p for p in self.people if label in p.problems)
+        return tuple(p for p in self.people if label in with_implied(p.problems))
 
     def with_label(self, label: str) -> tuple[Person, ...]:
         """People carrying `label`, whether it is a problem or expected behaviour."""
-        return tuple(p for p in self.people if label in p.labels)
+        return tuple(p for p in self.people if label in with_implied(p.labels))
 
     @property
     def problem_labels(self) -> tuple[str, ...]:
@@ -165,12 +169,16 @@ class Snapshot:
         declared = {label: index for index, (label, _s, _e, _g)
                     in enumerate(DESCRIPTIONS.values())}
 
+        # Counted with the implied labels included, because this list IS the filter:
+        # a count that excluded them would promise 15 rows and the filter would show 41.
+        # Problems and expected behaviour are expanded separately so an implication can
+        # never quietly move a note across that line.
         seen: dict[str, tuple[int, bool]] = {}
         for person in self.people:
-            for label in person.problems:
+            for label in with_implied(person.problems):
                 count, _ = seen.get(label, (0, True))
                 seen[label] = (count + 1, True)
-            for label in person.expected:
+            for label in with_implied(person.expected):
                 count, _ = seen.get(label, (0, False))
                 seen[label] = (count + 1, False)
 

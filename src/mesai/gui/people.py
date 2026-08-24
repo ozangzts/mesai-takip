@@ -20,6 +20,7 @@ from pathlib import Path
 from tkinter import filedialog, ttk
 
 from .. import snapshot as snapshot_module
+from ..anomalies import IMPLIES
 from ..mail import recipients
 from . import settings as settings_file
 from ..mail.recipients import other_problems
@@ -434,12 +435,18 @@ class PeopleScreen:
             for label, count in labels:
                 var = tk.BooleanVar(value=label not in self._off)
                 self._note_vars[label] = var
+                # A note that is a stricter case of the ones above it is indented, so
+                # the containment is visible: `Giriş-çıkış yok` days are also counted
+                # under `Giriş yok` and `Çıkış yok`, which is why these numbers no
+                # longer add up to the total. The label text itself is untouched — it
+                # is a filter key and a snapshot value, not decoration (ADR-027).
+                indent = 22 if label in IMPLIES else 8
                 tk.Checkbutton(
                     self.notes_frame, text=f"{label}  ({count})", variable=var,
                     background=w.CARD, activebackground=w.CARD, foreground=w.INK,
                     font=(w.FACE, 9), highlightthickness=0, borderwidth=0, anchor="w",
                     command=lambda lbl=label: self._toggle_note(lbl)).grid(
-                    row=rows[side], column=side, sticky="w", padx=(8, 24))
+                    row=rows[side], column=side, sticky="w", padx=(indent, 24))
                 rows[side] += 1
 
         for column in (0, 1):

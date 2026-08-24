@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (52 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (53 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **435 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **441 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -52,8 +52,15 @@ Veri tarafı tamam (ADR-048, ADR-051): Kişiler ekranında `Sorunu olanlar` filt
 hangi notların sayılacağını seçen onay kutuları var; veri dosyası kişi başına **sorunlu
 günleri** de taşıyor (tarih, giriş, çıkış, o günün etiketleri).
 
-Kural şu ve testte yazılı: **işaretli notlar hem kimi hem hangi günleri seçer.** Bir
-kişiye mail gider ama mesajda yalnızca işaretli notlara ait günler yazılır.
+Kural şu ve artık **testte değil fonksiyonda**: `recipients.days_for()` — işaretli
+notlar hem kimi hem hangi günleri seçer. Bir kişiye mail gider ama mesajda yalnızca
+işaretli notlara ait günler yazılır.
+
+**`Giriş-çıkış yok` iki notun daha katı hâli** (ADR-053): `Giriş yok` filtresi o günleri
+de getirir, çünkü ikisi de olmayan bir günün girişi de yoktur. Yalnızca **seçimde** böyle;
+rapor kaydın başına ne geldiğini yazıyor, o gün tek satır. Sonucu: **not sayıları
+toplanmaz**, aynı gün iki filtrede. Pencere sayısı `İnceleme Listesi` satır sayısından
+büyük, bu tasarım.
 
 **Başlamadan önce üç karar gerekiyor.** Bunlar kararlaştırılmadı, uygulama tarafından
 önerildi; kararlaştırılmış kısıt gibi davranılmamalı:
@@ -123,6 +130,42 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
 ---
 
 ## Bu turda ne yapıldı (2026-08-24)
+
+**`Giriş-çıkış yok` artık `Giriş yok` ve `Çıkış yok` seçimlerine de giriyor** (ADR-053).
+Gerekçe kullanıcının: ikisi de olmayan bir günün girişi de yoktur, etiket bir yüklem ve o
+gün onu sağlıyor. İlişki `anomalies.IMPLIES`'te bildirilmiş, tek yerde uygulanıyor
+(`with_implied`), ve **yalnızca seçen** her şeyden geçiyor — rapor eden hiçbir şeyden
+geçmiyor. Rapor kaydın başına ne geldiğini yazıyor: ikisi de boş bir gün tek satır,
+`Giriş-çıkış yok`. Üç satıra açmak, okunmamış iki damgayı okunmuş gibi yazmak olurdu.
+
+Ölçülen etki — **varsayılan seçim hiç değişmedi** (90/103/99 kişi, 171/293/283 gün),
+çünkü hepsi zaten işaretliydi. Değişen alt seçimler:
+
+| | Mayıs | Haziran | Temmuz |
+| --- | --- | --- | --- |
+| `Çıkış yok` | 51 kişi / 127 gün | 80 / 227 | 61 / 221 |
+| `Giriş yok` | 41 / 68 | 48 / 100 | 40 / 101 |
+| `Giriş-çıkış yok` | 24 / 48 | 34 / 80 | 27 / 78 |
+
+**Reddedilen yol, kaydı için:** etiketleri `Giriş var, çıkış yok` / `Çıkış var, giriş yok`
+diye yeniden adlandırıp ayrıklığı görünür kılmak. Kapsayıcılıkla **çelişiyor** —
+`Giriş var, çıkış yok` girişi okunmamış günleri döndürmemeli. Yeniden adlandırmamak, şu
+anki etiketleri doğru yapan şey. Yan faydası: `format_version` **5'te kaldı**, üç ayı
+tekrar üretmek gerekmedi.
+
+**`recipients.days_for()` geldi.** ADR-051'in kuralı bir testin içinde bir satır olarak
+duruyordu; testte duran kural, çağıranı yazan kişi tarafından biraz farklı yeniden
+yazılır.
+
+**Not sayıları artık toplanmıyor** — aynı gün iki filtrede. Haziran'da 147 + 20 + 80 =
+247'ydi, örtüşme yoktu. Pencere daha katı notu **girintiliyor** ki içerme görünsün; etiket
+metnine dokunulmuyor, o bir filtre anahtarı. Bir test her sayının o filtrenin döndürdüğü
+satır sayısına eşit olduğunu doğruluyor — korkulan hata `Giriş yok (48)` yazıp 15 kişi
+vermek.
+
+---
+
+## Bu turda ne yapıldı (2026-08-24, erken)
 
 **Bir notun eşiği yanlıştı.** `Giriş-çıkış tutarsız` açıklaması "16 saati aşıyor" diyordu;
 gerçek üst sınır ADR-033'ten beri **20**. Yani rapor, programın uygulamadığı bir kuralı

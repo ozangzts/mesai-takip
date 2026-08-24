@@ -3055,3 +3055,89 @@ several sentences; the reader is sent to `Şüpheli Kayıtlar`, which has all of
 - The threshold test would have caught the original drift on the day ADR-033 landed. It
   now also fails if somebody edits `repair_max_hours` in YAML without touching the
   wording, which is the more likely direction next time.
+
+---
+
+## ADR-053 — `Giriş-çıkış yok` selects under `Giriş yok` too, and only for selection
+
+**Date:** 2026-08-24
+**Status:** Accepted
+**Extends ADR-027, ADR-048, ADR-051.**
+
+### Context
+
+The three missing-punch notes are disjoint **by record**: `merge.py` picks exactly one
+branch per orphan, and measured over May–July 2026 not one of the 820 problem days
+carried more than one of them. So a filter on `Giriş yok` returned only the days where
+an exit was stamped and an entry was not.
+
+The operator read the list and said the obvious thing: *"ikisi de yoksa teknik olarak o
+gün de giriş yok."* That is correct. `Giriş yok` is a **predicate** — "this day has no
+entry" — and a day with neither punch satisfies it. The labels were named this way on
+purpose: ADR-027 rejected `sadece giriş`, which reads equally as "only the entry exists"
+and "only the entry is missing". The replacement is unambiguous about *which* punch, and
+silent about whether the other one exists — so nothing in the wording says the day with
+neither is excluded.
+
+Two fixes were considered and one of them is wrong in a way worth recording.
+
+### Decision
+
+**A note may declare that it is a stricter case of others, and selection honours it.**
+`anomalies.IMPLIES` holds the relation, `anomalies.with_implied` is the one place it is
+applied, and every filter, count and day selection goes through that function:
+`Snapshot.with_label`, `Snapshot.with_problem`, `Snapshot.label_counts`,
+`recipients.matching` and the new `recipients.days_for`.
+
+**Nothing that reports goes through it.** The sheets state what happened to a record: a
+day with neither punch is one row labelled `Giriş-çıkış yok`. Expanding it would triple
+the row and assert two things the record does not say — that an entry was read, and that
+an exit was read.
+
+`recipients.days_for` is new because ADR-051's rule — ticked notes choose both *who* and
+*which days* — existed only as a line inside a test. A rule stated only in a test gets
+re-implemented, slightly differently, by whoever writes the caller.
+
+### Alternatives rejected
+
+**Rename the labels to make the disjointness visible** — `Giriş var, çıkış yok` /
+`Çıkış var, giriş yok`, keeping the grouping disjoint. This was the first proposal and
+the argument for it was that the three notes are three different questions to the person
+("kaçta çıktın?" / "kaçta geldin?" / "o gün burada mıydın?"), so merging them means the
+message for a both-missing day cannot be worded. The operator's answer stands: the
+selection question and the wording question are not the same question. A day can be
+*chosen* under `Giriş yok` and still get the sentence its own note calls for, because
+`ProblemDay` keeps its own labels — the day travels with what is true about it. The
+rename was also **incompatible** with the decision actually taken: `Giriş var, çıkış yok`
+must not return days where no entry was read, so renaming and including contradict each
+other. Not renaming is what makes the current labels correct.
+
+**Expand the labels at write time**, into `Person.problems` and `ProblemDay.problems`.
+Rejected: it would put `Giriş yok` on a day that has no entry record to point at, and the
+report's `Not` column and `İnceleme Listesi` read from the same labels. The report would
+start naming punches it never read. Read-time expansion in the selection layer keeps the
+report honest and the filter useful.
+
+**Drop `Giriş-çıkış yok` from the checkbox list**, since it is now a subset of both
+others. Rejected: it is still the only way to select *those* days alone, which is exactly
+the group whose message differs most.
+
+### Consequences
+
+- **Counts stop partitioning.** June's punch days were 147 + 20 + 80 = 247 with no
+  overlap; now `Çıkış yok` holds 227 days / 80 people and `Giriş yok` 100 / 48, with the
+  80 both-missing days in both. Anything that sums note counts is wrong. The people
+  screen **indents** the stricter note so the containment is visible; the label text is
+  untouched, because it is a filter key and a snapshot value, not decoration.
+- **The window's counts now exceed `İnceleme Listesi`'s row counts** for these three
+  notes. By design. A test asserts every count in the filter list equals the number of
+  rows that filter returns — the failure mode being a dropdown offering `Giriş yok (48)`
+  and handing back 15.
+- **The default selection does not change at all.** All notes are ticked by default, so
+  the both-missing days were already in scope: 90 / 103 / 99 people and 171 / 293 / 283
+  days before and after. Only the sub-selections became coherent.
+- **No label changed, so `format_version` stays at 5** and the three regenerated months
+  keep working. This is the cheap half of the decision and it is cheap *because* the
+  rename was dropped.
+- The relation runs one way only, and a test says so: a missing exit is not a day with
+  neither punch — the entry is right there.
