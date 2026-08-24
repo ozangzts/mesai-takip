@@ -76,9 +76,18 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
         "Çıkış yok", "excluded",
         "Giriş basılmış, çıkış kaydı yok",
         "Eksik kayıt"),
+    # Was `Giriş-çıkış yok`, which the operator read as a compound noun — "no
+    # entry-exit record" — where the point is the conjunction: *both* are missing. Under
+    # the selection rule of ADR-053 that distinction is the whole thing, and the explicit
+    # form does with words what an indent in the window failed to do: `Giriş yok (48)`
+    # beside `Hem giriş hem çıkış yok (34)` reads as containment on its face. ADR-054.
+    #
+    # The explanation now carries what the label drops: a row EXISTS for that day. That
+    # is what separates this from `Mesai verisi yok` — the day was expected and written
+    # down, and only the times are absent.
     AnomalyKind.EMPTY_RECORD: (
-        "Giriş-çıkış yok", "excluded",
-        "Satır var ama giriş de çıkış da boş",
+        "Hem giriş hem çıkış yok", "excluded",
+        "Kaynak dosyada o gün için satır var ama ne giriş ne çıkış saati yazılmış",
         "Eksik kayıt"),
     AnomalyKind.NEGATIVE_DURATION: (
         "Gece geçişi", "included",
@@ -162,14 +171,16 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
 
 # One note is a STRICTER CASE of two others, and selecting on it has to say so.
 #
-# `Giriş-çıkış yok` is a day with no entry *and* no exit — so it is also a day with no
+# `Hem giriş hem çıkış yok` is a day with no entry *and* no exit — so it is also a day
+# with no
 # entry, and a day with no exit. The labels read as predicates ("girişi yok"), and a
 # both-missing day satisfies both of them. Ticking `Giriş yok` and not getting those
 # days back is the reading nobody expects.
 #
 # This is a **selection** relation, not a reporting one, and the difference is the whole
 # design. The report states what happened to a record: a day with neither punch is one
-# row, labelled `Giriş-çıkış yok`, and expanding it into three rows would triple the
+# row, labelled `Hem giriş hem çıkış yok`, and expanding it into three rows would triple
+# the
 # sheet and invent two facts. The filter answers "who do I write to", where the broader
 # reading is the correct one. So the counts in the window are deliberately larger than
 # the row counts in `İnceleme Listesi`, and that is not a discrepancy — see ADR-053.
@@ -178,7 +189,7 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
 # this, June's 147 + 20 + 80 punch days summed to 247 with no overlap; now the same day
 # is in two filters. Anything that ADDS note counts together is wrong.
 IMPLIES: dict[str, tuple[str, ...]] = {
-    "Giriş-çıkış yok": ("Giriş yok", "Çıkış yok"),
+    "Hem giriş hem çıkış yok": ("Giriş yok", "Çıkış yok"),
 }
 
 

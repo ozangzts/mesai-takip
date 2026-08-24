@@ -207,7 +207,7 @@ Sayılar Mayıs, Haziran ve Temmuz 2026'nın toplamıdır (kişi-gün).
 | --- | --- | --- | --- |
 | `Giriş yok` | Çıkış basılmış, giriş kaydı yok | 🔴 | 78 |
 | `Çıkış yok` | Giriş basılmış, çıkış kaydı yok | 🔴 | 526 |
-| `Giriş-çıkış yok` | Satır var ama iki saat de boş | 🔴 | 206 |
+| `Hem giriş hem çıkış yok` | O gün için satır var ama ne giriş ne çıkış saati yazılmış | 🔴 | 206 |
 | `Mesai verisi yok` | Dönem boyunca hiç kart kaydı yok | 🔴 | 75 |
 | `Ay büyük ölçüde boş` | Çalışma + izin, iş günlerinin **yarısından azını** açıklıyor | 🟡 | 50 |
 

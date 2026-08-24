@@ -56,7 +56,8 @@ Kural şu ve artık **testte değil fonksiyonda**: `recipients.days_for()` — i
 notlar hem kimi hem hangi günleri seçer. Bir kişiye mail gider ama mesajda yalnızca
 işaretli notlara ait günler yazılır.
 
-**`Giriş-çıkış yok` iki notun daha katı hâli** (ADR-053): `Giriş yok` filtresi o günleri
+**`Hem giriş hem çıkış yok` iki notun daha katı hâli** (ADR-053, adı ADR-054): `Giriş
+yok` filtresi o günleri
 de getirir, çünkü ikisi de olmayan bir günün girişi de yoktur. Yalnızca **seçimde** böyle;
 rapor kaydın başına ne geldiğini yazıyor, o gün tek satır. Sonucu: **not sayıları
 toplanmaz**, aynı gün iki filtrede. Pencere sayısı `İnceleme Listesi` satır sayısından
@@ -145,7 +146,7 @@ geçmiyor. Rapor kaydın başına ne geldiğini yazıyor: ikisi de boş bir gün
 | --- | --- | --- | --- |
 | `Çıkış yok` | 51 kişi / 127 gün | 80 / 227 | 61 / 221 |
 | `Giriş yok` | 41 / 68 | 48 / 100 | 40 / 101 |
-| `Giriş-çıkış yok` | 24 / 48 | 34 / 80 | 27 / 78 |
+| `Hem giriş hem çıkış yok` | 24 / 48 | 34 / 80 | 27 / 78 |
 
 **Reddedilen yol, kaydı için:** etiketleri `Giriş var, çıkış yok` / `Çıkış var, giriş yok`
 diye yeniden adlandırıp ayrıklığı görünür kılmak. Kapsayıcılıkla **çelişiyor** —
@@ -288,7 +289,7 @@ Buradaki her madde bir kez ısırdı.
 - **`tests/conftest.py` fixture'ı gerçek config'den sapabiliyor** ve birkaç kez saptı.
   Yeni bir config anahtarı eklerken fixture'a da ekle — yoksa bütün test paketi,
   kimsenin çalıştırmadığı bir kurala karşı geçmeye devam eder.
-- Snapshot `format_version` **5**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
+- Snapshot `format_version` **6**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
   **etiketi yeniden adlandırmak** bu sürümü yükseltir (ADR-027, ADR-052): eski yazımla
   yazılmış bir filtre ya da istisna listesi yeni yazımda **sessizce kimseyi** tutmaz.
 - **`arayuz-ayarlari.json` `gui/settings.py` üzerinden yazılır** — oku, değiştir, yaz.

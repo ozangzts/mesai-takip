@@ -304,7 +304,7 @@ def test_nothing_is_offered_or_admitted_without_a_snapshot():
 
 # --- one note that is a stricter case of two others (ADR-053) ----------------
 #
-# `Giriş-çıkış yok` is a day with no entry AND no exit, so it is also a day with no
+# `Hem giriş hem çıkış yok` is a day with no entry AND no exit, so it is also a day
 # entry. The labels read as predicates, and a filter on `Giriş yok` that skipped those
 # days was the reading nobody expects: "teknik olarak o gün de giriş yok".
 
@@ -314,7 +314,7 @@ def _both_missing():
         coverage={"macunkoy": {"partial": False}},
         people=(
             # only the both-missing note: the person the old behaviour lost
-            person("KEREM DENEME", problems=("Giriş-çıkış yok",)),
+            person("KEREM DENEME", problems=("Hem giriş hem çıkış yok",)),
             person("ÇAĞLA DENEME", problems=("Çıkış yok",)),
             person("AHMET SINAMA", problems=("Giriş yok",)),
         ),
@@ -324,7 +324,7 @@ def _both_missing():
 def test_a_day_with_neither_punch_is_also_a_day_with_no_entry():
     snap = _both_missing()
 
-    for label in ("Giriş yok", "Çıkış yok", "Giriş-çıkış yok"):
+    for label in ("Giriş yok", "Çıkış yok", "Hem giriş hem çıkış yok"):
         chosen = {p.name for p in recipients.matching(snap, label)}
         assert "KEREM DENEME" in chosen, f"{label} bu kişiyi kaçırıyor"
 
@@ -335,7 +335,7 @@ def test_a_day_with_neither_punch_is_also_a_day_with_no_entry():
 def test_the_implication_runs_one_way_only():
     """A missing exit is NOT a day with neither punch — the entry is right there."""
     snap = _both_missing()
-    chosen = {p.name for p in recipients.matching(snap, "Giriş-çıkış yok")}
+    chosen = {p.name for p in recipients.matching(snap, "Hem giriş hem çıkış yok")}
 
     assert chosen == {"KEREM DENEME"}
     assert "ÇAĞLA DENEME" not in chosen and "AHMET SINAMA" not in chosen
@@ -382,7 +382,7 @@ def test_the_ticked_notes_choose_the_days_as_well_as_the_person():
     from datetime import date
 
     from mesai.snapshot import ProblemDay
-    bos = ProblemDay(date=date(2026, 6, 3), problems=("Giriş-çıkış yok",))
+    bos = ProblemDay(date=date(2026, 6, 3), problems=("Hem giriş hem çıkış yok",))
     cikis = ProblemDay(date=date(2026, 6, 9), problems=("Çıkış yok",),
                        entry="07:41", minutes=0)
     kisa = ProblemDay(date=date(2026, 6, 11),
@@ -393,7 +393,7 @@ def test_the_ticked_notes_choose_the_days_as_well_as_the_person():
     assert [d.date for d in recipients.days_for(kisi, {"Giriş yok"})] == [bos.date]
     assert [d.date for d in recipients.days_for(kisi, {"Çıkış yok"})] == [
         bos.date, cikis.date]
-    assert [d.date for d in recipients.days_for(kisi, {"Giriş-çıkış yok"})] == [bos.date]
+    assert [d.date for d in recipients.days_for(kisi, {"Hem giriş hem çıkış yok"})] == [bos.date]
     assert recipients.days_for(kisi, set()) == ()
     assert len(recipients.days_for(kisi)) == 3, "no labels given: every problem day"
 
@@ -429,7 +429,7 @@ def test_the_report_is_not_inclusive_the_way_the_filter_is(tmp_path, settings):
                 .iter_rows(values_only=True))
     notlar = [r[4] for r in rows[4:] if r and r[4]]
 
-    assert notlar == ["Giriş-çıkış yok"]
+    assert notlar == ["Hem giriş hem çıkış yok"]
     assert "Giriş yok" not in notlar and "Çıkış yok" not in notlar
 
 

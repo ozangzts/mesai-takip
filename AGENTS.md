@@ -471,9 +471,11 @@ declares a **family** (`anomalies.py:GROUPS`); the filter list is ordered by fam
 by declaration order, never by frequency, so it reads the same every month (ADR-029).
 
 **One note is a stricter case of two others, and only for selection**
-(`anomalies.py:IMPLIES`, ADR-053). `Giriş-çıkış yok` is a day with no entry *and* no
-exit, so a filter on `Giriş yok` returns it too — the labels read as predicates and a
-both-missing day satisfies them. Everything that selects goes through
+(`anomalies.py:IMPLIES`, ADR-053). `Hem giriş hem çıkış yok` is a day with no entry
+*and* no exit, so a filter on `Giriş yok` returns it too — the labels read as predicates
+and a both-missing day satisfies them. That label is spelled as a conjunction on purpose
+(ADR-054): `Giriş yok (48)` beside `Hem giriş hem çıkış yok (34)` reads as containment on
+its face, which is the job an indent in the window failed to do. Everything that selects goes through
 `anomalies.with_implied`; nothing that *reports* does, because the sheets state what
 happened to a record and a day with neither punch is one row, not three.
 

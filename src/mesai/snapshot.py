@@ -43,7 +43,8 @@ from .models import MonthSummary, RunStats, WorkDay
 # 5: `Giriş-çıkış tutarsız` became `Giriş-çıkış tutarsız (>20 saat)`. A label, so the
 #    same breaking change as version 2: a filter or an exclusion list written against
 #    the old wording matches nobody under the new one, silently.
-FORMAT_VERSION = 5
+# 6: `Giriş-çıkış yok` became `Hem giriş hem çıkış yok` (ADR-054). Same reason.
+FORMAT_VERSION = 6
 
 
 class SnapshotError(Exception):

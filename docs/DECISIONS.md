@@ -3145,3 +3145,75 @@ the group whose message differs most.
   rename was dropped.
 - The relation runs one way only, and a test says so: a missing exit is not a day with
   neither punch — the entry is right there.
+
+---
+
+## ADR-054 — `Giriş-çıkış yok` is spelled as a conjunction: `Hem giriş hem çıkış yok`
+
+**Date:** 2026-08-24
+**Status:** Accepted
+**Renames a label introduced by ADR-027. Extends ADR-053.**
+
+### Context
+
+`Giriş-çıkış yok` reads as a **compound noun** — "there is no entry-exit record" — where
+the point of the note is a **conjunction**: both stamps are missing. The hyphen carries
+the whole meaning and carries it badly.
+
+That was tolerable while the three punch notes were disjoint. ADR-053 made
+`Giriş yok` inclusive of these days, and the containment then had to be legible from the
+list itself. It was not: the window showed
+
+```
+Çıkış yok (80)   Giriş yok (48)   Giriş-çıkış yok (34)
+```
+
+and those numbers do not sum to the 103 people who have a problem, because the 80
+both-missing days sit in all three. An **indent** was tried on the third line to signal
+the subset relation and was removed the same day (ADR-053) — the first person to see it
+asked why that line was pushed in, and it was half wrong besides: ticking that note alone
+is a full selection of its own, not a sub-option.
+
+### Decision
+
+The label becomes **`Hem giriş hem çıkış yok`**. Read beside its neighbour —
+`Giriş yok (48)` / `Hem giriş hem çıkış yok (34)` — the containment is on the face of the
+words, which is what the geometry could not do.
+
+The **explanation** now carries what the label drops: *"Kaynak dosyada o gün için satır
+var ama ne giriş ne çıkış saati yazılmış."* A row existing is the fact that separates
+this note from `Mesai verisi yok` — the day was expected and written down, and only the
+times are absent. The old explanation ("Satır var ama giriş de çıkış da boş") spent half
+its words restating the label.
+
+### Alternatives rejected
+
+**Leave it and explain the arithmetic elsewhere** — in the report footer or the docs. The
+list is read in the window, by somebody choosing who to write to; an explanation they
+have to go and find is not an explanation. ADR-053 already spent an attempt on signalling
+this outside the words.
+
+**`Giriş de çıkış da yok`** — more idiomatic Turkish than "hem … hem … yok", which is
+prescriptively a "ne … ne … var" construction. Rejected because the operator proposed the
+`hem` form and it is unambiguous in ordinary use; being right about grammar is worth less
+than the reader recognising their own phrasing. Recorded so the next person does not
+assume it was an oversight.
+
+**Rename the other two to match** (`Yalnızca çıkış var` and so on). Rejected — ADR-027
+rejected exactly that family of wording, and ADR-053 rejected it again: `Giriş yok` is a
+predicate and its inclusive behaviour is correct *because* it is a predicate. Only the
+conjunction needed spelling out.
+
+### Consequences
+
+- **`format_version` 5 → 6.** A label is a filter key, a snapshot value and an
+  exclusion-list key, so this is the same breaking change as versions 2 and 5: an old
+  file's `Giriş-çıkış yok` matches nothing under the new wording, silently. All three
+  months regenerated; no figure changed — 17 103:58 / 27 166:19 / 26 233:17.
+- The label is 23 characters, shorter than `Günlük süre çok uzun (>16 saat)`, so the
+  two-column note panel is unaffected.
+- `IMPLIES` is keyed on the label, so its key moved with it. Nothing else in the
+  relation changed and the one-way test still holds.
+- Earlier ADRs quote the old wording (ADR-027's dropdown sketch, ADR-051's
+  contradiction example, ADR-053's title). They are the record of what was decided when
+  and are left alone — this entry is where the log says the wording moved.
