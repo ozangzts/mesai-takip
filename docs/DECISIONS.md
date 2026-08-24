@@ -3126,9 +3126,13 @@ the group whose message differs most.
 
 - **Counts stop partitioning.** June's punch days were 147 + 20 + 80 = 247 with no
   overlap; now `Çıkış yok` holds 227 days / 80 people and `Giriş yok` 100 / 48, with the
-  80 both-missing days in both. Anything that sums note counts is wrong. The people
-  screen **indents** the stricter note so the containment is visible; the label text is
-  untouched, because it is a filter key and a snapshot value, not decoration.
+  80 both-missing days in both. Anything that sums note counts is wrong.
+- **The window does not mark the stricter note.** An indent was tried and removed the
+  same day: the first person to see it asked why that line was pushed in, so it produced
+  a question instead of answering one. It was also half wrong — the note is a subset when
+  a broader box is ticked, but ticking it **alone** is a full selection of its own (34
+  people in June), and an indent reads as "sub-option". The label text was never a
+  candidate for marking: it is a filter key and a snapshot value, not decoration.
 - **The window's counts now exceed `İnceleme Listesi`'s row counts** for these three
   notes. By design. A test asserts every count in the filter list equals the number of
   rows that filter returns — the failure mode being a dropdown offering `Giriş yok (48)`

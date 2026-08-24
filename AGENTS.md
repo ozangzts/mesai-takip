@@ -481,8 +481,9 @@ Two consequences to know before adding an entry to that table:
 
 - **Note counts no longer partition.** June's punch days were 147 + 20 + 80 = 247 with
   no overlap; now the same day is in two filters. Anything that adds note counts
-  together is wrong, and the people screen indents the stricter note so the containment
-  is visible.
+  together is wrong. The people screen does **not** indent the stricter note to signal
+  this — that was tried and read as "sub-option", which it is not: ticking it alone is a
+  full selection of its own.
 - **The window's counts are larger than `İnceleme Listesi`'s row counts** for those
   notes. That is the design, not a discrepancy. A test asserts each count equals the
   number of rows its filter returns, because the failure mode is a dropdown offering

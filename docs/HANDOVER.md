@@ -158,8 +158,11 @@ duruyordu; testte duran kural, çağıranı yazan kişi tarafından biraz farkl�
 yazılır.
 
 **Not sayıları artık toplanmıyor** — aynı gün iki filtrede. Haziran'da 147 + 20 + 80 =
-247'ydi, örtüşme yoktu. Pencere daha katı notu **girintiliyor** ki içerme görünsün; etiket
-metnine dokunulmuyor, o bir filtre anahtarı. Bir test her sayının o filtrenin döndürdüğü
+247'ydi, örtüşme yoktu. Pencerede bunu **işaretleyen bir şey yok**: girinti denendi ve
+aynı gün kaldırıldı — gören ilk kişi "neden girintili?" diye sordu, yani cevap vermek
+yerine soru üretti. Yarı yanlış da: not, üst kutulardan biri işaretliyken alt küme, ama
+**tek başına** işaretlendiğinde kendi başına tam bir seçim (Haziran'da 34 kişi). Etiket
+metni hiç aday değildi, o bir filtre anahtarı. Bir test her sayının o filtrenin döndürdüğü
 satır sayısına eşit olduğunu doğruluyor — korkulan hata `Giriş yok (48)` yazıp 15 kişi
 vermek.
 
