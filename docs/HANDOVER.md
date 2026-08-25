@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (66 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (67 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,13 +22,13 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **475 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **479 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
 | Toplam çalışma süresi | 17 103:58 | 27 166:19 | 26 233:17 |
 | Kişi | 171 | 163 | 176 |
-| Şüpheli kayıt | 399 | 721 | 723 |
+| Şüpheli kayıt | 365 | 622 | 689 |
 | `Sorunu olanlar` | 75 | 73 | 85 |
 
 Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Masaüstündeki üç ayın raporu ve
@@ -178,6 +178,7 @@ gerekiyor.
 | 064 | Kişiler ekranına gün paneli, günler seçilebilir | Hangi günler olduğu yalnızca raporda vardı; seçim için iki pencere arasında gidip gelmek gerekiyordu |
 | **065** | **ADR-053 geri alındı: üç eksik-kayıt notu tamamen ayrı** | Yönetici kararı. `Giriş yok` artık ikisi de olmayan günleri getirmiyor |
 | 066 | `Mesai verisi yok` → **`Kart bilgisi yok`**; `+N` kolonu → **`Gün`**; iki listeye kolon başlıkları | Aynı kişi için dört farklı sayı dolaşıyordu ve hangisinin ne olduğunu söyleyen bir şey yoktu |
+| **067** | **Kullanılamayan bir kayıt da kayıttır** | Tek taraflı damga WorkDay üretmiyor; üç yer bunu "hiç kayıt yok" sanıyordu. Aynı gün hem `Giriş yok` hem `Hem giriş hem çıkış yok` yazıyordu |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.
@@ -229,7 +230,7 @@ Buradaki her madde bir kez ısırdı.
 - **`tests/conftest.py` fixture'ı gerçek config'den sapabiliyor** ve birkaç kez saptı.
   Yeni bir config anahtarı eklerken fixture'a da ekle — yoksa bütün test paketi,
   kimsenin çalıştırmadığı bir kurala karşı geçmeye devam eder.
-- Snapshot `format_version` **10**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
+- Snapshot `format_version` **11**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
   **etiketi yeniden adlandırmak** bu sürümü yükseltir (ADR-027, ADR-052): eski yazımla
   yazılmış bir filtre ya da istisna listesi yeni yazımda **sessizce kimseyi** tutmaz.
 - **`arayuz-ayarlari.json` `gui/settings.py` üzerinden yazılır** — oku, değiştir, yaz.

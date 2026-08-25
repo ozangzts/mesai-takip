@@ -120,7 +120,8 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     stats.union_total = union_total
     stats.accepted_total = measured_total
 
-    summaries = _summarise(period, employees, workdays, leave, anomalies, settings)
+    summaries = _summarise(period, employees, workdays, leave, anomalies, settings,
+                           records)
 
     # --- stage 6: report ---------------------------------------------------
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -159,12 +160,13 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
 
 def _unrecorded_days(
     anomalies: Collector, employees: dict[NameKey, Employee],
-    by_key: dict[NameKey, list[WorkDay]], leave: list[LeaveRecord],
+    seen: dict[NameKey, set[date]], leave: list[LeaveRecord],
     expected: list[date],
 ) -> None:
-    """An expected working day with no record of the person anywhere.
+    """An expected working day the person does not appear on at all.
 
-    No entry, no exit, no leave, no remote declaration, at either site. `EMPTY_RECORD`,
+    No row at either site — not a row that could not be used, which is what `Giriş yok`
+    and `Çıkış yok` are for — and no leave, no remote declaration. `EMPTY_RECORD`,
     the same note as a row whose times are blank, because the fact is the same: nothing
     was recorded for that day. It therefore also selects under `Giriş yok` and
     `Çıkış yok` (ADR-053).
@@ -205,12 +207,12 @@ def _unrecorded_days(
             day += timedelta(days=1)
 
     for key, employee in employees.items():
-        worked = {w.date for w in by_key.get(key, [])}
-        if not worked:
+        recorded = seen.get(key, set())
+        if not recorded:
             continue                 # `Kart bilgisi yok` already says it, louder
         leave_days = covered.get(key, set())
         for day in expected:
-            if day in worked or day in leave_days:
+            if day in recorded or day in leave_days:
                 continue
             anomalies.add(Anomaly(
                 kind=AnomalyKind.EMPTY_RECORD, source="kayit-yok", source_row=0,
@@ -481,10 +483,22 @@ def _resolve_employees(
 def _summarise(
     period: str, employees: dict[NameKey, Employee], workdays: list[WorkDay],
     leave: list[LeaveRecord], anomalies: Collector, settings: Settings,
+    records: list[PunchRecord] | None = None,
 ) -> list[MonthSummary]:
     by_key: dict[NameKey, list[WorkDay]] = defaultdict(list)
     for workday in workdays:
         by_key[workday.key].append(workday)
+
+    # The days the person appears in an attendance source AT ALL, which is a different
+    # fact from the days that could be counted and was being confused with it. A record
+    # with only one punch yields no interval and therefore no `WorkDay`, so deciding
+    # "was there a record" from the workdays called 154 person-days unrecorded in July
+    # 2026 that had a badge reading on them, and told 7 people with 12-21 days of
+    # readings that there was no card record for them at all. ADR-067.
+    seen: dict[NameKey, set[date]] = defaultdict(set)
+    for record in records or []:
+        if record.source != "izin":
+            seen[record.key].add(record.date)
 
     leave_days: dict[NameKey, float] = defaultdict(float)
     remote_days: dict[NameKey, float] = defaultdict(float)
@@ -499,7 +513,7 @@ def _summarise(
 
     # Days with no record of the person anywhere. Added BEFORE the counts are taken, so
     # `Şüpheli Kayıt` includes them.
-    _unrecorded_days(anomalies, employees, by_key, leave, expected_workdays)
+    _unrecorded_days(anomalies, employees, seen, leave, expected_workdays)
 
     anomaly_counts = anomalies.count_by_key()
 
@@ -515,7 +529,11 @@ def _summarise(
         # The displayed notes are not built here any more — they are the person's own
         # note labels, assembled after this loop so that every anomaly added inside it
         # is included. See the `notes=` pass below and ADR-049.
-        has_attendance = bool(days)
+        # "Has attendance" means the person appears in an attendance source, which is
+        # what the name says and what `mesai verisi olan` counts. It used to mean "has a
+        # day that could be counted" — a narrower thing, and the difference is 7 people
+        # in July who badged on 12 to 21 days and had every reading refused. ADR-067.
+        has_attendance = bool(seen.get(key))
         if not has_attendance:
             anomalies.add(Anomaly(
                 kind=AnomalyKind.NO_ATTENDANCE_DATA, source="izin", source_row=0,

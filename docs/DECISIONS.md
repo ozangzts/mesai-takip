@@ -4113,3 +4113,72 @@ the name was doing the damage.
   exclusion list — matches nobody now. That is what the version guard is for.
 - 475 tests. One asserts every person row's `Gün` equals what the panel shows for them,
   so the two cannot drift apart again.
+
+---
+
+## ADR-067 — A record that could not be used is still a record
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Fixes ADR-060 and ADR-063. Sharpens ADR-030's `has_attendance`.**
+
+### Context
+
+The operator found it on one day: *"29 temmuzda … giriş yok, hem giriş hem çıkış yok
+denmiş fakat çıkış var?"* Both statements were in the same workbook about the same
+person-day, and one of them was false.
+
+The cause is one confusion in three places. A record with **one punch** yields no
+interval, and therefore no `WorkDay`. Three pieces of code decided "was there a record
+for this day" by looking for a `WorkDay`, so a day with a badge reading on it looked like
+a day with nothing:
+
+| Where | What it got wrong | Measured, July 2026 |
+| --- | --- | --- |
+| `pipeline._unrecorded_days` | raised `Hem giriş hem çıkış yok` on days that had a reading | **154 person-days** |
+| `pipeline._summarise` | `has_attendance` meant "has a counted day", so `Kart bilgisi yok` claimed no card record at all | **7 people**, one with 21 days of readings |
+| `workbook._daily_rows` | printed `kayıt yok` in `Günlük Detay` | the same 154 days |
+
+The renaming in ADR-066 made the second one sharper rather than causing it: telling
+somebody with 21 days of readings that there is no card information for them is worse
+than telling them there is no `mesai verisi`.
+
+### Decision
+
+**"Has a record" is read from the records.** `_summarise` builds `(key, date)` sets from
+the attendance records it is now passed, and both the note and `_unrecorded_days` use
+them. A day is unrecorded when the person **does not appear on it at all** — not when a
+row exists that could not be used, which is what `Giriş yok` and `Çıkış yok` are for.
+
+**`has_attendance` means what its name says**: the person appears in an attendance
+source. It drove three things and only one of them wanted the narrower fact, so the
+`Aylık Özet` red fill now asks the narrow question directly — `not has_attendance or not
+worked_days`, i.e. "you cannot use this row's hours", which both cases earn.
+
+**`Günlük Detay` reads the day off the anomalies** when there is no `WorkDay`: their
+source becomes `Kaynak`, their labels become `Etiket`, and their raw stamp is shown.
+`kayıt yok` is left for the days that really have nothing.
+
+**`clock()` moved to `rules/worktime.py`,** beside `hhmm`. Two places needed `HH:MM` out
+of a source's raw text and AGENTS §6 keeps that rendering in one place; `snapshot` now
+imports it instead of carrying its own copy.
+
+### Consequences
+
+- **Contradictory day labels: 35 / 70 / 57 → 0 / 0 / 0.** No day carries two of the three
+  missing-punch notes any more.
+- `Günlük Detay` for the reported day now reads `29.07.2026 · Son Çıkış 19:56 · Macunköy ·
+  Giriş yok`. `kayıt yok` rows fell from 853 to **714** in July — the difference is days
+  that had a reading.
+- `mesai verisi olan` rose to 148 / 146 / 150 and suspect records fell to 365 / 622 / 689.
+  **No hours moved**: 17 103:58 / 27 166:19 / 26 233:17.
+- 46 / 79 / 73 days still print `Hem giriş hem çıkış yok` beside times, and that is
+  correct: the note is about a blank row at one site and the times are the day's, counted
+  at the other. None of them reaches the day panel or a message — measured, 0 in all
+  three months — because `days_for` drops a day that counted. In the audit sheet where
+  they do appear, `Etki` says *"Bu kayıt sayılmadı; gün başka kayıttan 8:43 sayıldı"*.
+- **`format_version` 10 → 11.** `has_attendance` is the same field carrying a different
+  fact.
+- Three tests hold the pair apart: a one-sided record is not an unrecorded day, somebody
+  whose every reading was refused still has attendance, and no day carries two
+  contradictory missing-punch notes.

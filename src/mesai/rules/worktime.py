@@ -232,6 +232,25 @@ def _hhmm(delta: timedelta) -> str:
     return f"{sign}{total // 3600}:{(total % 3600) // 60:02d}"
 
 
+def clock(stamp: str) -> str:
+    """`HH:MM` out of a raw stamp a source file wrote.
+
+    Anomalies keep the source's own text — `01.07.2026 07:17:04` — which is right for the
+    audit trail and wrong anywhere a person reads a time column. Here rather than in the
+    two places that need it, because AGENTS §6 keeps `HH:MM` rendering in one place.
+
+    An unrecognised string is returned as it stands: a blank cell would hide that the
+    source wrote something.
+    """
+    if not stamp:
+        return ""
+    piece = stamp.strip().rsplit(" ", 1)[-1]
+    parts = piece.split(":")
+    if len(parts) < 2 or not all(p.isdigit() for p in parts[:2]):
+        return stamp
+    return f"{int(parts[0]):02d}:{int(parts[1][:2]):02d}"
+
+
 def hhmm(delta: timedelta) -> str:
     """`HH:MM`, hours unbounded. Never an Excel time format — 186:30 must not
     display as 6:30."""

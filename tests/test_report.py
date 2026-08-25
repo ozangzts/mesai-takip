@@ -747,3 +747,29 @@ def test_a_grouped_row_splits_instead_of_picking_one_verdict(tmp_path, settings)
 
     assert row[header.index("Gün Sayısı")] == 2
     assert "1 gün 0 saat sayıldı" in etki and "1 gün başka kayıttan" in etki
+
+
+def test_a_refused_reading_is_not_reported_as_no_record(tmp_path, settings):
+    """The day the operator found: an exit stamped at 19:56, and `Günlük Detay` said
+    `kayıt yok` while `Şüpheli Kayıtlar` said `Giriş yok` for the same day (ADR-067).
+
+    A one-sided punch yields no interval and therefore no `WorkDay`; reading "nothing
+    happened" off that absence is what produced two contradictory statements about one
+    day. The row now names the file and the note, and shows the stamp.
+    """
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.MISSING_ENTRY, source="macunkoy", source_row=9, key=KEY,
+        raw_name="AYŞE DENEME", date=date(2026, 5, 6),
+        raw_exit="06.05.2026 19:56:17"))
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["Günlük Detay"].iter_rows(values_only=True))
+    header = [c for c in rows[3] if c is not None]
+    row = next(r for r in rows[4:] if r and r[1] == "06.05.2026")
+
+    assert row[header.index("Kaynak")] == "Macunköy"
+    assert row[header.index("Etiket")] == "Giriş yok"
+    assert row[header.index("Son Çıkış")] == "19:56", "ham damga HH:MM olarak"
+    assert not row[header.index("Çalışma Süresi")], "sayılan süre yok"

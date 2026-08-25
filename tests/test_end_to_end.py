@@ -134,10 +134,16 @@ def test_an_unrepairable_missing_punch_contributes_nothing(result):
 
     The day now has a row — every working day does (ADR-063) — and what it must not have
     is an hour. An invented default time is the failure ADR-003 forbids.
+
+    The row names the file the refused record came from, not `kayıt yok`: he badged, the
+    reading could not be used, and those are different things. Saying otherwise was the
+    bug the operator found on a day whose exit was stamped at 19:56 (ADR-067).
     """
     day = _day_of(result, "VELİ ÖRNEK", "03.06.2026")
     assert not day[6], f"süre yazılmış: {day[6]!r}"
-    assert day[8] == "kayıt yok"
+    assert day[8] == "Macunköy"
+    assert day[9] == "Çıkış yok"
+    assert day[3], "damganın kendisi satırda görünmeli"
 
     book = openpyxl.load_workbook(result["output"], read_only=True)
     anomalies = "\n".join(

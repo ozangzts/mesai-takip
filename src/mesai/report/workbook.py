@@ -20,7 +20,7 @@ from ..anomalies import (DESCRIPTIONS, IMPACT_TEXT, TAG_TEXT, Anomaly,
 from ..config import Settings
 from ..models import Employee, LeaveRecord, MonthSummary, NameKey, RunStats, WorkDay
 from ..normalize import sort_key
-from ..rules.worktime import decimal_hours, hhmm
+from ..rules.worktime import clock, decimal_hours, hhmm
 from . import styles
 
 class ReportLocked(Exception):
@@ -100,7 +100,7 @@ def build(
     _sheet_summary(workbook.create_sheet("Aylık Özet"), period, summaries,
                    anomalies, stats, settings, footer)
     _sheet_daily(workbook.create_sheet("Günlük Detay"), workdays, employees,
-                 leave, settings, footer, period)
+                 leave, anomalies, settings, footer, period)
     _sheet_worklist(workbook.create_sheet("İnceleme Listesi"), period, anomalies,
                     employees, settings, footer, measured)
     _sheet_anomalies(workbook.create_sheet("Şüpheli Kayıtlar"), anomalies,
@@ -208,7 +208,10 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
     for summary in sorted(summaries, key=lambda s: sort_key(s.employee.display_name)):
         employee = summary.employee
         fill = None
-        if not summary.has_attendance:
+        # Red means "you cannot use this row's hours". Two ways to get there and both
+        # earn it: no record at all, and records that could none of them be counted
+        # (ADR-067). The second used to be indistinguishable from the first.
+        if not summary.has_attendance or not summary.worked_days:
             fill = styles.RED_FILL
         elif summary.anomaly_count:
             fill = styles.AMBER_FILL
@@ -330,7 +333,7 @@ def _daily_rows(
 
 def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
                  employees: dict[NameKey, Employee], leave: list[LeaveRecord],
-                 settings: Settings, footer: list[str],
+                 anomalies: Collector, settings: Settings, footer: list[str],
                  period: str = "") -> None:
     if settings.brk.deduct:
         middle, middle_widths = ["Brüt", "Öğle Kesintisi", "Net"], [10, 14, 10]
@@ -358,6 +361,16 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
     styles.write_banner(sheet, 3, _hours_rule_note(settings), span)
     styles.write_header(sheet, 4, headers, widths)
 
+    # A day with no measurement is not necessarily a day with no record: a one-sided
+    # punch yields no interval and therefore no `WorkDay`. Reading "nothing happened"
+    # off the absence of a `WorkDay` printed `kayıt yok` on a day whose exit was
+    # stamped at 19:56, while `Şüpheli Kayıtlar` said `Giriş yok` for the same day
+    # (ADR-067). The anomalies are what that day actually has to say.
+    refused: dict[tuple[NameKey, date], list[Anomaly]] = defaultdict(list)
+    for anomaly in anomalies.items:
+        if anomaly.key is not None and anomaly.date is not None:
+            refused[(anomaly.key, anomaly.date)].append(anomaly)
+
     row = 5
     for key, day, workday, leave_type in _daily_rows(
             workdays, employees, leave, settings, period):
@@ -365,17 +378,30 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
         day_label = settings.calendar.label(day)
 
         if workday is None:
+            kayitlar = [a for a in refused.get((key, day), ())
+                        if a.source in _SOURCE_LABEL and a.source != "kayit-yok"]
             # Nothing measured. The times stay empty rather than 0 — there is no
             # reading, and `00:00` would look like one.
             middle_values = ["", "", ""] if settings.brk.deduct else ["", ""]
+            if leave_type:
+                kaynak, etiket, giris, cikis = "İzin", leave_type, "", ""
+            elif kayitlar:
+                # The person appears on this day; nothing could be counted from it.
+                kaynak = " + ".join(sorted(
+                    {_SOURCE_LABEL[a.source] for a in kayitlar}))
+                etiket = ", ".join(sorted({a.label for a in kayitlar}))
+                giris = next((clock(a.raw_entry) for a in kayitlar if a.raw_entry), "")
+                cikis = next((clock(a.raw_exit) for a in kayitlar if a.raw_exit), "")
+            else:
+                kaynak, etiket, giris, cikis = "kayıt yok", TAG_TEXT_EMPTY, "", ""
             values = [
                 employee.display_name if employee else "",
                 day.strftime("%d.%m.%Y"),
                 day_label,
-                "", "", "",
+                giris, cikis, "",
                 *middle_values,
-                "İzin" if leave_type else "kayıt yok",
-                leave_type or TAG_TEXT_EMPTY,
+                kaynak,
+                etiket,
             ]
         else:
             if settings.brk.deduct:
@@ -400,8 +426,8 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
                 cell.alignment = styles.RIGHT
         fill = None
         if workday is None:
-            # Grey for leave, red for a day nobody can account for. The second one is
-            # the whole reason these rows exist.
+            # Grey for leave, red for anything else: a day that counted nothing is a day
+            # somebody has to account for, whether a reading was refused or none exists.
             fill = styles.GREY_FILL if leave_type else styles.RED_FILL
         elif workday.tags:
             fill = styles.AMBER_FILL

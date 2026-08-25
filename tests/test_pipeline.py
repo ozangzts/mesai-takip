@@ -429,12 +429,24 @@ def test_each_source_is_measured_separately(settings):
 # `short_day_hours` asks about ONE day and theirs was above the threshold;
 # NO_ATTENDANCE_DATA needs the month to be completely empty.
 
-def _summaries(settings, workdays, leave=(), employees=None):
+def _summaries(settings, workdays, leave=(), employees=None, records=None):
+    """`_summarise` over one synthetic month.
+
+    `records` defaults to one punch per workday, because that is what a real month looks
+    like: a counted day always has a record behind it. Passing them separately is what
+    lets a test set up the case where a record exists and could not be counted, which is
+    the pair ADR-067 was about.
+    """
     from mesai.anomalies import Collector
+    from mesai.models import PunchRecord
     from mesai.pipeline import _summarise
     collector = Collector()
+    if records is None:
+        records = [PunchRecord(source="teknopark", source_row=n, raw_name="",
+                               key=w.key, date=w.date, entry=None, exit=None)
+                   for n, w in enumerate(workdays, start=1)]
     return _summarise("2026-06", employees, workdays, list(leave), collector,
-                      settings), collector
+                      settings, list(records)), collector
 
 
 def _employee(key=("AYSE", "DENEME")):
@@ -657,8 +669,14 @@ def _absent_employee(key):
                     in_roster=True, sources=frozenset({"teknopark"}))
 
 
-def _unrecorded(worked_days, *, leave=()):
-    """Run the check over one person and return the dates it flagged."""
+def _unrecorded(recorded_days, *, leave=()):
+    """Run the check over one person and return the dates it flagged.
+
+    `recorded_days` are the days the person appears in an attendance source — not the
+    days that could be counted. Those are different facts and confusing them was the
+    bug (ADR-067): a one-sided record yields no interval, so a day with a real badge
+    reading looked unrecorded.
+    """
     from mesai.anomalies import AnomalyKind, Collector
     from mesai.pipeline import _unrecorded_days
 
@@ -668,7 +686,7 @@ def _unrecorded(worked_days, *, leave=()):
     collector = Collector()
     _unrecorded_days(
         collector, {key: _absent_employee(key)},
-        {key: [_wd(key, d) for d in worked_days]}, list(leave), expected)
+        {key: set(recorded_days)}, list(leave), expected)
     return sorted(a.date for a in collector.items
                   if a.kind is AnomalyKind.EMPTY_RECORD)
 
@@ -736,3 +754,66 @@ def test_a_mostly_empty_month_is_flagged_day_by_day_as_well():
 def test_somebody_with_no_attendance_at_all_gets_no_daily_notes():
     """`Kart bilgisi yok` already says it, and says it louder."""
     assert _unrecorded([]) == []
+
+
+# --- a record that could not be used is still a record (ADR-067) --------------
+
+def test_a_one_sided_record_is_not_an_unrecorded_day():
+    """The bug the operator found: 29 July said `Giriş yok` and `Hem giriş hem çıkış yok`
+    on the same day, and there was an exit.
+
+    A record with one punch yields no interval and therefore no `WorkDay`, and the check
+    was deciding "was there a record" from the workdays. Measured on July 2026: 154
+    person-days had a badge reading and were called unrecorded.
+    """
+    settings = _settings_with_calendar(holidays=())
+    gunler = settings.calendar.expected_workdays(2026, 6)
+    okunan = gunler[3]
+
+    # the person appears on that day, though nothing could be counted for it
+    assert okunan not in _unrecorded([okunan]), \
+        "damgası okunmuş bir gün 'hiç kayıt yok' diye işaretlenemez"
+    # and the days they do not appear on are still flagged
+    assert _unrecorded([okunan]) == [d for d in gunler if d != okunan]
+
+
+def test_someone_whose_every_reading_was_refused_still_has_attendance(settings):
+    """Seven people in July badged on 12 to 21 days and had every reading refused. They
+    were told `Kart bilgisi yok` — that there was no card record for them at all.
+    """
+    from mesai.models import PunchRecord
+
+    key = ("AYSE", "DENEME")
+    kayitlar = [
+        PunchRecord(source="macunkoy", source_row=n, raw_name="AYŞE DENEME", key=key,
+                    date=date(2026, 6, gun), entry=datetime(2026, 6, gun, 8), exit=None)
+        for n, gun in enumerate((1, 2, 3, 4, 5), start=1)]
+
+    summaries, collector = _summaries(settings, [], employees={key: _employee()},
+                                      records=kayitlar)
+
+    assert summaries[0].has_attendance, "kaydı olan kişinin kaydı var sayılmalı"
+    assert "Kart bilgisi yok" not in [a.label for a in collector.items]
+    # their days are not silent either — the records' own notes speak for them
+    assert not any(a.date in {date(2026, 6, d) for d in (1, 2, 3, 4, 5)}
+                   and a.label == "Hem giriş hem çıkış yok"
+                   for a in collector.items)
+
+
+def test_no_day_carries_two_contradictory_missing_punch_notes(settings):
+    """`Giriş yok` and `Hem giriş hem çıkış yok` on one day cannot both be true, and the
+    reader is right to say so."""
+    from mesai.models import PunchRecord
+
+    key = ("AYSE", "DENEME")
+    gun = date(2026, 6, 4)
+    kayit = [PunchRecord(source="macunkoy", source_row=1, raw_name="AYŞE DENEME",
+                         key=key, date=gun, entry=None,
+                         exit=datetime(2026, 6, 4, 18, 26))]
+
+    _summaries(settings, [], employees={key: _employee()}, records=kayit)
+    _, collector = _summaries(settings, [], employees={key: _employee()},
+                              records=kayit)
+    o_gun = {a.label for a in collector.items if a.date == gun}
+
+    assert "Hem giriş hem çıkış yok" not in o_gun, o_gun
