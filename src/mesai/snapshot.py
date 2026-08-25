@@ -46,7 +46,10 @@ from .models import LeaveRecord, MonthSummary, RunStats, WorkDay
 # 6: `Giriş-çıkış yok` became `Hem giriş hem çıkış yok` (ADR-054). Same reason.
 # 7: `days[].covered_by` added — the leave type covering that date, so the mail step can
 #    tell "nothing was recorded" from "on annual leave" (ADR-055).
-FORMAT_VERSION = 7
+# 8: `blank_workdays` added — expected working days on which no source recorded
+#    anybody, so `is_complete` catches a hole in the MIDDLE of the period and not only
+#    a short export at the end (ADR-057).
+FORMAT_VERSION = 8
 
 
 class SnapshotError(Exception):
@@ -151,11 +154,19 @@ class Snapshot:
     rules: dict[str, object]
     coverage: dict[str, dict[str, object]]
     people: tuple[Person, ...]
+    # Expected working days on which no source recorded anybody. See ADR-057: the
+    # per-source flag above only sees an export cut short at the END of the period.
+    blank_workdays: tuple[date_type, ...] = ()
 
     @property
     def is_complete(self) -> bool:
-        """False when a source failed to cover the period — do not mail from this."""
-        return not any(c.get("partial") for c in self.coverage.values())
+        """False when the period is not fully covered — do not mail from this.
+
+        Two shapes, and neither implies the other: a source that stops mid-period
+        (ADR-020) and a working day nobody was recorded at either site (ADR-057).
+        """
+        return not (any(c.get("partial") for c in self.coverage.values())
+                    or self.blank_workdays)
 
     # `with_implied` on both: a note that is a stricter case of another selects under
     # the broader one too (`anomalies.IMPLIES`). Applied here rather than in each
@@ -363,6 +374,7 @@ def build(
             for source, cov in stats.coverage.items()
         },
         people=people,
+        blank_workdays=tuple(stats.blank_workdays),
     )
 
 
@@ -374,6 +386,7 @@ def save(snapshot: Snapshot, path: Path) -> Path:
         "generated_at": snapshot.generated_at.isoformat(timespec="seconds"),
         "rules": snapshot.rules,
         "coverage": snapshot.coverage,
+        "blank_workdays": [d.isoformat() for d in snapshot.blank_workdays],
         "people": [
             {
                 "name": p.name, "email": p.email, "personnel_no": p.personnel_no,
@@ -425,6 +438,8 @@ def load(path: Path) -> Snapshot:
         generated_at=datetime.fromisoformat(payload["generated_at"]),
         rules=payload.get("rules", {}),
         coverage=payload.get("coverage", {}),
+        blank_workdays=tuple(date_type.fromisoformat(d)
+                             for d in payload.get("blank_workdays", ())),
         people=tuple(
             Person(
                 name=p["name"], email=p.get("email"),

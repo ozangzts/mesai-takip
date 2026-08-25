@@ -172,19 +172,25 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
     styles.write_banner(sheet, 3, _hours_rule_note(settings), span)
     header_row = 4
     partial = [c for c in stats.coverage.values() if c.is_partial]
-    if partial:
+    if partial or stats.blank_workdays:
         # The loudest thing on the deliverable sheet. A report built from a mid-month
         # export looks completely normal otherwise — ADR-020.
-        detail = "; ".join(
+        parts = ["; ".join(
             f"{_FILE_LABEL.get(c.source, c.source)}: "
             f"{c.trailing_missing[0]:%d.%m} tarihinden sonrası yok "
             f"({c.present}/{c.expected} iş günü)"
-            for c in sorted(partial, key=lambda c: c.source))
+            for c in sorted(partial, key=lambda c: c.source))] if partial else []
+        if stats.blank_workdays:
+            parts.append(
+                f"{len(stats.blank_workdays)} iş gününde hiçbir tesiste kayıt yok "
+                f"({', '.join(d.strftime('%d.%m') for d in stats.blank_workdays[:8])}"
+                + (" ..." if len(stats.blank_workdays) > 8 else "") + ")")
+        detail = ". ".join(parts)
         styles.write_banner(
             sheet, 4,
-            f"BU RAPOR EKSİK — kaynak dosyalar dönemin tamamını içermiyor. {detail}. "
-            "Saatler bordro için KULLANILAMAZ; dosyalar yeniden alınmalı. "
-            "Ayrıntı: 'Kontrol' sayfası, bölüm 3.", span)
+            f"BU RAPOR EKSİK — dönemin tamamı kapsanmıyor. {detail}. "
+            "Saatler bordro için KULLANILAMAZ; kaynak dosyalar ya da tatil listesi "
+            "gözden geçirilmeli. Ayrıntı: 'Kontrol' sayfası, bölüm 3.", span)
         for column in range(1, span + 1):
             sheet.cell(row=4, column=column).fill = styles.RED_FILL
         header_row = 5
@@ -710,10 +716,25 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
             fill = styles.RED_FILL
         line(f"{_FILE_LABEL.get(source, source)} — kapsanan iş günü",
              f"{cov.present} / {cov.expected}", note, fill)
-    if partial:
+    # The per-source lines above only see a run of missing days at the END of the
+    # period. A day on which NEITHER site recorded anybody is the one mid-period hole
+    # that can be stated without a false alarm, and it has a second reading worth
+    # printing: the day may simply be a holiday nobody marked. ADR-057.
+    if stays := stats.blank_workdays:
+        günler = ", ".join(d.strftime("%d.%m") for d in stays[:15])
+        if len(stays) > 15:
+            günler += f" ... (+{len(stays) - 15})"
+        line("Hiçbir tesiste kaydı olmayan iş günü", len(stays),
+             f"{günler}. Bu günler tatilse tatil listesine eklenmeli; değilse "
+             f"kaynak dosyalarda o günler eksik.", styles.RED_FILL)
+    else:
+        line("Hiçbir tesiste kaydı olmayan iş günü", 0,
+             "Beklenen her iş gününde en az bir tesiste kayıt var",
+             styles.GREEN_FILL)
+    if partial or stats.blank_workdays:
         line("SONUÇ", "RAPOR EKSİK",
-             "Yukarıdaki dosyalar dönemin tamamını içermiyor. Bu rapordaki saatler "
-             "bordro için kullanılamaz — kaynak dosyalar yeniden alınmalı.",
+             "Dönemin tamamı kapsanmıyor. Bu rapordaki saatler bordro için "
+             "kullanılamaz — kaynak dosyalar ya da tatil listesi gözden geçirilmeli.",
              styles.RED_FILL)
     row += 1
 

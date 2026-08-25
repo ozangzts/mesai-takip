@@ -186,4 +186,14 @@ class RunStats:
     # trailing run of expected working days with no record at all). The last one is
     # the partial-export signal — see SourceCoverage and ADR-020.
     coverage: dict[str, "SourceCoverage"] = field(default_factory=dict)
+    # Expected working days on which NO source recorded anything at all. The
+    # per-source check above only looks at a TRAILING run, deliberately: a single
+    # source can be legitimately empty on a day its site was shut, so a gap in the
+    # middle of one source proves nothing. A day where **neither** site saw anybody
+    # is different — it cannot be an ordinary working day, and it is the only shape
+    # of mid-period hole that can be asserted without a false alarm. Measured over
+    # May-July 2026: 0 such days, and 0 days where even one source was empty, because
+    # the days the office is shut are marked holidays and so are not expected at all.
+    # See ADR-057.
+    blank_workdays: tuple[date, ...] = ()
     roster_date: date | None = None      # roster export date, from the file itself

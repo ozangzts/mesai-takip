@@ -3395,3 +3395,75 @@ they will use.
 - Both notes that are unticked by default (`Tesis birleştirme`, `Uzaktan + kart kaydı`,
   ADR-048) now also sit under `Günü sayılan`. The default and the grouping were arrived
   at separately and agree, which is a check on both.
+
+---
+
+## ADR-057 — A working day nobody was recorded at either site
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Extends ADR-020.**
+
+### Context
+
+The operator asked how the program can tell an incomplete month from a holiday: *"25
+Eylül'den sonra Eylül yok diyelim, belki tatile denk geliyordu? Nasıl bileceğiz?"*
+
+For the case asked, it already can. `expected_workdays()` removes weekends and the
+holidays marked in `config/takvim-<yıl>.yaml` **before** any coverage check runs, so a
+trailing block of holidays is invisible to it. May 2026 has only **14** expected working
+days for exactly this reason — 25–29 May is a five-day block, plus the 1st and the 19th.
+That is the Takvim screen earning its keep (ADR-042, ADR-045).
+
+The question exposed a different hole. ADR-020's check looks at a **trailing** run of
+missing working days, and deliberately nothing else: AGENTS §3 forbids "fewer days than
+the other source", because Teknopark legitimately has no records on a day its building
+was shut while Macunköy production runs. So an export missing days in the **middle** of
+the period is invisible.
+
+### Decision
+
+Report the expected working days on which **no source recorded anybody at all**
+(`RunStats.blank_workdays`, `Snapshot.blank_workdays`, `pipeline._blank_workdays`). One
+site being empty proves nothing; both being empty cannot be an ordinary working day —
+162 people do not all stay home.
+
+Surfaced everywhere the trailing check already is, and never blocking, which is what was
+asked (*"ekrana belirtelim ama isteyen yine işlem yapsın"*): the red banner on `Aylık
+Özet`, a line in `Kontrol` section 3 — green with a count of 0 when there is nothing, so
+the check is visibly running — the CLI summary, the report screen's result panel, the
+people screen's source note, and **exit code 5**, the same code as ADR-020 because it
+means the same thing to whoever reads it: the period is not fully covered.
+
+The wording deliberately does not decide which cause it is: *"Bu günler tatilse tatil
+listesine eklenmeli; değilse kaynak dosyalarda o günler eksik."* The program cannot know
+which, and the person marking the calendar is the person who does.
+
+### Alternatives rejected
+
+**A per-source mid-period gap check.** This is the thing AGENTS §3 forbids and the reason
+is unchanged. It would fire on Teknopark every time the office shut for a day that was
+not marked.
+
+**Blocking the run, or the mail, on a blank day.** Rejected on instruction, and the
+instruction is right: the operator can see the day and knows whether it was a holiday.
+A guard that stops the work teaches people to work around it.
+
+**Inferring the missing holiday and marking it.** That is a heuristic about payroll input
+— exactly what AGENTS §2.1 rules out. It says what it found; a person decides.
+
+### Consequences
+
+- **Measured false-alarm rate: zero.** All three months were re-run with `holidays: []`,
+  every holiday deliberately removed, and **not one** blank working day appeared. May's
+  Ramazan block surfaced through the trailing check instead, which is the loud
+  dismissible failure that is wanted. Macunköy production running on holidays is what
+  makes the check quiet.
+- Removing 15 July 2026 from the calendar — the holiday that really was missing for a
+  month — raises nothing, because seven people badged in that day. An unmarked holiday
+  reaches this check only if the site really was empty, which is itself worth a look.
+- Real data: **0 blank working days** across May–July 2026, and not one expected working
+  day is missing from even a single source.
+- **`format_version` 7 → 8**, so `is_complete` on the people screen accounts for both
+  shapes. All three months regenerated; no figure changed.
+- `is_complete` is now two conditions. Anything reading it gets both without changing.

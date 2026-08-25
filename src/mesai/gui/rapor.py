@@ -805,8 +805,19 @@ class ReportScreen:
                 f"   {first} ve sonrası yok ({cov.present}/{cov.expected} iş günü).",
                 "   Bu rapordaki saatler bordro için kullanılamaz.",
             ]
+        bos = result.get("blank_workdays") or []
+        if bos:
+            lines += [
+                "",
+                f"⚠ BOŞ İŞ GÜNÜ — {len(bos)} beklenen iş gününde hiçbir tesiste "
+                f"kayıt yok:",
+                "   " + ", ".join(f"{d:%d.%m}" for d in bos[:12])
+                + (" ..." if len(bos) > 12 else ""),
+                "   O günler tatilse Takvim ekranında işaretleyin; değilse dosya "
+                "eksik geldi.",
+            ]
         heading = f"{period_label(period)} raporu yazıldı"
-        if partial:
+        if partial or bos:
             return Result(True, f"{heading} — EKSİK", tuple(lines), w.WARN,
                           result["output"], result.get("snapshot"), figures,
                           period=period)

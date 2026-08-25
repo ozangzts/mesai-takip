@@ -200,7 +200,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 452 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 455 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -270,6 +270,15 @@ weaken any of them without an ADR:
    The distinction is **read nothing** (fine — Teknopark has no rows while the office
    is shut) versus **read rows, kept none** (the wrong file). Do not weaken it into a
    count comparison; that is the check §4 explicitly forbids.
+
+7. **Blank working day** — an expected working day on which **no source** recorded
+   anybody fails the run (exit code 5, ADR-057). This is the mid-period hole §4 cannot
+   see: that check looks only at a *trailing* run, because one source being empty proves
+   nothing. Both being empty cannot be an ordinary working day. Holidays leave
+   `expected_workdays` before it runs, so a marked holiday can never trigger it, and
+   re-running all three months with every holiday removed produced no alarm at all —
+   Macunköy production runs on holidays. Never turn this into a per-source check; that
+   is §4 again.
 
 ---
 

@@ -107,6 +107,7 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     # A file can be internally perfect and still describe half a month. July 2026's
     # Teknopark export stopped on the 19th and every other guard passed. ADR-020.
     stats.coverage = _coverage(records, period, settings)
+    stats.blank_workdays = _blank_workdays(records, period, settings)
 
     # --- stage 3: normalize / resolve identity -----------------------------
     employees = _resolve_employees(records, leave, roster_entries)
@@ -148,9 +149,31 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
         "excluded_anomalies": sum(
             1 for a in anomalies.items if a.severity == "excluded"),
         "partial_sources": [c for c in stats.coverage.values() if c.is_partial],
+        "blank_workdays": list(stats.blank_workdays),
         "gross": measured_total,
         "stats": stats,
     }
+
+
+def _blank_workdays(
+    records: list[PunchRecord], period: str, settings: Settings,
+) -> tuple[date, ...]:
+    """Expected working days on which no attendance source recorded anything.
+
+    The trailing check in `_coverage` cannot see a hole in the middle of an export, and
+    a per-source mid-period check would fire on a site that was simply shut that day —
+    which AGENTS §3 forbids for exactly that reason. A day where **neither** site saw a
+    single person is the one mid-period shape that can be asserted: 162 people did not
+    all stay home on an ordinary working day.
+
+    Measured over May-July 2026: none. Not one expected working day is even missing from
+    a single source, because the shut days are marked holidays and drop out of
+    `expected_workdays` before this runs.
+    """
+    year, month = (int(part) for part in period.split("-"))
+    seen = {r.date for r in records if r.source != "izin"}
+    return tuple(day for day in settings.calendar.expected_workdays(year, month)
+                 if day not in seen)
 
 
 def _coverage(

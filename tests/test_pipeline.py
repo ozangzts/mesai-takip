@@ -532,3 +532,104 @@ def test_a_named_roster_that_is_gone_fails_rather_than_falling_back(settings, tm
 
     with pytest.raises(InputError, match="seçilen dosya bulunamadı"):
         _locate_roster(home, tmp_path, settings, tmp_path / "yok.xlsx")
+
+
+# --- a hole in the MIDDLE of the period (ADR-057) ----------------------------
+
+def _settings_with_calendar(*, holidays=()):
+    """The shipped settings with a substituted calendar, so a holiday can be removed.
+
+    `dataclasses.replace` rather than a hand-built Settings: a fixture that invented its
+    own would drift from `config/settings.yaml` the way `conftest.py` twice did.
+    """
+    import dataclasses
+    from pathlib import Path
+
+    from mesai import config as config_module
+
+    base = config_module.load(
+        Path(__file__).resolve().parent.parent / "config", "2026-06")
+    return dataclasses.replace(
+        base,
+        calendar=config_module.Calendar(holidays=frozenset(holidays),
+                                       rest_weekdays=base.calendar.rest_weekdays))
+
+
+
+def test_a_working_day_nobody_recorded_anywhere_is_reported():
+    """The trailing check cannot see a gap in the middle, and a per-source mid-period
+    check would fire on a site that was simply shut — which AGENTS §3 forbids.
+
+    A day on which NEITHER site recorded a single person is the one mid-period shape
+    that can be asserted: 162 people do not all stay home on an ordinary working day.
+    """
+    from datetime import date, datetime
+
+    from mesai.models import PunchRecord
+    from mesai.pipeline import _blank_workdays
+
+    settings = _settings_with_calendar(holidays=())
+    gunler = settings.calendar.expected_workdays(2026, 6)
+    bos = gunler[5]
+
+    kayitlar = [
+        PunchRecord(key=("AYSE", "DENEME"), raw_name="AYŞE DENEME",
+                    date=g, source="teknopark",
+                    entry=datetime.combine(g, datetime.min.time()).replace(hour=8),
+                    exit=datetime.combine(g, datetime.min.time()).replace(hour=17),
+                    source_row=1)
+        for g in gunler if g != bos
+    ]
+
+    assert _blank_workdays(kayitlar, "2026-06", settings) == (bos,)
+
+
+def test_a_holiday_is_never_a_blank_working_day():
+    """The question the operator asked: how do we know 25 September was not a holiday?
+
+    Because holidays leave `expected_workdays` before this check runs. May 2026 has
+    only 14 expected working days for exactly this reason — 25-29 May is a five-day
+    block plus the 1st and the 19th.
+    """
+    from mesai.pipeline import _blank_workdays
+
+    gunler = _settings_with_calendar(holidays=()).calendar.expected_workdays(2026, 6)
+    tatil = gunler[5]
+    settings = _settings_with_calendar(holidays=(tatil,))
+
+    # no records at all, and yet the marked day is not reported as blank
+    assert tatil not in _blank_workdays([], "2026-06", settings)
+    assert tatil not in settings.calendar.expected_workdays(2026, 6)
+
+
+def test_an_unmarked_holiday_on_which_somebody_worked_raises_nothing():
+    """The residual risk, and it turns out to be small — measured, not assumed.
+
+    Ramazan and Kurban move and are entered by hand, so one can be forgotten; 15 July
+    2026 was, for a month. But this check needs a day on which **nobody at either site**
+    was recorded, and Macunköy production runs on holidays. Re-running all three months
+    with `holidays: []` — every holiday deliberately removed — produced **no** blank
+    working day at all. May's Ramazan block was caught by the trailing check instead
+    (ADR-020), which is the loud, dismissible failure that is wanted.
+
+    So an unmarked holiday raises this only if the site really was empty, which is
+    itself worth a look.
+    """
+    from datetime import datetime
+
+    from mesai.models import PunchRecord
+    from mesai.pipeline import _blank_workdays
+
+    settings = _settings_with_calendar(holidays=())          # nothing marked
+    gunler = settings.calendar.expected_workdays(2026, 6)
+    tatil = gunler[5]
+
+    tek_kisi = [PunchRecord(
+        key=("AYSE", "DENEME"), raw_name="AYŞE DENEME", date=tatil,
+        source="macunkoy", source_row=1,
+        entry=datetime.combine(tatil, datetime.min.time()).replace(hour=8),
+        exit=datetime.combine(tatil, datetime.min.time()).replace(hour=17))]
+
+    assert tatil not in _blank_workdays(tek_kisi, "2026-06", settings)
+    # and with nobody at all, it does fire — the check is not inert
+    assert tatil in _blank_workdays([], "2026-06", settings)

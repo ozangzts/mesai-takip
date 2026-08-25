@@ -299,9 +299,18 @@ class PeopleScreen:
             return
         # ADR-020: a month whose sources stop mid-period. The figures are real but the
         # month is not, and this screen is the last place before somebody acts on them.
-        missing = ", ".join(
-            f"{source} {info.get('missing_from')} sonrası"
-            for source, info in snap.coverage.items() if info.get("partial"))
+        parts = [f"{source} {info.get('missing_from')} sonrası"
+                 for source, info in snap.coverage.items() if info.get("partial")]
+        # ADR-057: the other shape of an uncovered period — a working day on which
+        # nobody was recorded at either site. It may equally be a holiday that was
+        # never marked, so the wording does not decide between the two.
+        if snap.blank_workdays:
+            gunler = ", ".join(f"{d:%d.%m}" for d in snap.blank_workdays[:6])
+            if len(snap.blank_workdays) > 6:
+                gunler += " ..."
+            parts.append(f"{len(snap.blank_workdays)} iş gününde hiçbir tesiste "
+                         f"kayıt yok ({gunler})")
+        missing = ", ".join(parts)
         self.source_note.configure(
             text=f"{line}\n⚠ BU AY EKSİK — {missing}. Saatler bordro için "
                  f"kullanılamaz.", foreground=w.BAD)

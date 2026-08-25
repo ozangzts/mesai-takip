@@ -113,7 +113,10 @@ def main(argv: list[str] | None = None) -> int:
     _report(result)
     # Non-zero so an unattended run is noticed. ARCHITECTURE.md: a scheduled job that
     # fails silently is not noticed until payroll. 5 = report written but incomplete.
-    if result.get("partial_sources"):
+    # Same code for both, because they mean the same thing to whoever is reading it:
+    # the period is not fully covered, so the figures are not the month. ADR-020,
+    # ADR-057.
+    if result.get("partial_sources") or result.get("blank_workdays"):
         return 5
     return 0
 
@@ -135,6 +138,14 @@ def _report(result: dict) -> None:
               f"içermiyor — {cov.trailing_missing[0]:%d.%m.%Y} ve sonrası yok "
               f"({cov.present}/{cov.expected} iş günü).")
         print("     Bu rapordaki saatler bordro için kullanılamaz.")
+    bos = result.get("blank_workdays") or []
+    if bos:
+        print("")
+        print(f"  !! BOŞ İŞ GÜNÜ: {len(bos)} beklenen iş gününde hiçbir tesiste "
+              f"kayıt yok —")
+        print("     " + ", ".join(f"{d:%d.%m}" for d in bos[:12])
+              + (" ..." if len(bos) > 12 else ""))
+        print("     O günler tatilse takvimde işaretlenmeli; değilse dosya eksik.")
     print(f"  Şüpheli kayıt                : {result['anomalies']}"
           f" ({result['excluded_anomalies']} tanesi toplama dahil edilmedi)")
     print(f"  {'-' * 58}")

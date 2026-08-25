@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (56 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (57 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **452 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **455 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -139,6 +139,38 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
+
+---
+
+## Bu turda ne yapıldı (2026-08-25, üçüncü tur)
+
+**"Ayın eksik olduğunu nereden bileceğiz?"** — sorulan hâli için takvim zaten çözüyor:
+`expected_workdays()` hafta sonlarını ve işaretli tatilleri **çıkardıktan sonra** kontrol
+çalışıyor. Mayıs 2026'nın yalnızca 14 beklenen iş günü var, çünkü 25–29 Mayıs beş günlük
+blok. Yani "25'inden sonrası tatildi" durumu hiç boşluk olarak görünmüyor.
+
+Soru başka bir deliği açığa çıkardı: ADR-020 yalnızca dönemin **sonundaki** kesintisiz
+diziye bakıyor. Ortadaki bir boşluğu göremiyor, ve kaynak başına orta kontrol AGENTS §3'ün
+yasakladığı şey (Teknopark binası kapalıyken meşru olarak boş).
+
+**Eklenen kontrol: hiçbir kaynağın kimseyi kaydetmediği beklenen iş günü** (ADR-057).
+Tek tesisin boş olması bir şey kanıtlamıyor, ikisinin de boş olması olağan bir iş günü
+olamaz. Rapor bandına, `Kontrol` bölüm 3'e (boşken 0 ile yeşil, yani kontrolün çalıştığı
+görünüyor), CLI'ya, rapor ekranına, Kişiler ekranına ve **çıkış kodu 5**'e düştü.
+**Engellemiyor** — istenen buydu.
+
+Metin hangi sebep olduğunu söylemiyor: *"Bu günler tatilse tatil listesine eklenmeli;
+değilse kaynak dosyalarda o günler eksik."* Program bilemez, takvimi işaretleyen kişi
+bilir.
+
+**Yanlış alarm ölçüldü: sıfır.** Üç ay `holidays: []` ile, bütün tatiller kasten
+silinerek yeniden koşuldu — hiç boş iş günü çıkmadı. Mayıs'ın Ramazan bloğu bunun yerine
+kuyruk kontrolünden düştü, ki istenen gürültülü ve göz ardı edilebilir hata o. Sebep:
+Macunköy üretimi tatillerde de çalışıyor. 15 Temmuz'u (gerçekten bir ay eksik kalmış
+tatil) silmek de hiçbir şey tetiklemiyor, çünkü o gün 7 kişi kart basmış.
+
+Gerçek veri: üç ayda **0 boş iş günü**, ve tek bir kaynaktan bile eksik kalan beklenen iş
+günü yok. `format_version` 7 → 8, üç ay yeniden üretildi, rakam değişmedi.
 
 ---
 
@@ -355,7 +387,7 @@ Buradaki her madde bir kez ısırdı.
 - **`tests/conftest.py` fixture'ı gerçek config'den sapabiliyor** ve birkaç kez saptı.
   Yeni bir config anahtarı eklerken fixture'a da ekle — yoksa bütün test paketi,
   kimsenin çalıştırmadığı bir kurala karşı geçmeye devam eder.
-- Snapshot `format_version` **7**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
+- Snapshot `format_version` **8**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
   **etiketi yeniden adlandırmak** bu sürümü yükseltir (ADR-027, ADR-052): eski yazımla
   yazılmış bir filtre ya da istisna listesi yeni yazımda **sessizce kimseyi** tutmaz.
 - **`arayuz-ayarlari.json` `gui/settings.py` üzerinden yazılır** — oku, değiştir, yaz.
