@@ -361,3 +361,37 @@ def test_covered_by_survives_the_round_trip(tmp_path, settings):
     path = snap.save(original, tmp_path / "gonderim-2026-07.json")
 
     assert snap.load(path).people[0].days[0].covered_by == "Mazeret"
+
+
+def test_a_days_times_are_shown_as_a_clock_whatever_the_source_wrote():
+    """`entry` keeps the file's own text for a refused record — right for the audit
+    trail, wrong for a screen. The panel would read `01.07.2026 07:17:04` beside a
+    column that already says the date and rows that read `07:41` (ADR-064).
+    """
+    from datetime import date
+
+    from mesai.snapshot import ProblemDay
+
+    def gun(entry):
+        return ProblemDay(date=date(2026, 7, 1), problems=("Çıkış yok",), entry=entry)
+
+    assert gun("01.07.2026 07:17:04").entry_text == "07:17"
+    assert gun("2026-07-01 09:08:10").entry_text == "09:08"
+    assert gun("07:41").entry_text == "07:41"
+    assert gun("9:5").entry_text == "09:05"
+    assert gun("").entry_text == ""
+    # Not a time we recognise: shown as it stands rather than swallowed. A blank cell
+    # would hide that the source wrote something.
+    assert gun("garip").entry_text == "garip"
+
+
+def test_the_stored_stamp_stays_exactly_what_the_file_said():
+    """The formatting is at the boundary and only there — the report prints the raw
+    text verbatim and must keep being able to."""
+    from datetime import date
+
+    from mesai.snapshot import ProblemDay
+
+    day = ProblemDay(date=date(2026, 7, 1), problems=("Çıkış yok",),
+                     entry="01.07.2026 07:17:04")
+    assert day.entry == "01.07.2026 07:17:04"

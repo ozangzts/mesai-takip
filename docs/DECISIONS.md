@@ -3914,3 +3914,85 @@ sheet follows it.
   tags, note labels, and the leave types the HCM writes. Listed explicitly rather than
   loosened, because what it guards is that no *fourth* one appears.
 - No `format_version` change. The snapshot is untouched.
+
+---
+
+## ADR-064 — A day panel beside the person list, with the days selectable
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Uses ADR-061's rule. Reverses one detail of ADR-039's click target.**
+
+### Context
+
+Asked for directly: *"kişi listesi olsun, ben oradan bir kişiyi seçtiğimde o kişinin gün
+gün tüm hatalı kayıtları saatleri falan günlük detay gibi önüme düşsün o ay için. bu
+günler seçilebilir olsun istediğimizi seçmek için."*
+
+The people screen listed people and a count of their notes. Which days those were existed
+only in the workbook, so choosing what to tell somebody meant reading the report in one
+window and ticking names in another.
+
+### Decision
+
+**Beside the list, not under it.** Height is the dimension that has bitten twice
+(ADR-038) and the window floor is 620 px; width can grow. Two columns share the row, both
+with a 430 px minimum, so the 880 px floor still holds and both panels grow with the
+window.
+
+**The panel lists `days_for(person, ticked notes)` and nothing else** — days where
+nothing was counted and no leave covers them (ADR-059, ADR-061). So the panel and the
+message it feeds cannot disagree, and a day the other site already covered is absent
+because it is not a problem. Measured on July: 85 people, 389 selectable days, 0 to 21
+per person. Somebody whose only note is month-level (`Mesai verisi yok`) is in the list
+with an empty panel, which is correct and says so.
+
+**Days are selectable, off-set.** `_days_off` holds the days taken *out*, keyed on
+`(name, ISO date)` — never a row index, because the list re-sorts and re-filters
+underneath, which is the mistake `excluded` already avoids. A day nobody has decided
+about is in: a list that decides what somebody is told errs towards one day too many
+(ADR-017, ADR-048, ADR-061). Ticks survive a filter change, because a date means the same
+thing under every filter; they are cleared when a new month loads, because they would
+otherwise carry a decision about dates the file does not contain.
+
+**One row, two targets.** The tick column takes the person out of the list; the rest of
+the row shows their days. ADR-039 made the whole row the tick target on the reasoning
+that in-or-out was the only thing a row did — a row does two things now, so it needs two
+targets, and the 34 px tick column is what somebody aims at anyway.
+
+**`ProblemDay.entry_text` / `exit_text`** render `HH:MM` out of whatever the stamp is.
+The first real-data run of the panel printed `01.07.2026 07:17:04` beside a column that
+already said the date, in a list whose other rows read `07:41` — `entry` keeps the source
+file's own text for a refused record, which is right for the audit trail and wrong for a
+screen. Formatting at the boundary and only there (AGENTS §6): the stored value is
+untouched and the report keeps printing it verbatim.
+
+### Alternatives rejected
+
+**Under the list.** 620 px of window split between two lists is five rows each.
+
+**Drill-down: the day list replaces the person list, with a back button.** Fits any
+window and needs no width, but the work is scan a person, check their days, tick some,
+next person — navigating back and forth for every one of 85 people.
+
+**A separate screen.** Picking a person on one screen to look at them on another is the
+same trip with more steps.
+
+**Show every problem day, explained ones included, marked somehow.** That is ADR-058's
+mistake in a new place: the noise the filter was fixed to remove.
+
+### Consequences
+
+- The person list's e-mail column is narrower at the 880 px floor. It stretches, so any
+  larger window gives it back; a test holds both panels above 330 px at 880×620 through
+  2560×1400 and maximized.
+- **A click on a person's name no longer removes them.** Anybody used to the old
+  behaviour has to aim at the tick, which is the cost of the row doing two things.
+- `day_selection()` returns `(name, ISO date)` for everything still selected across every
+  person — the mail step's input, and the only thing that has to be read out of this
+  screen.
+- The day panel has its own scrollbar, wheel handling and empty-state text, following the
+  person list: `unbind_all("<MouseWheel>")` still holds because both trees grab and
+  release the same way (ADR-039).
+- 482 tests. Eight cover the panel, including that an explained day never reaches it and
+  that a person the filter drops leaves it.

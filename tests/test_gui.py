@@ -784,16 +784,30 @@ def _snapshot_file(tmp_path, people, *, partial=False):
                                   "missing_from": "2026-05-20" if partial else None}},
         "people": people,
     }
+    tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "gonderim-2026-05.json"
     path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     return path
 
 
-def _person(name, problems=(), expected=(), email="a@b.c"):
+def _person(name, problems=(), expected=(), email="a@b.c", days=()):
     return {"name": name, "email": email, "personnel_no": None, "department": None,
             "facility": None, "in_roster": True, "has_attendance": True,
             "worked_days": 20, "minutes": 480, "remote_days": 0.0, "leave_days": 0.0,
-            "problems": list(problems), "expected": list(expected), "notes": []}
+            "problems": list(problems), "expected": list(expected), "notes": [],
+            "days": list(days)}
+
+
+def _pday(day, problems=("Çıkış yok",), entry="07:41", exit="", minutes=None,
+          covered_by=""):
+    """One problem day, as the snapshot file writes it.
+
+    `minutes=None` and no `covered_by` means nothing was counted and no leave explains
+    it — the shape `days_for` returns, which is what the day panel lists (ADR-061).
+    """
+    return {"date": f"2026-05-{day:02d}", "problems": list(problems),
+            "entry": entry, "exit": exit, "minutes": minutes,
+            "covered_by": covered_by}
 
 
 @pytest.fixture
@@ -1330,19 +1344,43 @@ def test_one_wheel_notch_scrolls_more_than_one_row(people):
     assert screen.tree.yview()[0] > first_row_height, "one notch, one row"
 
 
-def test_clicking_a_row_takes_that_person_out_and_back(people):
-    """The whole row is the target, not a glyph a few pixels wide."""
+def _click(screen, row, *, on_tick: bool):
+    """A click on one row, in the tick column or outside it.
+
+    The x has to be real: the row does two things now and which one depends on the
+    column the pointer is over (ADR-064).
+    """
+    box = screen.tree.bbox(row)
+    x = box[0] + 8 if on_tick else box[0] + 120
+    return screen._clicked(type("Click", (), {"x": x, "y": box[1] + 2})())
+
+
+def test_clicking_the_tick_takes_that_person_out_and_back(people):
+    """The tick column is the target for in-or-out, since the rest of the row now
+    shows the person's days (ADR-064)."""
     window, screen = people()
     name, row = screen._rows[0]
     window.root.update()
 
-    y = screen.tree.bbox(row)[1] + 2
-    screen._clicked(type("Click", (), {"y": y})())
+    _click(screen, row, on_tick=True)
     assert name in screen.excluded
     assert screen.tree.set(row, "tik") == "☐"
 
-    screen._clicked(type("Click", (), {"y": y})())
+    _click(screen, row, on_tick=True)
     assert name not in screen.excluded
+
+
+def test_clicking_the_name_shows_that_persons_days_and_leaves_them_in(people):
+    """The two targets must not bleed into each other: opening somebody's days is not
+    a decision about whether to write to them."""
+    window, screen = people()
+    name, row = screen._rows[0]
+    window.root.update()
+
+    _click(screen, row, on_tick=False)
+    assert screen._person == name
+    assert name not in screen.excluded, "showing the days must not remove the person"
+    assert name in screen.day_title.cget("text")
 
 
 def test_clicking_below_the_last_row_changes_nothing(people):
@@ -1352,7 +1390,8 @@ def test_clicking_below_the_last_row_changes_nothing(people):
     screen._repaint()
     window.root.update()
 
-    screen._clicked(type("Click", (), {"y": screen.tree.winfo_height() - 4})())
+    screen._clicked(type("Click", (), {"x": 8,
+                                      "y": screen.tree.winfo_height() - 4})())
     assert screen.excluded == set()
 
 
@@ -1886,12 +1925,34 @@ def test_the_people_screen_uses_the_window_it_is_given(people_screen, tmp_path,
     assert root.winfo_width() >= width - 2, "the window did not take the size"
     # nothing may be wider than the window it sits in
     assert screen.frame.winfo_width() <= root.winfo_width()
-    # the list grows with the window instead of sitting at a fixed width
-    liste = screen.tree
-    assert liste.winfo_width() >= root.winfo_width() * 0.5, (
-        f"{width}x{height}: liste {liste.winfo_width()}px / "
-        f"pencere {root.winfo_width()}px")
+
+    # Two panels share the width now (ADR-064): the person list and the day list. Both
+    # have to be usable at every size, and together they have to use the window rather
+    # than sitting at a fixed width in a wide one. The day CARD is measured, not its
+    # Treeview — with nobody picked the tree is unmapped and reports 1 px, which would
+    # make this assert nothing.
+    liste, gun_karti = screen.tree, screen.day_card
+    assert liste.winfo_width() >= 330, (
+        f"{width}x{height}: kişi listesi {liste.winfo_width()}px")
+    assert gun_karti.winfo_width() >= 330, (
+        f"{width}x{height}: gün paneli {gun_karti.winfo_width()}px")
+    # Against the screen's own frame, not the window: the navigation rail on the left
+    # takes width too, and comparing with the window made this fail at 1024 and 1366
+    # for a reason that had nothing to do with the panels.
+    icerik = screen.frame.winfo_width()
+    assert liste.winfo_width() + gun_karti.winfo_width() >= icerik * 0.9, (
+        f"{width}x{height}: iki panel {liste.winfo_width()}+"
+        f"{gun_karti.winfo_width()}px / içerik {icerik}px")
     assert liste.winfo_height() > 60, "the list collapsed"
+
+    # And with somebody picked, the day list itself has to be usable.
+    if screen._rows:
+        _click(screen, screen._rows[0][1], on_tick=False)
+        root.update_idletasks()
+        if screen._person_days():
+            assert screen.day_tree.winfo_width() >= 330, (
+                f"{width}x{height}: gün listesi {screen.day_tree.winfo_width()}px")
+            assert screen.day_tree.winfo_height() > 40, "gün listesi çöktü"
 
 
 @pytest.mark.parametrize("width,height", _SIZES)
@@ -1928,3 +1989,178 @@ def test_maximizing_is_left_alone(people_screen):
     people_screen.show("rapor")
     root.update_idletasks()
     assert root.state() == "zoomed"
+
+
+# --- the selected person's days (ADR-064) ------------------------------------
+
+def _day_click(screen, row):
+    box = screen.day_tree.bbox(row)
+    return screen._day_clicked(type("Click", (), {"x": box[0] + 8,
+                                                  "y": box[1] + 2})())
+
+
+@pytest.fixture
+def day_screen(people_screen, tmp_path):
+    """The people screen over a month whose people carry problem DAYS, not just labels.
+
+    The other fixtures give people note labels and no days, which was enough while the
+    screen only listed people. The day panel needs the days themselves.
+    """
+    def build():
+        screen = people_screen._screens["kisiler"]
+        screen.load(_snapshot_file(tmp_path, [
+            _person("AYŞE DENEME", ["Çıkış yok"],
+                    days=[_pday(4), _pday(11), _pday(18)]),
+            _person("BERK NUMUNE", ["Giriş yok"],
+                    days=[_pday(5, ["Giriş yok"], entry="", exit="18:26")]),
+            # days that ARE explained: counted elsewhere, and covered by leave. Neither
+            # may reach the panel (ADR-061).
+            _person("CEM ÖRNEK", ["Çıkış yok"],
+                    days=[_pday(6, minutes=523),
+                          _pday(7, covered_by="Yıllık İzin")]),
+            _person("EDA MİSAL", []),
+        ]))
+        screen.filter_key = recipients.PROBLEM
+        screen._repaint()
+        people_screen.root.update()
+        return screen
+    return build
+
+
+def _person_with_days(screen):
+    """The first listed person who actually has days to show."""
+    for name, row in screen._rows:
+        screen._person = name
+        if screen._person_days():
+            return name, row
+    screen._person = None
+    return None, None
+
+
+def test_the_day_panel_lists_the_days_the_ticked_notes_are_about(day_screen):
+    """Same rule as the mail step, so the panel and the message cannot disagree."""
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    assert name, "sentetik ayda gösterilecek gün olan kimse yok"
+    _click(screen, row, on_tick=False)
+
+    person = next(p for p in screen.snapshot.people if p.name == name)
+    beklenen = [d.date for d in recipients.days_for(person, screen.counted())]
+    assert [d.date for d in screen._person_days()] == beklenen
+    assert len(screen._day_rows) == len(beklenen)
+
+
+def test_every_day_starts_selected(day_screen):
+    """Off-set, not on-set: a day nobody has decided about is in. A list that decides
+    what somebody is told errs towards one day too many, never one too few."""
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    assert all(screen.day_tree.set(r, "tik") == "☑" for _iso, r in screen._day_rows)
+    assert screen._days_off == set()
+    assert len(screen.day_selection()) >= len(screen._day_rows)
+
+
+def test_clicking_a_day_takes_it_out_and_back(day_screen):
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    iso, day_row = screen._day_rows[0]
+
+    _day_click(screen, day_row)
+    assert (name, iso) in screen._days_off
+    assert screen.day_tree.set(day_row, "tik") == "☐"
+    assert (name, iso) not in screen.day_selection()
+
+    _day_click(screen, day_row)
+    assert (name, iso) not in screen._days_off
+    assert (name, iso) in screen.day_selection()
+
+
+def test_a_day_taken_out_stays_out_across_a_filter_change(day_screen):
+    """Keyed on the date, not on a row: the list re-sorts and re-filters underneath.
+    An index would come to mean a different day, which is the mistake `excluded`
+    already avoids."""
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    iso, day_row = screen._day_rows[0]
+    _day_click(screen, day_row)
+
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+    _click(screen, next(r for n, r in screen._rows if n == name), on_tick=False)
+
+    assert (name, iso) in screen._days_off
+    tikler = {i: screen.day_tree.set(r, "tik") for i, r in screen._day_rows}
+    assert tikler.get(iso) == "☐", tikler
+
+
+def test_a_person_the_filter_drops_leaves_the_panel(day_screen):
+    """The panel must not describe somebody the list beside it does not contain."""
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    assert screen._person == name
+
+    screen.filter_key = "Mesai verisi yok"
+    screen._repaint()
+
+    if name not in {n for n, _ in screen._rows}:
+        assert screen._person is None
+        assert screen.day_title.cget("text") == "GÜNLER"
+
+
+def test_loading_a_month_forgets_last_months_day_ticks(day_screen, tmp_path):
+    """New month, new dates. Keeping the ticks would carry a decision about days that
+    are not in the file."""
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    _day_click(screen, screen._day_rows[0][1])
+    assert screen._days_off
+
+    screen.load(_snapshot_file(tmp_path / "sonraki",
+                               [_person("AYŞE DENEME", ["Çıkış yok"])]))
+
+    assert screen._days_off == set()
+    assert screen._person is None
+
+
+def test_an_explained_day_never_reaches_the_panel(day_screen):
+    """CEM's two days are both accounted for — one counted 523 minutes from another
+    record, the other is annual leave. Neither is a problem (ADR-061), so two things
+    must hold and both are asserted rather than skipped past: he is not in the problem
+    list at all, and picking him from a list that does show him gives an empty panel.
+    """
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    assert "CEM ÖRNEK" not in {n for n, _ in screen._rows},         "her günü açıklanan kişi Sorunu olanlar listesinde durmamalı"
+
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+    row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
+    _click(screen, row, on_tick=False)
+
+    assert screen._person_days() == ()
+    assert screen._day_rows == []
+    assert "sorunlu gün yok" in screen.day_title.cget("text")
+
+
+def test_the_panel_shows_the_times_and_the_note_for_each_day(day_screen):
+    """`Günlük Detay` beside the list, which is what was asked for: the date, the day,
+    what was read, and the note. An empty reading prints as a dash, never 00:00."""
+    screen = day_screen()
+    row = next(r for n, r in screen._rows if n == "BERK NUMUNE")
+    _click(screen, row, on_tick=False)
+
+    _iso, day_row = screen._day_rows[0]
+    values = [screen.day_tree.set(day_row, c)
+              for c in ("tarih", "gun", "giris", "cikis", "sure", "not")]
+    assert values == ["05.05.2026", "Sal", "—", "18:26", "—", "Giriş yok"]

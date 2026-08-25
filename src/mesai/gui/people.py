@@ -27,6 +27,12 @@ from . import widgets as w
 from .period import period_label
 
 _ROW_HEIGHT = 22
+
+# Day-of-week abbreviations, matching the report Gün column so the two read the
+# same. Not settings.calendar.label(): this screen reads a snapshot and has no
+# settings, and that label also carries Tatil, which cannot happen on a day that is
+# missing a record on an expected working day.
+_GUN_KISA = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
 # The note panel's header occupies row 0; family blocks start below it.
 _NOTES_TOP = 1
 
@@ -50,6 +56,14 @@ class PeopleScreen:
         # `excluded` is the one place it lives, and the glyph is drawn from it.
         self._rows: list[tuple[str, str]] = []
         self._pointer_in_list = False
+        # The person whose days are on show, and the days taken OUT of the selection.
+        # Off-set again, and for the same reason as `_off`: a day nobody has decided
+        # about is in, so a new day cannot quietly fall out of a list that decides what
+        # somebody is told. Keyed on (name, ISO date) rather than a row index, because
+        # the list re-sorts and re-filters underneath — the mistake `excluded` avoids.
+        self._person: str | None = None
+        self._days_off: set[tuple[str, str]] = set()
+        self._day_rows: list[tuple[str, str]] = []      # (ISO date, row id)
 
         self._build(parent)
         self._repaint()
@@ -69,12 +83,17 @@ class PeopleScreen:
     # --- layout ------------------------------------------------------------
     def _build(self, parent: tk.Misc) -> None:
         body = self.frame = tk.Frame(parent, background=w.BG)
-        body.columnconfigure(0, weight=1)
+        # Two columns, so the day panel costs width and not height. Height is the
+        # dimension that has bitten twice (ADR-038) and the window floor is 620 px;
+        # width can grow and the panel shares what is there. The person list keeps the
+        # larger share because its e-mail column is the one that wants room.
+        body.columnconfigure(0, weight=3, minsize=430)
+        body.columnconfigure(1, weight=2, minsize=430)
         body.rowconfigure(6, weight=1)
 
         w.caption(body, "VERİ DOSYASI", row=0)
         source_row = tk.Frame(body, background=w.BG)
-        source_row.grid(row=1, column=0, sticky="ew")
+        source_row.grid(row=1, column=0, columnspan=2, sticky="ew")
         source_row.columnconfigure(0, weight=1)
         self.source_var = tk.StringVar(value="")
         tk.Entry(source_row, textvariable=self.source_var, state="readonly",
@@ -86,12 +105,13 @@ class PeopleScreen:
 
         self.source_note = tk.Label(body, background=w.BG, foreground=w.MUTED,
                                     font=(w.FACE, 9), anchor="w", justify="left")
-        self.source_note.grid(row=2, column=0, sticky="ew", pady=(8, 16))
+        self.source_note.grid(row=2, column=0, columnspan=2, sticky="ew",
+                              pady=(8, 16))
 
         # --- filter ------------------------------------------------------
         w.caption(body, "FİLTRE", row=3)
         filter_row = tk.Frame(body, background=w.BG)
-        filter_row.grid(row=4, column=0, sticky="ew", pady=(0, 12))
+        filter_row.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(0, 12))
         filter_row.columnconfigure(1, weight=1)
         self.filter_var = tk.StringVar(value="")
         self.filter_box = ttk.Combobox(filter_row, textvariable=self.filter_var,
@@ -112,7 +132,8 @@ class PeopleScreen:
         # four short lists rather than one wall (ADR-029).
         self.notes_frame = tk.Frame(body, background=w.CARD, highlightthickness=1,
                                     highlightbackground=w.LINE)
-        self.notes_frame.grid(row=5, column=0, sticky="ew", pady=(0, 12))
+        self.notes_frame.grid(row=5, column=0, columnspan=2, sticky="ew",
+                              pady=(0, 12))
         self.notes_frame.grid_remove()
         self._note_vars: dict[str, tk.BooleanVar] = {}
 
@@ -127,7 +148,7 @@ class PeopleScreen:
         # 17.7 ms per step, worst 19 ms — it draws text instead of moving widgets.
         # ADR-039.
         card = tk.Frame(body, background=w.LINE)
-        card.grid(row=6, column=0, sticky="nsew")
+        card.grid(row=6, column=0, sticky="nsew", padx=(0, 10))
         card.columnconfigure(0, weight=1)
         card.rowconfigure(0, weight=1)
 
@@ -178,9 +199,63 @@ class PeopleScreen:
                  "Daha önce üretilmiş bir ay için 'Aç…' ile veri dosyasını "
                  "seçebilirsiniz.")
 
+        # --- the selected person's days -----------------------------------
+        #
+        # Master-detail beside the list rather than under it. The operator asked for a
+        # person's faulty days "like Günlük Detay" and for the days to be selectable, so
+        # this is the same shape as the person list: a Treeview with a tick column, the
+        # tick living in an off-set keyed on the date.
+        day_card = self.day_card = tk.Frame(body, background=w.LINE)
+        day_card.grid(row=6, column=1, sticky="nsew")
+        day_card.columnconfigure(0, weight=1)
+        day_card.rowconfigure(1, weight=1)
+
+        self.day_title = tk.Label(
+            day_card, background=w.CARD, foreground=w.INK, font=(w.FACE, 9, "bold"),
+            anchor="w", padx=10, pady=6)
+        self.day_title.grid(row=0, column=0, columnspan=2, sticky="ew", padx=1,
+                            pady=(1, 0))
+
+        style.configure("Gunler.Treeview", background=w.CARD, fieldbackground=w.CARD,
+                        foreground=w.INK, font=(w.FACE, 9), rowheight=_ROW_HEIGHT,
+                        borderwidth=0, relief="flat")
+        style.layout("Gunler.Treeview",
+                     [("Treeview.treearea", {"sticky": "nswe"})])
+
+        self.day_tree = ttk.Treeview(
+            day_card, style="Gunler.Treeview", show="", selectmode="none",
+            columns=("tik", "tarih", "gun", "giris", "cikis", "sure", "not"))
+        self.day_tree.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
+        for column, width, anchor, stretch in (
+                ("tik", 34, "center", False),
+                ("tarih", 74, "w", False),
+                ("gun", 38, "w", False),
+                ("giris", 50, "e", False),
+                ("cikis", 50, "e", False),
+                ("sure", 52, "e", False),
+                ("not", 150, "w", True)):
+            self.day_tree.column(column, width=width, anchor=anchor, stretch=stretch)
+
+        self._day_scroll = ttk.Scrollbar(day_card, orient="vertical",
+                                         command=self.day_tree.yview)
+        self.day_tree.configure(yscrollcommand=self._day_scrolled)
+        self.day_tree.bind("<Button-1>", self._day_clicked)
+        self.day_tree.bind("<Enter>", self._grab_wheel)
+        self.day_tree.bind("<Leave>", self._release_wheel)
+        self.day_tree.bind("<MouseWheel>", self._day_wheel)
+
+        # Shown in the day list's place until somebody picks a person. A Treeview
+        # cannot hold a paragraph and a row saying "pick someone" is still a row.
+        self.day_note = tk.Label(
+            day_card, background=w.CARD, foreground=w.MUTED, font=(w.FACE, 9),
+            justify="left", anchor="nw", padx=14, pady=12,
+            text=("Soldaki listeden bir kişiye tıklayın; o kişinin sorunlu "
+                  "günleri burada gün gün listelenir." + chr(10) * 2 +
+                  "Adın solundaki kareye tıklamak kişiyi listeden çıkarır."))
+
         # --- actions ------------------------------------------------------
         actions = tk.Frame(body, background=w.BG)
-        actions.grid(row=7, column=0, sticky="ew", pady=(12, 0))
+        actions.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         actions.columnconfigure(1, weight=1)
         left = tk.Frame(actions, background=w.BG)
         left.grid(row=0, column=0, sticky="w")
@@ -271,6 +346,10 @@ class PeopleScreen:
         self.source = path
         self.source_var.set(str(path))
         self.excluded.clear()
+        # A new month means new days; keeping last month's ticks would carry a decision
+        # about dates that are not in this file.
+        self._person = None
+        self._days_off.clear()
         try:
             self.snapshot = snapshot_module.load(path)
         except snapshot_module.SnapshotError as exc:
@@ -334,7 +413,9 @@ class PeopleScreen:
                 break
         # Removals belong to the group they were made in. Carrying them across a filter
         # change would silently keep somebody out of a list they were never removed
-        # from.
+        # from. Day ticks are NOT cleared: they are about one person's one date, which
+        # means the same thing under every filter, and re-picking them after every
+        # filter change is exactly the work this panel exists to save.
         self.excluded.clear()
         self._repaint()
 
@@ -358,20 +439,135 @@ class PeopleScreen:
         self._update_count()
 
     def _clicked(self, event: tk.Event) -> str | None:
-        """A click anywhere on a row takes that person in or out.
+        """Two targets on one row: the tick column takes the person out of the list,
+        the rest of the row shows that person's days.
 
-        The whole row, not a checkbox glyph a few pixels wide: in or out is the only
-        thing a row does here, so making the target the size of the row costs nothing
-        and misses nothing. Clicking below the last row does nothing rather than
-        toggling whoever is nearest.
+        It used to be the whole row for the tick, on the reasoning that in-or-out was
+        the only thing a row did. A row does two things now (ADR-064), so it needs two
+        targets, and the 34 px tick column is a comfortable one — the glyph is already
+        there and it is what somebody aims at anyway. Clicking below the last row does
+        nothing rather than acting on whoever is nearest.
         """
         item = self.tree.identify_row(event.y)
         if not item:
             return None
+        on_tick = self.tree.identify_column(event.x) == "#1"
         for name, row in self._rows:
             if row == item:
-                self._toggle(name)
+                if on_tick:
+                    self._toggle(name)
+                else:
+                    self._person = name
+                    self._paint_days()
                 break
+        return "break"
+
+    # --- the selected person's days ----------------------------------------
+    def _person_days(self) -> tuple:
+        """The days on show — the ones the ticked notes are about, for this person.
+
+        `days_for` and nothing else, so this panel lists exactly what the mail step
+        would carry: days where nothing was counted and no leave covers them (ADR-059,
+        ADR-061). A day the other site's record already covered is not here, because it
+        is not a problem.
+        """
+        if self.snapshot is None or self._person is None:
+            return ()
+        person = next((p for p in self.snapshot.people
+                       if p.name == self._person), None)
+        if person is None:
+            return ()
+        return recipients.days_for(person, self.counted())
+
+    def day_selection(self) -> tuple[tuple[str, str], ...]:
+        """`(name, ISO date)` for every day still selected, across every person.
+
+        The mail step's input, and the reason the off-set is keyed on the date rather
+        than on a row: this survives re-sorting, re-filtering and switching person —
+        the mistake `excluded` already avoids.
+        """
+        if self.snapshot is None:
+            return ()
+        counted = self.counted()
+        return tuple(
+            (person.name, day.date.isoformat())
+            for person in recipients.selected(self.snapshot, self.filter_key,
+                                              self.excluded, counted)
+            for day in recipients.days_for(person, counted)
+            if (person.name, day.date.isoformat()) not in self._days_off)
+
+    def _day_headline(self, days: tuple) -> str:
+        chosen = sum(1 for d in days
+                     if (self._person, d.date.isoformat()) not in self._days_off)
+        return f"{self._person} — {len(days)} sorunlu gün, {chosen} seçili"
+
+    def _paint_days(self) -> None:
+        self.day_tree.delete(*self.day_tree.get_children())
+        self._day_rows = []
+        days = self._person_days()
+
+        if self._person is None or not days:
+            self.day_tree.grid_remove()
+            self._day_scroll.grid_remove()
+            self.day_note.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
+            if self._person is None:
+                self.day_title.configure(text="GÜNLER")
+            else:
+                self.day_title.configure(text=f"{self._person} — sorunlu gün yok")
+                self.day_note.configure(
+                    text="Bu kişinin, işaretli notlara ait ve hiçbir yerde "
+                         "sayılmamış bir günü yok." + chr(10) * 2 +
+                         "Notlardan seçimi değiştirirseniz bu liste de değişir.")
+            return
+
+        self.day_note.grid_remove()
+        self.day_tree.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
+        self.day_title.configure(text=self._day_headline(days))
+
+        for day in days:
+            key = (self._person, day.date.isoformat())
+            row = self.day_tree.insert(
+                "", "end",
+                values=("☐" if key in self._days_off else "☑",
+                        day.date.strftime("%d.%m.%Y"),
+                        _GUN_KISA[day.date.weekday()],
+                        day.entry_text or "—", day.exit_text or "—",
+                        day.hours_text or "—",
+                        ", ".join(day.problems)))
+            self._day_rows.append((day.date.isoformat(), row))
+        self._day_scrolled(*self.day_tree.yview())
+
+    def _day_clicked(self, event: tk.Event) -> str | None:
+        """A click anywhere on a day row takes that day in or out.
+
+        The whole row here, unlike the person list above: a day row does one thing.
+        """
+        item = self.day_tree.identify_row(event.y)
+        if not item or self._person is None:
+            return None
+        for iso, row in self._day_rows:
+            if row == item:
+                key = (self._person, iso)
+                if key in self._days_off:
+                    self._days_off.discard(key)
+                else:
+                    self._days_off.add(key)
+                self.day_tree.set(row, "tik",
+                                  "☐" if key in self._days_off else "☑")
+                self.day_title.configure(
+                    text=self._day_headline(self._person_days()))
+                break
+        return "break"
+
+    def _day_scrolled(self, first: str, last: str) -> None:
+        if float(first) <= 0.0 and float(last) >= 1.0:
+            self._day_scroll.grid_remove()
+        else:
+            self._day_scroll.grid(row=1, column=1, sticky="ns", pady=(0, 1))
+        self.day_tree.yview_moveto(first)
+
+    def _day_wheel(self, event: tk.Event) -> str:
+        self.day_tree.yview_scroll(-1 if event.delta > 0 else 1, "units")
         return "break"
 
     def _toggle(self, name: str) -> None:
@@ -505,6 +701,7 @@ class PeopleScreen:
             self._scroll.grid_remove()
             self.empty_note.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
             self._paint_notes()
+            self._paint_days()
             self._update_count()
             return
         self.empty_note.grid_remove()
@@ -528,6 +725,13 @@ class PeopleScreen:
             self._rows.append((person.name, row))
 
         self._paint_notes()
+        # A person the filter no longer admits must not stay on show beside it: the
+        # panel would be describing somebody the list does not contain. Their ticks are
+        # kept — `_days_off` is keyed on the name, so coming back restores what was
+        # chosen, the same way a re-filter does not forget `_off`.
+        if self._person is not None and self._person not in {n for n, _ in self._rows}:
+            self._person = None
+        self._paint_days()
         self._update_count()
         if listed_before != [name for name, _ in self._rows]:
             self.tree.yview_moveto(0.0)

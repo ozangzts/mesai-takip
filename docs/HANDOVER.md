@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (63 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (64 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **471 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **482 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -44,6 +44,10 @@ veri dosyası **`format_version` 9** ile güncel; Haziran'ı yeniden üretip kar
 
 **Pencerede üç ekran var:** Rapor, Kişiler, Takvim. Akış: klasörü seç → tatilleri
 işaretle → raporu üret → Kişiler'den listeyi çıkar.
+
+**Kişiler ekranı iki panelli** (ADR-064): solda kişi listesi, sağda seçilen kişinin
+sorunlu günleri gün gün, her biri seçilebilir. Adın solundaki kareye tıklamak kişiyi
+listeden çıkarır; adın kendisine tıklamak günlerini açar.
 
 ---
 
@@ -168,6 +172,7 @@ gerekiyor.
 | 061 | O işaretlemeye **hiçbir koşul yok** | İlk-kayıt çıpası ayda 45–60 günü saklıyordu |
 | 062 | `Ay büyük ölçüde boş` kaldırıldı | Artık gereksiz: o kişilerin hepsi günlük notu taşıyor, seçim 0 kişi değişiyor |
 | 063 | `Günlük Detay` herkesin her iş gününü tutuyor | Kaydı olmayan gün hiç satır almıyordu; Temmuz'da 1 141 kişi-günü ve 31 kişi sayfada yoktu |
+| 064 | Kişiler ekranına gün paneli, günler seçilebilir | Hangi günler olduğu yalnızca raporda vardı; seçim için iki pencere arasında gidip gelmek gerekiyordu |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.

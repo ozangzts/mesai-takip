@@ -58,6 +58,27 @@ class SnapshotError(Exception):
     """The snapshot is missing, unreadable, or of an unknown version."""
 
 
+def _clock(stamp: str) -> str:
+    """`HH:MM` out of whatever shape the stamp is in.
+
+    `entry` and `exit` are the day's measured times where there was a measurement, and
+    the SOURCE FILE'S OWN TEXT where the record was refused — which is right for the
+    audit trail and wrong for a screen. The raw form carries the date and the seconds:
+    `01.07.2026 07:17:04` beside a column that already says the date, in a panel whose
+    other rows read `07:41`.
+
+    Formatting happens at the boundary and only there (AGENTS §6): the stored value
+    stays exactly what the file said, so the report can keep printing it verbatim.
+    """
+    if not stamp:
+        return ""
+    piece = stamp.strip().rsplit(" ", 1)[-1]
+    parts = piece.split(":")
+    if len(parts) < 2 or not all(p.isdigit() for p in parts[:2]):
+        return stamp                      # not a time we recognise — show it as it is
+    return f"{int(parts[0]):02d}:{int(parts[1][:2]):02d}"
+
+
 @dataclass(frozen=True)
 class ProblemDay:
     """One person-day that carries at least one problem note.
@@ -104,6 +125,15 @@ class ProblemDay:
         if self.minutes is None:
             return ""
         return f"{self.minutes // 60}:{self.minutes % 60:02d}"
+
+    @property
+    def entry_text(self) -> str:
+        """`entry` as a clock time, for anything a person reads."""
+        return _clock(self.entry)
+
+    @property
+    def exit_text(self) -> str:
+        return _clock(self.exit)
 
 
 @dataclass(frozen=True)
