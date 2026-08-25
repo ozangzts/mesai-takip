@@ -387,7 +387,8 @@ ten seconds that nothing was lost.
 ## 6. Open items for approval
 
 1. Is `Aylık Özet` the right column set? Anything missing that HR needs on day one?
-2. Should `Günlük Detay` (~2 300 rows) ship in Phase 1, or is `Aylık Özet` +
-   `Şüpheli Kayıtlar` enough to start?
+2. `Günlük Detay` is now ~3 900 rows for a 176-person month (ADR-063). Is that the
+   right sheet to hand over, or does it want a filter — only the days that are not
+   ordinary, say — with the full grid kept for the audit trail?
 3. Should there be one workbook for everyone, or one per department?
 4. Sorted by name, or by department then name?
