@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (62 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (63 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -167,6 +167,7 @@ gerekiyor.
 | 060 | Kaydı hiç olmayan gün de işaretlenir | Dosyada satır yoksa hiçbir anomali üretilmiyordu; 11 kişi notsuzdu |
 | 061 | O işaretlemeye **hiçbir koşul yok** | İlk-kayıt çıpası ayda 45–60 günü saklıyordu |
 | 062 | `Ay büyük ölçüde boş` kaldırıldı | Artık gereksiz: o kişilerin hepsi günlük notu taşıyor, seçim 0 kişi değişiyor |
+| 063 | `Günlük Detay` herkesin her iş gününü tutuyor | Kaydı olmayan gün hiç satır almıyordu; Temmuz'da 1 141 kişi-günü ve 31 kişi sayfada yoktu |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.

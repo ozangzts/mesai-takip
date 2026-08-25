@@ -116,13 +116,13 @@ def test_the_reconciliation_invariant_holds(result):
 def test_a_cross_site_day_is_counted_once(result):
     """AYŞE: Teknopark 08:00-17:00 with a Macunköy visit inside it. Nine hours, not
     nine plus forty-five minutes."""
-    day = next(w for w in _workdays(result) if w[1] == "01.06.2026")
+    day = _day_of(result, "AYŞE DENEME", "01.06.2026")
     assert day[6] == "9:00", f"got {day[6]}"
 
 
 def test_a_midnight_crossing_is_repaired(result):
     """VELİ, 2nd: the source says -21:00 for a 23:00 -> 02:00 night shift."""
-    day = next(w for w in _workdays(result) if w[1] == "02.06.2026")
+    day = _day_of(result, "VELİ ÖRNEK", "02.06.2026")
     assert day[6] == "3:00"
     # The column prints the tag in words now, in the same wording as the
     # note label — the internal `gece-geçişi` never reaches a reader (ADR-050).
@@ -130,8 +130,14 @@ def test_a_midnight_crossing_is_repaired(result):
 
 
 def test_an_unrepairable_missing_punch_contributes_nothing(result):
-    """VELİ, 3rd: entry only, no other site to reconcile against. ADR-003."""
-    assert not [w for w in _workdays(result) if w[1] == "03.06.2026"]
+    """VELİ, 3rd: entry only, no other site to reconcile against. ADR-003.
+
+    The day now has a row — every working day does (ADR-063) — and what it must not have
+    is an hour. An invented default time is the failure ADR-003 forbids.
+    """
+    day = _day_of(result, "VELİ ÖRNEK", "03.06.2026")
+    assert not day[6], f"süre yazılmış: {day[6]!r}"
+    assert day[8] == "kayıt yok"
 
     book = openpyxl.load_workbook(result["output"], read_only=True)
     anomalies = "\n".join(
@@ -145,13 +151,13 @@ def test_a_remote_day_overrides_the_nominal_placeholder(result):
 
     ADR-018 — the declaration wins, so nine hours rather than 07:30->18:00 = 10:30.
     """
-    day = next(w for w in _workdays(result) if w[1] == "05.06.2026")
+    day = _day_of(result, "AYŞE DENEME", "05.06.2026")
     assert day[6] == "9:00", f"got {day[6]} — placeholder was not set aside"
 
 
 def test_a_short_day_is_flagged_but_still_counted(result):
     """ZEYNEP, 4th: two hours exactly is NOT under the threshold, so no flag."""
-    day = next(w for w in _workdays(result) if w[1] == "04.06.2026")
+    day = _day_of(result, "ZEYNEP TASLAK", "04.06.2026")
     assert day[6] == "2:00"
     assert "kısa-gün" not in (day[9] or ""), "exactly 2:00 must not flag"
 
@@ -250,6 +256,12 @@ def test_two_runs_produce_identical_figures(month, tmp_path, settings):
 
 
 # --- helpers ----------------------------------------------------------------
+
+def _day_of(result, name: str, date: str) -> tuple:
+    """One person's one day. Name AND date, because the sheet now holds every person's
+    every working day (ADR-063) — a date alone matches whoever sorts first."""
+    return next(w for w in _workdays(result) if w[0] == name and w[1] == date)
+
 
 def _workdays(result) -> list[tuple]:
     """Data rows of the Günlük Detay sheet."""
@@ -374,8 +386,17 @@ def test_no_internal_tag_name_reaches_the_workbook(result):
     assert printed, "hiç etiket yazılmamış — test bir şey kontrol etmiyor"
     leaked = printed & set(TAG_TEXT)
     assert not leaked, f"ham hâliyle yazılmış: {sorted(leaked)}"
-    assert printed <= set(TAG_TEXT.values()), sorted(
-        printed - set(TAG_TEXT.values()))
+
+    # Three legitimate vocabularies, and none of them is an identifier: a day's tags, a
+    # note label for a day with no record at all, and the leave type the HCM wrote for a
+    # day somebody was away (ADR-063). Listed rather than allowing anything, because the
+    # thing being guarded is that no FOURTH vocabulary appears.
+    from mesai.anomalies import DESCRIPTIONS
+    allowed = (set(TAG_TEXT.values())
+               | {label for label, _s, _e, _g in DESCRIPTIONS.values()}
+               | {"Yıllık İzin", "Mazeret", "İstirahat (Raporlu)", "Eğitim İzni",
+                  "Doğum Günü İzni", "Uzaktan Çalışma"})
+    assert printed <= allowed, sorted(printed - allowed)
 
 
 def test_every_tag_the_program_can_set_has_wording():

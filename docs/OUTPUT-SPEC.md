@@ -138,20 +138,33 @@ using the pre-2026-08-17 rules — check `break.deduct`, `daily_hours` and
 
 ### Sheet 2 — `Günlük Detay`
 
-One row per employee-day — 1 823 for May 2026. The audit trail for sheet 1.
+**Every person, every day** — 3 901 rows for July 2026, all 176 people. The audit trail
+for sheet 1, and since ADR-063 that means a row exists whether or not anything was
+recorded: every **expected working day** of the period, plus any weekend or holiday the
+person actually worked. Weekends and holidays with no record stay out; nobody accounts for
+a day they were not expected.
+
+It held one row per measured day before, so a day with no usable record had no row and the
+reader could not tell "did not come in" from "not in this sheet". July had 1 141 person-days
+missing and 31 people appearing nowhere.
 
 | # | Header | Notes |
 | --- | --- | --- |
 | A | Ad Soyad | |
 | B | Tarih | `21.05.2026` |
 | C | Gün | `Per` / `Cmt` / `Tatil` |
-| D | İlk Giriş | earliest entry of the merged union |
-| E | Son Çıkış | latest exit |
+| D | İlk Giriş | earliest entry of the merged union; **empty** if nothing was recorded |
+| E | Son Çıkış | latest exit; empty likewise |
 | F | Aralık Sayısı | number of merged intervals — `>1` means a split day |
-| G | Çalışma Süresi | `12:42` — **must equal E − D** |
+| G | Çalışma Süresi | `12:42` — **must equal E − D**; empty, never `00:00`, when there is no reading |
 | H | Gün İçi Boşluk | `0:42` — time between intervals, paid under ADR-015 |
-| I | Kaynak | `Teknopark`, `Macunköy`, `Teknopark+Macunköy` |
-| J | Etiket | `gece-geçişi`, `çapraz-eşleşti`, `kısa-gün`, … |
+| I | Kaynak | `Teknopark`, `Macunköy`, `Macunköy + Teknopark`, `Uzaktan`, **`İzin`**, **`kayıt yok`** |
+| J | Etiket | the day's tags; the leave type for an `İzin` row; `Hem giriş hem çıkış yok` for a `kayıt yok` one |
+
+Three row colours: **red** where nothing accounts for the day, **grey** for leave and for
+a worked holiday, **amber** where the day carries a tag. July: 853 rows read `kayıt yok`,
+317 `İzin`, and the 2 731 that carry a duration are the same 2 731 as before — the
+expansion adds no hours because there are none to add.
 
 **The tags, and what to filter on** (May 2026 counts):
 

@@ -15,6 +15,7 @@ import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ..anomalies import (DESCRIPTIONS, IMPACT_TEXT, TAG_TEXT, Anomaly,
+                         AnomalyKind,
                          Collector)
 from ..config import Settings
 from ..models import Employee, LeaveRecord, MonthSummary, NameKey, RunStats, WorkDay
@@ -99,7 +100,7 @@ def build(
     _sheet_summary(workbook.create_sheet("Aylık Özet"), period, summaries,
                    anomalies, stats, settings, footer)
     _sheet_daily(workbook.create_sheet("Günlük Detay"), workdays, employees,
-                 settings, footer)
+                 leave, settings, footer, period)
     _sheet_worklist(workbook.create_sheet("İnceleme Listesi"), period, anomalies,
                     employees, settings, footer, measured)
     _sheet_anomalies(workbook.create_sheet("Şüpheli Kayıtlar"), anomalies,
@@ -270,15 +271,67 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
 # Sheet 2 — Günlük Detay
 # ---------------------------------------------------------------------------
 
+# The words a day with no record at all carries in `Etiket`. Taken from the note rather
+# than written here, because one fact has one wording (ADR-049, ADR-050) — this is the
+# same day `Hem giriş hem çıkış yok` is raised for.
+TAG_TEXT_EMPTY = DESCRIPTIONS[AnomalyKind.EMPTY_RECORD][0]
+
 _DAILY_HEAD = ["Ad Soyad", "Tarih", "Gün", "İlk Giriş", "Son Çıkış", "Aralık Sayısı"]
 _DAILY_HEAD_WIDTHS = [28, 12, 13, 10, 10, 13]
 _DAILY_TAIL = ["Kaynak", "Etiket"]
 _DAILY_TAIL_WIDTHS = [24, 26]
 
 
+def _daily_rows(
+    workdays: list[WorkDay], employees: dict[NameKey, Employee],
+    leave: list[LeaveRecord], settings: Settings, period: str,
+) -> list[tuple[NameKey, date, WorkDay | None, str]]:
+    """Every person, every day — `(key, date, workday or None, leave type)`.
+
+    The sheet used to hold one row per `WorkDay`, so a day with no usable record simply
+    had no row and the reader could not tell "did not come in" from "not in this sheet".
+    Now it carries, for every person in the report:
+
+    * every **expected working day** of the period, whether or not anything was recorded,
+    * plus any weekend or holiday on which the person **did** work.
+
+    Weekends and holidays with no record are left out: nobody has to account for a day
+    they were not expected. A holiday that was worked appears, shaded, because that is the
+    day somebody will ask about.
+
+    This is a **display** expansion and nothing else. No `WorkDay` is invented, so the
+    reconciliation invariant (Σ per-person == Σ measured person-days) is untouched — the
+    added rows carry no hours because there are none to carry.
+    """
+    year, month = (int(part) for part in period.split("-"))
+    expected = settings.calendar.expected_workdays(year, month)
+
+    on_leave: dict[tuple[NameKey, date], str] = {}
+    for record in leave:
+        if record.start is None:
+            continue
+        day, last = record.start.date(), (record.end or record.start).date()
+        while day <= last:
+            on_leave.setdefault((record.key, day), record.leave_type)
+            day += timedelta(days=1)
+
+    measured = {(w.key, w.date): w for w in workdays}
+    wanted: set[tuple[NameKey, date]] = {(key, day) for key in employees
+                                         for day in expected}
+    wanted |= set(measured)          # weekend and holiday work keeps its row
+
+    rows = []
+    for key, day in wanted:
+        rows.append((key, day, measured.get((key, day)),
+                     on_leave.get((key, day), "")))
+    return sorted(rows, key=lambda r: (
+        sort_key(employees[r[0]].display_name if r[0] in employees else ""), r[1]))
+
+
 def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
-                 employees: dict[NameKey, Employee], settings: Settings,
-                 footer: list[str]) -> None:
+                 employees: dict[NameKey, Employee], leave: list[LeaveRecord],
+                 settings: Settings, footer: list[str],
+                 period: str = "") -> None:
     if settings.brk.deduct:
         middle, middle_widths = ["Brüt", "Öğle Kesintisi", "Net"], [10, 14, 10]
     else:
@@ -295,48 +348,64 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
     styles.write_title(sheet, 1, "GÜNLÜK DETAY — özetin denetim izi", span)
     styles.write_banner(
         sheet, 2,
-        "Her satır bir kişi-gün. 'Aralık Sayısı' 1'den büyükse gün bölünmüş "
-        "(ara giriş-çıkış) demektir. Kaynak 'Macunköy → Teknopark' ise ilk giriş bir "
-        "tesiste, son çıkış diğerinde; '+' ise iki tesisin kaydı aynı aralıkta "
-        "birleşmiştir ve çakışan süre bir kez sayılmıştır.", span)
+        "Her kişinin her iş günü burada — çalıştığı, izinli olduğu ve hiç kaydı "
+        "olmayan günler dahil. Hafta sonu ve tatiller yalnızca o gün çalışılmışsa "
+        "görünür. 'Aralık Sayısı' 1'den büyükse gün bölünmüş (ara giriş-çıkış) "
+        "demektir. Kaynak 'Macunköy → Teknopark' ise ilk giriş bir tesiste, son çıkış "
+        "diğerinde; '+' ise iki tesisin kaydı aynı aralıkta birleşmiştir ve çakışan "
+        "süre bir kez sayılmıştır; 'İzin' ya da 'kayıt yok' ise o gün çalışma kaydı "
+        "yoktur.", span)
     styles.write_banner(sheet, 3, _hours_rule_note(settings), span)
     styles.write_header(sheet, 4, headers, widths)
 
     row = 5
-    for workday in sorted(
-        workdays,
-        key=lambda w: (sort_key(employees[w.key].display_name
-                                if w.key in employees else ""), w.date),
-    ):
-        employee = employees.get(workday.key)
-        day_label = settings.calendar.label(workday.date)
+    for key, day, workday, leave_type in _daily_rows(
+            workdays, employees, leave, settings, period):
+        employee = employees.get(key)
+        day_label = settings.calendar.label(day)
 
-        if settings.brk.deduct:
-            middle_values = [hhmm(workday.gross), hhmm(workday.break_deduction),
-                             hhmm(workday.net)]
+        if workday is None:
+            # Nothing measured. The times stay empty rather than 0 — there is no
+            # reading, and `00:00` would look like one.
+            middle_values = ["", "", ""] if settings.brk.deduct else ["", ""]
+            values = [
+                employee.display_name if employee else "",
+                day.strftime("%d.%m.%Y"),
+                day_label,
+                "", "", "",
+                *middle_values,
+                "İzin" if leave_type else "kayıt yok",
+                leave_type or TAG_TEXT_EMPTY,
+            ]
         else:
-            middle_values = [hhmm(workday.gross), hhmm(workday.gap_total)]
-
-        values = [
-            employee.display_name if employee else "",
-            workday.date.strftime("%d.%m.%Y"),
-            day_label,
-            workday.first_entry.strftime("%H:%M") if workday.first_entry else "",
-            workday.last_exit.strftime("%H:%M") if workday.last_exit else "",
-            len(workday.intervals),
-            *middle_values,
-            _day_sources_label(workday),
-            _tags_label(workday.tags),
-        ]
+            if settings.brk.deduct:
+                middle_values = [hhmm(workday.gross), hhmm(workday.break_deduction),
+                                 hhmm(workday.net)]
+            else:
+                middle_values = [hhmm(workday.gross), hhmm(workday.gap_total)]
+            values = [
+                employee.display_name if employee else "",
+                day.strftime("%d.%m.%Y"),
+                day_label,
+                workday.first_entry.strftime("%H:%M") if workday.first_entry else "",
+                workday.last_exit.strftime("%H:%M") if workday.last_exit else "",
+                len(workday.intervals),
+                *middle_values,
+                _day_sources_label(workday),
+                _tags_label(workday.tags),
+            ]
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
             if index in right_cols:
                 cell.alignment = styles.RIGHT
-
         fill = None
-        if workday.tags:
+        if workday is None:
+            # Grey for leave, red for a day nobody can account for. The second one is
+            # the whole reason these rows exist.
+            fill = styles.GREY_FILL if leave_type else styles.RED_FILL
+        elif workday.tags:
             fill = styles.AMBER_FILL
-        if settings.calendar.is_holiday(workday.date):
+        if settings.calendar.is_holiday(day):
             fill = styles.GREY_FILL
         styles.style_row(sheet, row, span, fill)
         row += 1

@@ -132,7 +132,11 @@ def test_daily_sheet_shows_the_gap_that_the_envelope_pays(tmp_path, settings):
     rows = list(book["Günlük Detay"].iter_rows(values_only=True))
     headers = [c for c in rows[3] if c is not None]
     assert headers[6:8] == ["Çalışma Süresi", "Gün İçi Boşluk"]
-    assert rows[4][6] == "9:39" and rows[4][7] == "0:42"
+
+    # By date, not by row number: the sheet holds every working day of the period now
+    # (ADR-063), so the measured day is no longer the first row.
+    day = next(r for r in rows[4:] if r and r[1] == DAY.strftime("%d.%m.%Y"))
+    assert day[6] == "9:39" and day[7] == "0:42"
 
 
 def test_the_rule_banner_names_the_active_rule(tmp_path, settings, settings_break):

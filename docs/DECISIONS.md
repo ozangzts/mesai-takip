@@ -3842,3 +3842,75 @@ ADR-052 was written about.
 - ROADMAP Q18 (hire and leaving dates) is still open and still matters — it is now what
   would let `Hem giriş hem çıkış yok` stop flagging mid-month joiners, rather than what
   would fix this note's false positives.
+
+---
+
+## ADR-063 — `Günlük Detay` holds every person's every working day
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Extends ADR-060. Display only — no rule changes.**
+
+### Context
+
+The sheet held one row per `WorkDay`, so a day with no usable record had no row at all.
+The operator went looking for days and could not find them: *"herkesin her günü var mı?
+bazı günleri göremedim. orada sadece temiz günler olmasın, gelmediği günler de olsun eğer
+izni vs yoksa, izinli olduğu günler de olsun izinli diye görünsün."*
+
+Measured on July 2026: **2 731 rows covering 145 people**, against 176 people in the
+report and 22 expected working days — so 1 141 person-days were simply absent from the
+audit trail, and 31 people appeared nowhere in it. A reader could not tell "did not come
+in" from "not in this sheet", which is the distinction the sheet exists to make.
+
+### Decision
+
+One row per person per day, for every person in the report:
+
+* every **expected working day** of the period, whether or not anything was recorded,
+* plus any weekend or holiday the person **did** work.
+
+Weekends and holidays with no record stay out — nobody accounts for a day they were not
+expected. A worked holiday appears, shaded grey, because that is the day somebody asks
+about.
+
+| The day was | Times | `Kaynak` | `Etiket` | Row |
+| --- | --- | --- | --- | --- |
+| worked | measured | site, or `Uzaktan` | the day's tags | as before |
+| leave | empty | `İzin` | the leave type the HCM wrote | grey |
+| nothing at all | empty | `kayıt yok` | `Hem giriş hem çıkış yok` | **red** |
+
+Times stay **empty**, never `00:00`: there is no reading, and a zero looks like one.
+
+`Etiket` takes the note's exact words for an unrecorded day, read out of `DESCRIPTIONS`
+rather than written in the sheet — one fact, one wording (ADR-049, ADR-050).
+
+### Alternatives rejected
+
+**Invent a `WorkDay` for the missing days** so the existing loop needs no change.
+Rejected outright: the reconciliation invariant is Σ per-person == Σ measured person-days,
+and a zero-hour `WorkDay` is a measured day that was never measured. The expansion lives
+in the report, reads `employees`, `leave` and the calendar, and creates nothing.
+
+**Only the people who have attendance.** That is what the sheet already did, and the 31
+people it omitted in July are precisely the ones worth looking at.
+
+**Every calendar day, weekends included.** 176 × 31 = 5 456 rows, most of them saying
+nothing happened on a Sunday. The calendar already decides which days are expected; the
+sheet follows it.
+
+### Consequences
+
+- July: **2 731 → 3 901 rows**, all 176 people. 853 rows read `kayıt yok`, 317 `İzin`.
+  Weekend and holiday rows are unchanged at 19 + 5 + 5, because they only appear when
+  worked.
+- **No figure moved.** 26 233:17 before and after; the rows carrying a duration are still
+  exactly 2 731. Their `HH:MM` values sum to 26 227:35 — 5:42 short of the total, which is
+  per-row truncation of seconds and why the reconciliation works on `timedelta`, not on
+  what the sheet prints.
+- Two end-to-end tests looked a day up **by date alone** and silently began matching
+  whoever sorted first. They now match on name and date, which is what they always meant.
+- `test_no_internal_tag_name_reaches_the_workbook` allows three vocabularies now: day
+  tags, note labels, and the leave types the HCM writes. Listed explicitly rather than
+  loosened, because what it guards is that no *fourth* one appears.
+- No `format_version` change. The snapshot is untouched.
