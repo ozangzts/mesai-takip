@@ -3539,3 +3539,74 @@ a filter needs.
   93 px spare, and a GUI test holds it. The panel has clipped before (ADR-039's
   neighbourhood), so this is asserted rather than eyeballed.
 - No `format_version` change. Both figures are computed when the snapshot is read.
+
+---
+
+## ADR-059 — The filter selects outstanding days; the label says nothing else
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Replaces ADR-058's label. Moves ADR-055's rule from the mail step into the filter.**
+
+### Context
+
+ADR-055 established the rule and put it in the wrong place. It made
+`days_for(..., only_unexplained=True)` an **option** that the future mail step would
+pass, and left the people screen's filters selecting every day that carried a note. So
+ticking `Giriş yok` still returned the 76 July days where an entry *was* read — at the
+other site — and the panel tried to explain the gap with a ratio in the label
+(`27 kişi · 5/78 gün sayılmadı`, ADR-058).
+
+The operator's correction, and it is the whole ADR: *"altı üstü girişi yok seçtiğimde
+HİÇBİR YERDE girişi olmayan adam varsa onları getireceksin önüme, bu kadar. bir adamın
+girişi yoksa hiçbir yerde ve uzaktan çalışmıyorsa ve izinli değilse o gün iptal."*
+
+The rule was never optional and the label never needed a ratio. A day the other site's
+record already covered is not a problem and never was; explaining its presence in the
+list was work created by putting it there.
+
+### Decision
+
+**`days_for()` always returns outstanding days.** The flag is gone — it existed only to
+be forgotten. `ProblemDay.explained` is the predicate.
+
+**`matching()` uses `outstanding()`**, for a single note and for the problem group alike.
+A note reaches somebody two ways and only one can be explained away: through a **day**
+(outstanding only if that day lost time) or through a **month-level note with no date**
+(`Mesai verisi yok`, `Ay büyük ölçüde boş`) — there is no day to explain, so it always
+stands. Without that second case July's 31 people with no attendance at all would drop
+out of every list.
+
+**`Sorunu olmayanlar` asks the same question.** A test holds the two groups to a
+partition of the month, so both must mean "did this person lose anything" rather than
+"does this person carry a note". Somebody whose Macunköy row was blank on a day their
+Teknopark record covered in full belongs with the clean.
+
+**The label is `{not} ({kişi})` and nothing more.** `problem_labels()` is back to three
+elements.
+
+### Alternatives rejected
+
+**Keep the ratio in the label.** Nothing left to reconcile once the filter is right: the
+count *is* the number of people with something outstanding. The ratio existed to explain
+rows that should not have been in the list.
+
+**Drop the notes that now count nobody** — `Tesis birleştirme (0)` and four others.
+Rejected: a bug in `explained` would then remove a whole note from the window silently,
+which is the failure ADR-017 and ADR-048 both guard against. `(0)` under the
+`Günü sayılan` heading is visible information; an absent row is not.
+
+**Restrict only the problem group and leave single-note filters as views.** That is
+exactly what the operator ruled out — "girişi yok seçtiğimde" is a single-note filter.
+
+### Consequences
+
+- July: `Hem giriş hem çıkış yok` goes from 27 people to **3**, and its 78 days to **5** —
+  the days where both punches are missing everywhere. `Giriş yok` 40 → **16** people, 25
+  days. `Çıkış yok` 61 → **33**, 132 days. `Sorunu olanlar` 99 → **66**.
+- The five notes whose days all counted show `(0)`. Correct, and the heading says why.
+- **ADR-056's split now has almost nothing to split** — every note with people is in
+  `Günü sayılmayan`. The grouping stays because the headings still tell the reader which
+  half is which, and because the alternative is another change to the same panel.
+- `with_unexplained_days()` is gone; `matching` does its job.
+- No `format_version` change. All of this is computed when the snapshot is read.

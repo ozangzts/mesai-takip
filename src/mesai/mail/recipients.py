@@ -108,34 +108,26 @@ def day_counts(snapshot: Snapshot | None) -> dict[str, tuple[int, int]]:
 
 def problem_labels(
     snapshot: Snapshot | None,
-) -> tuple[tuple[str, str, int, int, int], ...]:
-    """`(group, label, people, days, days_that_lost_time)` for every note present.
+) -> tuple[tuple[str, str, int], ...]:
+    """`(group, label, people)` for every problem note present, in filter order.
 
-    The group is `LOST` or `KEPT`, computed from the data rather than declared, because
-    whether a note cost anybody hours is a fact about its days and not about its kind.
+    `group` is `LOST` or `KEPT` (ADR-056): whether any of the note's days cost somebody
+    hours. The panel needs nothing beyond the heading and the count — an earlier version
+    printed the day ratio beside each label (`27 kişi · 5/78 gün sayılmadı`) and it was
+    noise, because with the filter itself restricted to outstanding days there is no
+    second number left to reconcile. The heading says which half of the list is the one
+    to chase; that is the whole job.
 
-    Two things follow, and the second is the reason the day count is in the tuple:
-
-    * A note can hold both sorts of day — June's `Çıkış yok` is 126 lost and 21 counted
-      — so the group says "this note has at least one day somebody lost", not "all of
-      them".
-    * **A note can change group between months.** `Giriş-çıkış tutarsız` lost a day in
-      May and none in June or July; `Günlük süre çok kısa` the other way round. That is
-      the instability ADR-029 rejected for frequency ordering, accepted here because
-      impact is the whole point of the split — and made harmless by printing the count,
-      which says why the note moved.
-
-    Notes with no dated days at all (`Mesai verisi yok`, `Ay büyük ölçüde boş`) have
-    nothing to measure and sit in `LOST`: a month nobody can account for is not the
-    thing to file under "counted".
+    Notes with no dated days (`Mesai verisi yok`, `Ay büyük ölçüde boş`) sit in `LOST`:
+    a month nobody can account for is not the thing to file under "counted".
     """
     if snapshot is None:
         return ()
     days = day_counts(snapshot)
     return tuple(
         (LOST if (days.get(label, (0, 0))[1] or label not in days) else KEPT,
-         label, count, days.get(label, (0, 0))[0], days.get(label, (0, 0))[1])
-        for label, count, is_problem in snapshot.label_counts()
+         label, len(matching(snapshot, label)))
+        for label, _count, is_problem in snapshot.label_counts()
         if is_problem)
 
 
@@ -146,7 +138,7 @@ def default_labels(snapshot: Snapshot | None) -> frozenset[str]:
     counts by default: for a list that decides who gets contacted, including somebody
     who should not have been is a correction, and leaving somebody out is silence.
     """
-    return frozenset(label for _g, label, _c, _d, _l in problem_labels(snapshot)
+    return frozenset(label for _g, label, _c in problem_labels(snapshot)
                      if label not in DEFAULT_OFF)
 
 
@@ -161,7 +153,7 @@ def choices(snapshot: Snapshot | None,
     """
     if snapshot is None:
         return ()
-    clean = sum(1 for p in snapshot.people if not p.problems)
+    clean = len(matching(snapshot, NO_PROBLEM))
     entries = [
         Choice(ALL, ALL_LABEL, len(snapshot.people)),
         Choice(NO_PROBLEM, NO_PROBLEM_LABEL, clean),
@@ -170,8 +162,8 @@ def choices(snapshot: Snapshot | None,
         Choice(PROBLEM, PROBLEM_LABEL, len(matching(snapshot, PROBLEM, labels)),
                is_problem=True),
     ]
-    entries += [Choice(label, label, count, is_problem)
-                for label, count, is_problem in snapshot.label_counts()]
+    entries += [Choice(label, label, len(matching(snapshot, label)), is_problem)
+                for label, _count, is_problem in snapshot.label_counts()]
     return tuple(entries)
 
 
@@ -188,15 +180,33 @@ def matching(snapshot: Snapshot | None, filter_key: str,
     if filter_key == ALL:
         people = snapshot.people
     elif filter_key == NO_PROBLEM:
-        people = tuple(p for p in snapshot.people if not p.problems)
+        people = tuple(p for p in snapshot.people if not _has_problem(p, snapshot))
     elif filter_key == PROBLEM:
         counted = (default_labels(snapshot) if labels is None
                    else frozenset(labels))
-        people = tuple(p for p in snapshot.people
-                       if counted.intersection(with_implied(p.problems)))
+        people = tuple(p for p in snapshot.people if outstanding(p, counted))
     else:
-        people = snapshot.with_label(filter_key)
+        # A single note. `outstanding` rather than "carries the label", so ticking
+        # `Giriş yok` brings the people whose entry is missing EVERYWHERE and nobody
+        # else. Expected-behaviour notes have no dated problem days and fall through to
+        # the month-level branch, so they still list their people.
+        people = tuple(p for p in snapshot.people
+                       if outstanding(p, {filter_key})
+                       or filter_key in with_implied(p.expected))
     return tuple(sorted(people, key=lambda p: sort_key(p.name)))
+
+
+def _has_problem(person: Person, snapshot: Snapshot) -> bool:
+    """Whether anything is outstanding for this person under any note.
+
+    `Sorunu olmayanlar` is the complement of `Sorunu olanlar`, and a test holds the two
+    to a partition of the month. So both have to ask the same question: not "does this
+    person carry a note" but "did this person lose anything". Somebody whose Macunköy row
+    was blank on a day their Teknopark record covered in full carries a note and has
+    nothing outstanding — they belong with the clean.
+    """
+    return bool(outstanding(person, {label for _g, label, _c in
+                                     problem_labels(snapshot)}))
 
 
 def selected(snapshot: Snapshot | None, filter_key: str, excluded: Iterable[str],
@@ -208,58 +218,60 @@ def selected(snapshot: Snapshot | None, filter_key: str, excluded: Iterable[str]
 
 
 def days_for(person: Person, labels: Iterable[str] | None = None,
-             snapshot: Snapshot | None = None,
-             only_unexplained: bool = False) -> tuple[ProblemDay, ...]:
-    """The person's days the message may speak about: those the ticked notes are about.
+             snapshot: Snapshot | None = None) -> tuple[ProblemDay, ...]:
+    """The person's days the ticked notes are about — and only the days that cost them.
 
-    The rule ADR-051 states — ticked notes choose both *who* and *which days* — lives
-    here rather than in the mail step, because it was stated only in a test and a rule
-    stated in a test gets re-implemented slightly differently by whoever writes the
-    caller. `with_implied` applies here for the same reason it applies to the person:
-    ticking `Giriş yok` must return the day that has no entry *and* no exit, or the
-    person is written to about a day the message then cannot mention.
+    The rule, in the operator's words: *"bir adamın girişi yoksa hiçbir yerde ve uzaktan
+    çalışmıyorsa ve izinli değilse o gün iptal."* So a day is here when its punch is
+    missing **everywhere** — not at either site, not covered by a remote declaration, not
+    covered by leave. A day the other site's record already covered is not a problem and
+    never was; where the entry was read at one site and the exit at the other, the union
+    counted the whole day.
 
-    `labels=None` means the default set, which needs the snapshot to know what notes
-    exist. Passing neither is "every day this person has a problem on".
+    This used to be optional (`only_unexplained=False` by default), on the reasoning that
+    the report might want every day. It does not — the report reads anomalies directly —
+    so the flag existed only to be forgotten by a caller. `ProblemDay.explained` is the
+    predicate and it applies here always.
 
-    `only_unexplained` drops the days where **nothing was lost** — see
-    `ProblemDay.explained`. A note is about a record; whether a minute went missing is a
-    fact about the day. Measured over May-July 2026, with the three punch notes ticked:
+    Ticked notes choose both *who* and *which days* (ADR-051), and `with_implied` applies
+    for the same reason it applies to the person (ADR-053): ticking `Giriş yok` returns a
+    day that had no entry and no exit either.
 
-        selected days                    147   247   244
-        still counted (another record)  - 52  - 99  - 90
-        counted nothing, but on leave   -  3  -  2  -  2
-        actually lost                     92   146   152
-
-    and by person, 58 / 82 / 64 becomes 34 / 42 / 36. Those dropped are Teknopark staff
-    who called at Macunköy: the Macunköy row is the broken one, their day was recorded
-    in full at Teknopark, and they lost nothing. Where the entry was read at one site
-    and the exit at another, that is a complete day too — the union already counted it.
-
-    Not the default, because this module also answers "what is wrong with this person's
-    month", where an explained day is still worth showing. The mail step passes True.
+    Measured over May-July 2026 with the three punch notes ticked: of 147 / 247 / 244
+    days carrying a note, 92 / 146 / 152 are here. The rest were counted elsewhere or are
+    leave.
     """
     if labels is None:
         if snapshot is None:
-            days = person.days
-            return tuple(d for d in days if not d.explained) if only_unexplained                 else days
+            return tuple(d for d in person.days if not d.explained)
         labels = default_labels(snapshot)
     counted = frozenset(labels)
     return tuple(day for day in person.days
-                 if counted.intersection(with_implied(day.problems))
-                 and not (only_unexplained and day.explained))
+                 if not day.explained
+                 and counted.intersection(with_implied(day.problems)))
 
 
-def with_unexplained_days(people: Iterable[Person],
-                          labels: Iterable[str] | None = None) -> tuple[Person, ...]:
-    """Those of `people` who still have a day left once the explained ones are dropped.
+def outstanding(person: Person, labels: Iterable[str]) -> frozenset[str]:
+    """Which of `labels` this person actually has something outstanding under.
 
-    Filtering days is not enough on its own: somebody every one of whose days was
-    counted elsewhere would otherwise be written to with an empty list. 24 / 40 / 27
-    people over May-July 2026 are exactly that.
+    A note reaches somebody one of two ways, and only one of them can be explained away:
+
+    * through a **day** — outstanding only if that day lost time (`days_for`),
+    * through a **month-level note** with no date at all (`Mesai verisi yok`,
+      `Ay büyük ölçüde boş`) — there is no day to explain, so it always stands.
+
+    Without the second case the 31 people whose July has no attendance record at all
+    would drop out of every list, which is the opposite of the point.
     """
-    return tuple(p for p in people
-                 if days_for(p, labels, only_unexplained=True))
+    counted = frozenset(labels)
+    carried = counted.intersection(with_implied(person.problems))
+    if not carried:
+        return frozenset()
+    dated = {label for day in person.days for label in with_implied(day.problems)}
+    from_days = {label for day in days_for(person, carried)
+                 for label in with_implied(day.problems)}
+    return frozenset(label for label in carried
+                     if label in from_days or label not in dated)
 
 
 def without_email(people: Iterable[Person]) -> tuple[Person, ...]:

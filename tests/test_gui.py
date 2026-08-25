@@ -1811,17 +1811,13 @@ def test_the_copied_list_follows_the_ticked_notes(problem_screen):
     assert len(captured[0].split("\n")) == 4
 
 
-def test_the_note_panel_still_fits_once_the_labels_carry_two_day_figures(
-        people_screen, tmp_path):
+def test_the_note_panel_fits_with_every_note_present(people_screen, tmp_path):
     """The panel clipped once already, at four columns (ADR-039's neighbourhood).
 
-    `Çıkış yok  (61 kişi · 132/221 gün sayılmadı)` is the widest line the real months
-    produce and it is 13 characters longer than anything the panel held before, so the
-    fit is measured rather than assumed. A clipped checkbox is worse than a tall panel:
-    the reader cannot tell which note they are ticking.
-
-    Measured when written: widest box 243 px against a 336 px column, 93 px spare. If a
-    label grows past that, widen the panel or shorten the label — do not clip.
+    The labels are plain again — `{not} ({kişi})`, ADR-059 — and the widest of them is
+    `Günlük süre çok uzun (>16 saat)`. This holds the fit against a month that carries
+    every note at once, so a label added later cannot quietly start clipping. A clipped
+    checkbox is worse than a tall panel: the reader cannot tell which note they tick.
     """
     import tkinter as tk
 
@@ -1852,3 +1848,83 @@ def test_the_note_panel_still_fits_once_the_labels_carry_two_day_figures(
     en_genis = max(k.winfo_reqwidth() for k in kutular)
     assert en_genis <= available / 2, (
         f"kutu {en_genis}px, kolon {available / 2:.0f}px — kırpılır")
+
+
+# --- different window sizes (asked for directly) -----------------------------
+
+_SIZES = [
+    (880, 620),      # the floor: root.minsize
+    (1024, 700),     # a small laptop
+    (1366, 768),     # the commonest laptop panel
+    (1920, 1080),    # a desk monitor
+    (2560, 1400),    # wide, the case where a fixed layout leaves a dead right half
+]
+
+
+@pytest.mark.parametrize("width,height", _SIZES)
+def test_the_people_screen_uses_the_window_it_is_given(people_screen, tmp_path,
+                                                       width, height):
+    """Asked directly: does anything break at another resolution or maximized?
+
+    Two failures are looked for, and they are the two a grid layout actually produces:
+    a list that stops growing and leaves the right half of a wide window dead, and a
+    layout wider than its window, which crops from the edge.
+    """
+    from mesai.mail import recipients
+
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person(f"KİŞİ{n} DENEME", ["Çıkış yok"]) for n in range(60)]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+
+    root = people_screen.root
+    root.geometry(f"{width}x{height}")
+    root.update()
+    root.update_idletasks()
+
+    assert root.winfo_width() >= width - 2, "the window did not take the size"
+    # nothing may be wider than the window it sits in
+    assert screen.frame.winfo_width() <= root.winfo_width()
+    # the list grows with the window instead of sitting at a fixed width
+    liste = screen.tree
+    assert liste.winfo_width() >= root.winfo_width() * 0.5, (
+        f"{width}x{height}: liste {liste.winfo_width()}px / "
+        f"pencere {root.winfo_width()}px")
+    assert liste.winfo_height() > 60, "the list collapsed"
+
+
+@pytest.mark.parametrize("width,height", _SIZES)
+def test_the_report_screen_uses_the_window_it_is_given(people_screen, width, height):
+    """Same question for the screen that is on display when the window first opens."""
+    people_screen.show("rapor")
+    root = people_screen.root
+    root.geometry(f"{width}x{height}")
+    root.update()
+    root.update_idletasks()
+
+    screen = people_screen._screens["rapor"]
+    assert screen.frame.winfo_width() <= root.winfo_width()
+    assert screen.frame.winfo_width() >= root.winfo_width() * 0.5
+
+
+def test_maximizing_is_left_alone(people_screen):
+    """`_fit` grows the window on a screen change; maximized, the size is the user's.
+
+    Without the early return, switching screens while maximized re-asserted a smaller
+    geometry and un-maximized the window.
+    """
+    root = people_screen.root
+    try:
+        root.state("zoomed")
+        root.update_idletasks()
+    except Exception:                       # pragma: no cover - platform without it
+        pytest.skip("this platform has no zoomed state")
+
+    people_screen.show("kisiler")
+    root.update_idletasks()
+    assert root.state() == "zoomed", "switching screens must not un-maximize"
+
+    people_screen.show("rapor")
+    root.update_idletasks()
+    assert root.state() == "zoomed"

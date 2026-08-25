@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (58 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (59 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **456 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **467 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -139,6 +139,40 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
+
+---
+
+## Bu turda ne yapıldı (2026-08-25, beşinci tur)
+
+**Kural doğruydu, yeri yanlıştı** (ADR-059). ADR-055 "gerçekten kaybı olan günler"
+kuralını `days_for`'a **seçenek** olarak koydu ve mail adımına sakladı; Kişiler ekranının
+filtreleri notu taşıyan her günü getirmeye devam etti. `Giriş yok` işaretlemek Temmuz'da
+girişi **diğer tesiste okunmuş** 76 günü de getiriyordu, ve etiket bu boşluğu bir oranla
+açıklamaya çalışıyordu (`27 kişi · 5/78 gün sayılmadı`).
+
+Kullanıcının düzeltmesi: *"girişi yok seçtiğimde HİÇBİR YERDE girişi olmayan adam varsa
+onları getireceksin, bu kadar."* Kural hiç seçeneğe bağlı olmamalıydı ve etiketin orana
+ihtiyacı yoktu.
+
+- `days_for()` **her zaman** kaybı olan günleri döndürüyor. Bayrak yok.
+- `matching()` `outstanding()` kullanıyor — tek not için de, sorun grubu için de.
+- **Tarihi olmayan aylık notlar her zaman duruyor** (`Mesai verisi yok`,
+  `Ay büyük ölçüde boş`): açıklanacak bir gün yok. Bu olmadan Temmuz'da hiç kart kaydı
+  olmayan 31 kişi bütün listelerden düşerdi.
+- `Sorunu olmayanlar` aynı soruyu soruyor, çünkü bir test ikisini ayın bölüşümü olmaya
+  zorluyor.
+- Etiket yalnızca `{not} ({kişi})`.
+
+Temmuz'da etki: `Hem giriş hem çıkış yok` 27 → **3 kişi**, 78 → **5 gün**. `Giriş yok`
+40 → **16**. `Çıkış yok` 61 → **33**. `Sorunu olanlar` 99 → **66**.
+
+Günleri hep sayılmış beş not `(0)` gösteriyor. Silmedim: `explained` mantığında bir hata
+olsa o not pencereden sessizce kaybolurdu, `(0)` ise görünür bilgi.
+
+**Pencere farklı çözünürlüklerde test edildi** — soruldu, tahmin edilmedi. 880×620
+(taban), 1024×700, 1366×768, 1920×1080, 2560×1400 ve maximize: her boyutta Kişiler ve
+Rapor ekranı pencereyi dolduruyor, liste pencereyle büyüyor, hiçbir şey pencereden geniş
+değil, ekran değiştirmek maximize'ı bozmuyor. 11 test.
 
 ---
 

@@ -258,7 +258,7 @@ def test_the_group_and_the_clean_group_partition_the_month(snap):
     `Sorunu olanlar (99)` beside `Sorunu olmayanlar (69)` on a 176-person month should
     be able to add them.
     """
-    every = frozenset(label for _g, label, _c, _d, _l
+    every = frozenset(label for _g, label, _c
                       in recipients.problem_labels(snap))
     problem = {p.name for p in recipients.matching(snap, recipients.PROBLEM, every)}
     clean = {p.name for p in recipients.matching(snap, recipients.NO_PROBLEM)}
@@ -285,18 +285,11 @@ def test_the_notes_offered_for_ticking_carry_their_group_and_counts(snap):
     offered = recipients.problem_labels(snap)
 
     assert offered, "a month with problems must offer something to tick"
-    assert {g for g, _l, _c, _d, _x in offered} <= {recipients.LOST, recipients.KEPT}
-    for _group, label, count, days, lost in offered:
+    assert {g for g, _l, _c in offered} <= {recipients.LOST, recipients.KEPT}
+    for _group, label, count in offered:
         assert count == len(recipients.matching(snap, label)), label
-        # both day figures obey the implication, or the line contradicts itself
-        assert days == sum(len(recipients.days_for(p, {label}))
-                           for p in recipients.matching(snap, label)), label
-        assert lost == sum(len(recipients.days_for(p, {label},
-                                                  only_unexplained=True))
-                           for p in recipients.matching(snap, label)), label
-        assert lost <= days, label
     assert all(label != "Uzaktan + sistem kaydı"
-               for _g, label, _c, _d, _l in offered), "expected behaviour is not offered"
+               for _g, label, _c in offered), "expected behaviour is not offered"
 
 
 def test_a_note_is_grouped_by_whether_its_days_cost_anybody_hours():
@@ -313,10 +306,10 @@ def test_a_note_is_grouped_by_whether_its_days_cost_anybody_hours():
     snap = Snapshot(period="2026-06", generated_at=datetime(2026, 8, 25, 10, 0),
                     rules={}, coverage={}, people=(kayipli, sayilan))
 
-    by_label = {l: (g, days, lost) for g, l, _c, days, lost
-                in recipients.problem_labels(snap)}
-    assert by_label["Çıkış yok"] == (recipients.LOST, 2, 2)
-    assert by_label["Tesis birleştirme"] == (recipients.KEPT, 1, 0)
+    by_label = {l: (g, c) for g, l, c in recipients.problem_labels(snap)}
+    assert by_label["Çıkış yok"] == (recipients.LOST, 1)
+    # in KEPT, and nobody is outstanding under it — the whole point
+    assert by_label["Tesis birleştirme"] == (recipients.KEPT, 0)
 
 
 def test_a_month_level_note_with_no_days_is_not_filed_as_counted():
@@ -327,7 +320,7 @@ def test_a_month_level_note_with_no_days_is_not_filed_as_counted():
                     rules={}, coverage={}, people=(kisi,))
 
     assert recipients.problem_labels(snap) == (
-        (recipients.LOST, "Mesai verisi yok", 1, 0, 0),)
+        (recipients.LOST, "Mesai verisi yok", 1),)
 
 
 def test_removals_still_apply_to_the_problem_group(snap):
@@ -435,7 +428,9 @@ def test_the_ticked_notes_choose_the_days_as_well_as_the_person():
         bos.date, cikis.date]
     assert [d.date for d in recipients.days_for(kisi, {"Hem giriş hem çıkış yok"})] == [bos.date]
     assert recipients.days_for(kisi, set()) == ()
-    assert len(recipients.days_for(kisi)) == 3, "no labels given: every problem day"
+    # no labels given: every day that cost something. `kisa` counted 1:45 and drops out
+    # — a short day that was still paid is not a day anybody has to answer for.
+    assert [d.date.day for d in recipients.days_for(kisi)] == [3, 9]
 
 
 def test_the_report_is_not_inclusive_the_way_the_filter_is(tmp_path, settings):
@@ -506,11 +501,7 @@ def test_a_day_that_still_counted_is_not_a_day_anybody_lost():
     """
     kisi = _person_with(_day(3, minutes=523), _day(9))
 
-    hepsi = recipients.days_for(kisi, {"Çıkış yok"})
-    kayipli = recipients.days_for(kisi, {"Çıkış yok"}, only_unexplained=True)
-
-    assert [d.date.day for d in hepsi] == [3, 9]
-    assert [d.date.day for d in kayipli] == [9]
+    assert [d.date.day for d in recipients.days_for(kisi, {"Çıkış yok"})] == [9],         "the day counted from another record is not a problem and never was"
 
 
 def test_a_day_covered_by_leave_is_not_asked_about():
@@ -519,7 +510,7 @@ def test_a_day_covered_by_leave_is_not_asked_about():
     kisi = _person_with(_day(3, covered_by="Yıllık İzin"), _day(9))
 
     assert [d.date.day for d in
-            recipients.days_for(kisi, {"Çıkış yok"}, only_unexplained=True)] == [9]
+            recipients.days_for(kisi, {"Çıkış yok"})] == [9]
     assert _day(3, covered_by="Yıllık İzin").explained
     assert not _day(9).explained
 
@@ -538,6 +529,6 @@ def test_somebody_whose_every_day_was_explained_drops_out_of_the_list():
     temiz = _person_with(_day(3, minutes=523), _day(9, covered_by="Mazeret"))
     kayipli = _person_with(_day(3, minutes=523), _day(9))
 
-    kalan = recipients.with_unexplained_days([temiz, kayipli], {"Çıkış yok"})
-    assert [p for p in kalan] == [kayipli]
-    assert recipients.days_for(temiz, {"Çıkış yok"}, only_unexplained=True) == ()
+    assert recipients.outstanding(temiz, {"Çıkış yok"}) == frozenset()
+    assert recipients.outstanding(kayipli, {"Çıkış yok"}) == {"Çıkış yok"}
+    assert recipients.days_for(temiz, {"Çıkış yok"}) == ()

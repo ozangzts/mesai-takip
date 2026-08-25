@@ -62,7 +62,7 @@ class PeopleScreen:
 
     def counted(self) -> frozenset[str]:
         """The notes that put somebody in `Sorunu olanlar`, for this month's snapshot."""
-        present = {label for _g, label, _c, _d, _l
+        present = {label for _g, label, _c
                    in recipients.problem_labels(self.snapshot)}
         return frozenset(present - self._off)
 
@@ -424,10 +424,10 @@ class PeopleScreen:
 
         # `Günü sayılmayan` first, always, whatever the snapshot's order — that group is
         # the reason the split exists and it may not drift below the other one.
-        groups: dict[str, list[tuple[str, int, int, int]]] = {
+        groups: dict[str, list[tuple[str, int]]] = {
             recipients.LOST: [], recipients.KEPT: []}
-        for group, label, count, days, lost in offered:
-            groups[group].append((label, count, days, lost))
+        for group, label, count in offered:
+            groups[group].append((label, count))
         families = {name: rows for name, rows in groups.items() if rows}
 
         # Two columns, not one per family. Four columns of Turkish labels do not fit
@@ -444,33 +444,11 @@ class PeopleScreen:
                 row=rows[side], column=side, sticky="w", padx=(10, 24),
                 pady=(6 if rows[side] > _NOTES_TOP else 2, 2))
             rows[side] += 1
-            for label, count, days, lost in labels:
+            for label, count in labels:
                 var = tk.BooleanVar(value=label not in self._off)
                 self._note_vars[label] = var
-                # BOTH day numbers, or neither. `27 kişi · 5 gün sayılmadı` was read as
-                # an arithmetic error: the note covers 78 days and 5 of them lost time,
-                # and without the 78 the two figures cannot be reconciled. A note whose
-                # every day was counted says so by sitting under the other heading, so
-                # it needs no ratio at all.
-                #
-                # A slash, not `{days} günün {lost} tanesi` — the ratio is the same shape
-                # the Kontrol sheet already uses for coverage (`18 / 21`), and it is
-                # short enough not to widen the panel. It also sidesteps the Turkish
-                # numeral suffix, which changes with the last digit's reading: 5'i but
-                # 2'si, 9'u, 6'sı. A wrong one there reads as carelessness about the
-                # figure itself.
-                sayi = (f"{count} kişi · {lost}/{days} gün sayılmadı" if lost
-                        else f"{count} kişi")
-                # No indent for a note that is a stricter case of another, though the
-                # containment is real (`anomalies.IMPLIES`). It was tried and the first
-                # person to see it asked why that one line was pushed in — it produced
-                # a question instead of answering one. It was also half wrong: the note
-                # is a subset when a broader box is ticked, but ticking it ALONE is a
-                # full selection of its own (34 people in June), and an indent reads as
-                # "sub-option". The counts not summing is explained in the report and
-                # the docs, not by geometry. ADR-053.
                 tk.Checkbutton(
-                    self.notes_frame, text=f"{label}  ({sayi})", variable=var,
+                    self.notes_frame, text=f"{label}  ({count})", variable=var,
                     background=w.CARD, activebackground=w.CARD, foreground=w.INK,
                     font=(w.FACE, 9), highlightthickness=0, borderwidth=0, anchor="w",
                     command=lambda lbl=label: self._toggle_note(lbl)).grid(
@@ -496,7 +474,7 @@ class PeopleScreen:
         self._repaint()
 
     def _count_none(self) -> None:
-        self._off = {label for _g, label, _c, _d, _l
+        self._off = {label for _g, label, _c
                      in recipients.problem_labels(self.snapshot)}
         self._remember_off()
         self._repaint()
