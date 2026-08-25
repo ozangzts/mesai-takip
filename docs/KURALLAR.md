@@ -147,10 +147,8 @@ Program bir de "beklenen iş günü" sayısı tutar — hafta içi günler, resm
 çıkarılmış hâli. Bu sayı **çalışma süresini etkilemez.** Yalnızca iki yerde kullanılır:
 
 1. **Kaynak dosya ayın tamamını kapsıyor mu** kontrolünde (bkz. bölüm 9).
-2. **`Ay büyük ölçüde boş`** notunun paydası olarak.
-
-Hafta sonu çalışması bu paydayı büyütmez, yani hafta sonu çalışan biri bu yüzden
-haksız yere işaretlenmez.
+2. **Hangi günlerin kaydı beklenir** sorusunda: `Hem giriş hem çıkış yok` notu yalnızca
+   beklenen iş günleri için düşer, hafta sonu ve tatiller için düşmez.
 
 Tatil listesinin saatlere dokunduğu **tek** yer var: **birden fazla günü kapsayan**
 bir uzaktan çalışma beyanı güne bölünürken tatiller atlanır. Kart basan kimsenin
@@ -209,16 +207,16 @@ Sayılar Mayıs, Haziran ve Temmuz 2026'nın toplamıdır (kişi-gün).
 | `Çıkış yok` | Giriş basılmış, çıkış kaydı yok | 🔴 | 526 |
 | `Hem giriş hem çıkış yok` | O gün için ne giriş ne çıkış kaydedilmiş: ya saatleri boş bir satır var, ya o güne ait hiç satır yok. İzin ve uzaktan çalışma da yok. **Koşulsuz** — ay içinde işe girmiş olabilecekler de listeye girer, kararı veren kişi çıkarır | 🔴 | 226 |
 | `Mesai verisi yok` | Dönem boyunca hiç kart kaydı yok | 🔴 | 75 |
-| `Ay büyük ölçüde boş` | Çalışma + izin, iş günlerinin **yarısından azını** açıklıyor | 🟡 | 50 |
 
-`Ay büyük ölçüde boş` şunun için var: bir kişinin tek bir normal 9 saatlik günü ve 21
-eksik günü olabiliyor. Günü normal olduğu için günlük kural, kaydı olduğu için
-"hiç veri yok" kuralı çalışmıyordu; bu kişiler hiçbir not almadan sorunsuz listede
-duruyordu.
+`Hem giriş hem çıkış yok` notu, o gün için hiçbir yerde kayıt olmaması hâlinde de düşer.
+Böylece tek bir normal 9 saatlik günü ve 21 kayıtsız günü olan biri de görünür — eskiden
+günü normal olduğu için günlük kural, kaydı olduğu için "hiç veri yok" kuralı çalışmıyor
+ve bu kişiler hiçbir not almadan sorunsuz listede duruyordu.
 
 > **Bu not, kişi hakkında bir iddia değildir.** Personel listesinde işe giriş ve çıkış
 > tarihi bulunmadığı için program, ay ortasında işe başlayan biriyle kayıtları eksik
-> olan birini ayırt **edemiyor**. Not, "buna bakılmalı" demektir.
+> olan birini ayırt **edemiyor**. İkisini de listeler; hangisi olduğuna bakan kişi karar
+> verir ve gerekiyorsa listeden çıkarır.
 
 ### Süre
 

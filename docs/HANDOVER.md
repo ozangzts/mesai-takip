@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (61 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (62 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **472 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **471 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -129,7 +129,7 @@ Asıl uğraş paketleme değil, **Python'un kurulu olmadığı bir makinede test
 | 1 | **Macunköy dosyası o tesisin bütün turnikelerini kapsıyor mu?** Kart kaydı hiç olmayanların neredeyse hepsi Macunköy | Faz 1 onayı — **en kritik** (Q4) |
 | 2 | **Dosyalar her ay ayın kaçında alınacak?** Ayın 20'sinde alınan bir dosya yine yarım olur; Temmuz'da bir kez yaşandı | Bir sonraki ay (Q23) |
 | 3 | Dokuz isim eşleştirmesinin doğrulanması — `Kontrol` sayfası bölüm 7 | Yanlışsa iki kişinin bordro saatleri birleşir (Q4a) |
-| 4 | Personel listesi **işe giriş / çıkış tarihi** kolonlarıyla alınabilir mi? | E-posta adımı, ve `Ay büyük ölçüde boş` notunun yanlış pozitifleri (Q18) |
+| 4 | Personel listesi **işe giriş / çıkış tarihi** kolonlarıyla alınabilir mi? | Ay içinde giren/ayrılanın `Hem giriş hem çıkış yok` yanlış pozitifleri — şu an elle çıkarılıyor (Q18) |
 
 Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşünülecek.
 
@@ -139,6 +139,30 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
+
+---
+
+## Bu turda ne yapıldı (2026-08-25, yedinci tur)
+
+**`Ay büyük ölçüde boş` kaldırıldı** (ADR-062). Kullanıcının çıkarımı doğru çıktı:
+"zaten giriş çıkış yoka giriyor olması lazım." Ölçüldü — o notu taşıyan 5/8/7 kişinin
+**hepsinin** günlük notu var (0 istisna), ve notu kaldırmak seçilen listeyi **0 kişi**
+değiştiriyor. Not, gün sayısının zaten söylediğini tekrar ediyordu; ayrıca tarihi olmadığı
+için mail adımı onu hiç kullanamıyordu.
+
+`AnomalyKind`, `DESCRIPTIONS` girdisi ve `sparse_month_ratio` config anahtarı da gitti —
+hiçbir şeyin okumadığı bir eşik, programın ne yaptığı hakkında yalandır.
+
+`Mesai verisi yok` kaldı: hiç kart kaydı olmayanlar için, ve onların workday'i olmadığı
+için günlük kontrol onları atlıyor. Ay hakkında tek net cümle, günleri hakkında 22 aynı
+cümleden iyi.
+
+Şüpheli kayıt Temmuz'da **730 → 723**, tam olarak kaldırılan 7 not. Başka hiçbir rakam
+oynamadı. `format_version` 8 → 9, üç ay yeniden üretildi.
+
+**Kendi hatam, kayda geçsin:** ADR-061'e ölçmediğim bir rakam yazmıştım — "163 → 226 gün".
+Ayları yeniden üretmeden, taslaktan yazmışım. Gerçek rakamlar: Mayıs 46 kişi/155 gün,
+Haziran 51/302, Temmuz 52/297. ADR-061 düzeltildi.
 
 ---
 
@@ -176,7 +200,7 @@ problemi."* Ayın 20'sinde girmiş biri işaretlenirse bedeli listeden bir elle 
 kayıtları kaybolmuş biri işaretlenmezse bedeli o kişinin saatleri.
 
 **Etki:** `Sorunu olanlar` 59 → 75 (Mayıs), 60 → 73 (Haziran), 66 → 84 (Temmuz).
-`Hem giriş hem çıkış yok` Temmuz'da 3 kişi/5 günden **46 kişi/226 güne** çıktı. Şüpheli
+`Hem giriş hem çıkış yok` Temmuz'da 3 kişi/5 günden **52 kişi/297 güne** çıktı. Şüpheli
 kayıt: Mayıs 346 → 404, Haziran 570 → 729, Temmuz 595 → 730.
 **Hiçbir rakam değişmedi** — 17 103:58 / 27 166:19 / 26 233:17, çünkü o günlerde sayılacak
 bir şey hiç yoktu. Üç ay yeniden üretildi.
@@ -496,7 +520,7 @@ Buradaki her madde bir kez ısırdı.
 - **`tests/conftest.py` fixture'ı gerçek config'den sapabiliyor** ve birkaç kez saptı.
   Yeni bir config anahtarı eklerken fixture'a da ekle — yoksa bütün test paketi,
   kimsenin çalıştırmadığı bir kurala karşı geçmeye devam eder.
-- Snapshot `format_version` **8**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
+- Snapshot `format_version` **9**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
   **etiketi yeniden adlandırmak** bu sürümü yükseltir (ADR-027, ADR-052): eski yazımla
   yazılmış bir filtre ya da istisna listesi yeni yazımda **sessizce kimseyi** tutmaz.
 - **`arayuz-ayarlari.json` `gui/settings.py` üzerinden yazılır** — oku, değiştir, yaz.

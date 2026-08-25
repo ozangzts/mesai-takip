@@ -325,12 +325,15 @@ def test_the_notes_the_column_used_to_omit_now_reach_it(result):
 
     `ZEYNEP` shows the other: her note was printed, in different words. The column said
     `Ayın çoğu açıklanmıyor` and every other list in the program said
-    `Ay büyük ölçüde boş`.
+    `Ay büyük ölçüde boş` — a label ADR-062 has since removed, because her empty month
+    is now stated as its empty days. The assertion follows the label to
+    `Hem giriş hem çıkış yok`; what it holds is unchanged, that her `Not` cell is not
+    empty and carries the wording every other list uses.
     """
     notes = _summary_notes(result["output"])
 
     assert "Çıkış yok" in notes["VELİ ÖRNEK"], notes["VELİ ÖRNEK"]
-    assert "Ay büyük ölçüde boş" in notes["ZEYNEP TASLAK"], notes["ZEYNEP TASLAK"]
+    assert "Hem giriş hem çıkış yok" in notes["ZEYNEP TASLAK"], notes["ZEYNEP TASLAK"]
 
 
 def test_no_reworded_note_survives(result):

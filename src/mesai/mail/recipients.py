@@ -118,8 +118,8 @@ def problem_labels(
     second number left to reconcile. The heading says which half of the list is the one
     to chase; that is the whole job.
 
-    Notes with no dated days (`Mesai verisi yok`, `Ay büyük ölçüde boş`) sit in `LOST`:
-    a month nobody can account for is not the thing to file under "counted".
+    A note with no dated days — `Mesai verisi yok` is the only one left — sits in
+    `LOST`: a month nobody can account for is not the thing to file under "counted".
     """
     if snapshot is None:
         return ()
@@ -257,8 +257,8 @@ def outstanding(person: Person, labels: Iterable[str]) -> frozenset[str]:
     A note reaches somebody one of two ways, and only one of them can be explained away:
 
     * through a **day** — outstanding only if that day lost time (`days_for`),
-    * through a **month-level note** with no date at all (`Mesai verisi yok`,
-      `Ay büyük ölçüde boş`) — there is no day to explain, so it always stands.
+    * through a **month-level note** with no date at all (`Mesai verisi yok`) — there
+      is no day to explain, so it always stands.
 
     Without the second case the 31 people whose July has no attendance record at all
     would drop out of every list, which is the opposite of the point.

@@ -496,7 +496,6 @@ def _summarise(
 
     year, month = (int(part) for part in period.split("-"))
     expected_workdays = settings.calendar.expected_workdays(year, month)
-    expected_days = len(expected_workdays)
 
     # Days with no record of the person anywhere. Added BEFORE the counts are taken, so
     # `Şüpheli Kayıt` includes them.
@@ -524,20 +523,6 @@ def _summarise(
                 detail="İzin kaydı var, hiçbir kart kaydı yok. Bu kişinin ayı eksik "
                        "görünüyor — kart sisteminden kontrol edilmeli",
             ))
-        elif expected_days and settings.plausibility.sparse_month_ratio:
-            # Deliberately `elif`: somebody with no attendance at all already has the
-            # louder note above, and two notes for one situation reads as two problems.
-            izin = leave_days.get(key, 0.0)
-            covered = len(days) + izin
-            share = covered / expected_days
-            if share < settings.plausibility.sparse_month_ratio:
-                anomalies.add(Anomaly(
-                    kind=AnomalyKind.SPARSE_MONTH, source="izin", source_row=0,
-                    key=key, raw_name=employee.display_name,
-                    detail=f"{expected_days} iş gününün {covered:g} tanesi "
-                           f"açıklanıyor (%{share * 100:.0f}) — çalışma "
-                           f"{len(days)} gün, izin {izin:g} gün",
-                ))
         summaries.append(MonthSummary(
             employee=employee,
             period=period,

@@ -456,24 +456,35 @@ def _day(day: int, key=("AYSE", "DENEME")):
 
 
 def test_one_ordinary_day_in_a_whole_month_is_flagged(settings):
-    """The measured case: normal hours, so no per-day rule fires — but 1 day of 22."""
+    """The case `Ay büyük ölçüde boş` was written for — now answered day by day.
+
+    Normal hours, so no per-day duration rule fires, and 1 day of 22. The month-level
+    note is gone (ADR-062): every one of the other days now carries `Hem giriş hem çıkış
+    yok`, which says the same thing and says which days.
+    """
     key = ("AYSE", "DENEME")
     _, collector = _summaries(settings, [_day(3, key)], employees={key: _employee()})
 
-    labels = [a.label for a in collector.items]
-    assert "Ay büyük ölçüde boş" in labels
-
-
-def test_a_full_month_is_not_flagged(settings):
-    key = ("AYSE", "DENEME")
-    days = [_day(d, key) for d in (1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 15, 16)]
-    _, collector = _summaries(settings, days, employees={key: _employee()})
-
+    gunler = [a for a in collector.items if a.label == "Hem giriş hem çıkış yok"]
+    assert len(gunler) > 15, "the empty month has to show up as its empty days"
     assert "Ay büyük ölçüde boş" not in [a.label for a in collector.items]
 
 
+def test_a_full_month_is_not_flagged(settings):
+    """Every expected working day worked, so nothing is unexplained."""
+    key = ("AYSE", "DENEME")
+    days = [_day(d, key) for d in (1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 15, 16, 17, 18,
+                                   19, 22, 23, 24, 25, 26, 29, 30)]
+    _, collector = _summaries(settings, days, employees={key: _employee()})
+
+    assert "Hem giriş hem çıkış yok" not in [a.label for a in collector.items]
+
+
 def test_leave_counts_towards_the_month_being_accounted_for(settings):
-    """Somebody on leave for three weeks has an explained month, not a suspicious one."""
+    """Somebody on leave for three weeks has an explained month, not a suspicious one.
+
+    The leave dates are covered, so no day of them is flagged.
+    """
     from mesai.models import LeaveRecord
     key = ("AYSE", "DENEME")
     leave = [LeaveRecord(key=key, raw_name="AYŞE DENEME", personnel_no="8801",
@@ -482,8 +493,10 @@ def test_leave_counts_towards_the_month_being_accounted_for(settings):
                          days=15.0, department=None, source_row=2)]
     _, collector = _summaries(settings, [_day(3, key)], leave=leave,
                               employees={key: _employee()})
+    isaretli = {a.date for a in collector.items
+                if a.label == "Hem giriş hem çıkış yok"}
 
-    assert "Ay büyük ölçüde boş" not in [a.label for a in collector.items]
+    assert not any(date(2026, 6, 8) <= d <= date(2026, 6, 26) for d in isaretli)
 
 
 def test_a_month_with_no_records_at_all_gets_only_the_louder_note(settings):
@@ -494,20 +507,6 @@ def test_a_month_with_no_records_at_all_gets_only_the_louder_note(settings):
     labels = [a.label for a in collector.items]
     assert "Mesai verisi yok" in labels
     assert "Ay büyük ölçüde boş" not in labels
-
-
-def test_the_check_is_off_when_no_ratio_is_configured(settings):
-    """An absent threshold disables it rather than inventing one — it decides who a
-    human is asked about, and a made-up default would accuse or hide, silently."""
-    import dataclasses
-    key = ("AYSE", "DENEME")
-    off = dataclasses.replace(
-        settings,
-        plausibility=dataclasses.replace(settings.plausibility,
-                                         sparse_month_ratio=0.0))
-    _, collector = _summaries(off, [_day(3, key)], employees={key: _employee()})
-
-    assert "Ay büyük ölçüde boş" not in [a.label for a in collector.items]
 
 
 def test_a_named_roster_is_used_instead_of_searching(settings, tmp_path):

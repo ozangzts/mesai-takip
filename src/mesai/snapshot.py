@@ -49,7 +49,9 @@ from .models import LeaveRecord, MonthSummary, RunStats, WorkDay
 # 8: `blank_workdays` added — expected working days on which no source recorded
 #    anybody, so `is_complete` catches a hole in the MIDDLE of the period and not only
 #    a short export at the end (ADR-057).
-FORMAT_VERSION = 8
+# 9: `Ay büyük ölçüde boş` is gone (ADR-062). A label that no longer exists: a filter or
+#    exclusion list naming it now matches nobody, which is the same break as a rename.
+FORMAT_VERSION = 9
 
 
 class SnapshotError(Exception):
@@ -132,9 +134,9 @@ class Person:
     # being anybody's problem. ADR-028.
     expected: tuple[str, ...]
     notes: tuple[str, ...]
-    # The person's problem days, for the mail step. Month-level notes
-    # (`Mesai verisi yok`, `Ay büyük ölçüde boş`) carry no date and stay in
-    # `problems` only — there is no day to tell somebody about.
+    # The person's problem days, for the mail step. A month-level note
+    # (`Mesai verisi yok`) carries no date and stays in `problems` only — there is no
+    # day to tell somebody about.
     days: tuple[ProblemDay, ...] = ()
 
     @property

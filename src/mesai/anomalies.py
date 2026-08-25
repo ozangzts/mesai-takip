@@ -28,7 +28,6 @@ class AnomalyKind(StrEnum):
     DURATION_MISMATCH = "DURATION_MISMATCH"
     LONG_DAY = "LONG_DAY"                  # the whole day is over the ceiling
     NO_ATTENDANCE_DATA = "NO_ATTENDANCE_DATA"
-    SPARSE_MONTH = "SPARSE_MONTH"          # has records, but almost none
     # One question, not two: did the day carry a real punch as well as the
     # declaration? See ADR-017 and ADR-034.
     REMOTE_OVERLAP_REAL = "REMOTE_OVERLAP_REAL"    # a real punch — worth asking
@@ -148,17 +147,6 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
     AnomalyKind.NO_ATTENDANCE_DATA: (
         "Mesai verisi yok", "excluded",
         "Dönem boyunca hiç kart kaydı yok",
-        "Eksik kayıt"),
-    # The gap between the two rules above it: "Süre çok kısa" asks about ONE day and
-    # these people's days are normal, "Mesai verisi yok" needs the month to be empty.
-    # Somebody with one ordinary 9-hour day and 21 missing ones fell between them and
-    # carried no note at all. `included`, not `excluded`: their hours are real.
-    AnomalyKind.SPARSE_MONTH: (
-        "Ay büyük ölçüde boş", "included",
-        "Beklenen iş günlerinin yarısından azı çalışma ya da izinle açıklanıyor. "
-        "Kişi ay içinde işe girmiş veya ayrılmış olabilir, ya da kayıtları eksik "
-        "olabilir — personel listesinde giriş/çıkış tarihi olmadığı için program "
-        "bunları ayırt edemez",
         "Eksik kayıt"),
     AnomalyKind.REMOTE_OVERLAP_REAL: (
         "Uzaktan + kart kaydı", "included",

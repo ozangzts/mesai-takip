@@ -640,9 +640,9 @@ def test_the_worklist_carries_a_month_level_notes_own_figures(tmp_path, settings
     sheet anybody takes to a meeting. One record, its own words.
     """
     sparse = Anomaly(
-        kind=AnomalyKind.SPARSE_MONTH, source="izin", source_row=0, key=KEY,
+        kind=AnomalyKind.NO_ATTENDANCE_DATA, source="izin", source_row=0, key=KEY,
         raw_name="AYŞE DENEME",
-        detail="22 iş gününün 8 tanesi açıklanıyor (%36) — çalışma 8 gün, izin 0 gün")
+        detail="İzin kaydı var, hiçbir kart kaydı yok. Bu kişinin ayı eksik görünüyor")
     collector = Collector()
     collector.add(sparse)
 
@@ -652,9 +652,8 @@ def test_the_worklist_carries_a_month_level_notes_own_figures(tmp_path, settings
     header = [c for c in rows[3] if c is not None]
     assert header[9] == "Ayrıntı"
 
-    row = next(r for r in rows[4:] if r and r[4] == "Ay büyük ölçüde boş")
+    row = next(r for r in rows[4:] if r and r[4] == "Mesai verisi yok")
     assert row[9] == sparse.detail
-    assert "%36" in row[9]
 
 
 def test_the_worklist_leaves_the_detail_empty_when_several_days_disagree(tmp_path,

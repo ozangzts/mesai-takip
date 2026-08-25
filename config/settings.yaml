@@ -35,18 +35,6 @@ plausibility:
   # min_minutes: that one catches a bad record, this one catches a real person who
   # barely worked. HR asked for 2 hours (ADR-019).
   short_day_hours: 2.0
-  # A person whose month is mostly unaccounted for. Worked days plus leave days,
-  # against the period's expected working days: below this share, the month gets a
-  # note. Neither of the rules above catches it — `short_day_hours` looks at ONE day
-  # and these people's days are normal, `NO_ATTENDANCE_DATA` needs the month to be
-  # completely empty. Measured on June 2026: one person has a single 2:30 day out of
-  # 22 expected and carried no note at all.
-  #
-  # It is a flag for a human, never an exclusion. The roster has no hire or leaving
-  # dates (ROADMAP Q18), so somebody who started on the 20th is indistinguishable from
-  # somebody whose records went missing — and that is exactly the person to ask about.
-  # ADR-030.
-  sparse_month_ratio: 0.5
   # A person-DAY longer than this is flagged — counted, never excluded. A 16-hour day
   # is real work until somebody says otherwise (ADR-032).
   # Also the ceiling for

@@ -352,10 +352,10 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
 # Without this the sheet would say "Gece geçişi" and leave the reader to guess.
 # `Ayrıntı` carries the record's OWN words, where the row is about a single record.
 # `Açıklama` is the note's meaning and is the same on every row with that note, so a
-# figure that differs per person had nowhere to go: `Ay büyük ölçüde boş` knows the
-# share of the month it could not account for (22 iş gününün 8'i, %36) and only the
-# row-per-record audit sheet was showing it. That is the sheet you do not take to a
-# meeting.
+# figure that differs per person had nowhere to go. Written for `Ay büyük ölçüde boş`,
+# which ADR-062 removed; `Mesai verisi yok` is the month-level note that needs it now,
+# and every single-record row gets its own words. Only the row-per-record audit sheet
+# was showing them, and that is the sheet you do not take to a meeting.
 _WORKLIST_HEADERS = [
     "Ad Soyad", "Sicil No", "Tesis", "Departman", "Sorun", "Açıklama",
     "Gün Sayısı", "Günler", "Etki", "Ayrıntı",

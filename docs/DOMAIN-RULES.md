@@ -513,7 +513,6 @@ plain-Turkish version of all this is `KURALLAR.md`.
 | --- | --- | --- | --- |
 | `Günlük süre çok kısa (<2 saat)` | one person-day, total | `short_day_hours` | counted, flagged |
 | `Günlük süre çok uzun (>16 saat)` | one person-day, total | `max_shift_hours` | counted, flagged |
-| `Ay büyük ölçüde boş` | one person-month, coverage | `sparse_month_ratio` (0.5) | counted, flagged |
 | `Giriş-çıkış tutarsız (>20 saat)` | **our own repair** of one interval | `repair_max_hours` (20 h) | **excluded**, 0 hours |
 
 The first three ask about a **person**: did they barely work that day, work an

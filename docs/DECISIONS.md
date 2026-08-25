@@ -3760,8 +3760,12 @@ neighbours *and* the month-level note, which is more information, not less.
 
 ### Consequences
 
-- July: `Hem giriş hem çıkış yok` **45 → 46 people, 163 → 226 days**. Suspect records
+- July: `Hem giriş hem çıkış yok` **45 → 52 people, 163 → 297 days**. Suspect records
   595 → 730. May 346 → 404, June 570 → 729.
+
+  *(Corrected in ADR-062: this entry first read "46 people, 226 days", written from the
+  draft before the months were regenerated rather than from the run. The day figure was
+  never 226. Measured: May 46 / 155, June 51 / 302, July 52 / 297.)*
 - **No figure changed.** 17 103:58 / 27 166:19 / 26 233:17. There was never anything to
   count on these days.
 - The tail is now visible: July has 18 people with one flagged day, 13 with two, and a
@@ -3769,3 +3773,72 @@ neighbours *and* the month-level note, which is more information, not less.
   person deciding can see them and take them out.
 - `_month_share()` is gone with the skip that needed it; the sparse note computes its own
   share again, as it did before ADR-060.
+
+---
+
+## ADR-062 — `Ay büyük ölçüde boş` is removed
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Retires ADR-030. Made possible by ADR-060 and ADR-061.**
+
+### Context
+
+ADR-030 added `Ay büyük ölçüde boş` for a person who fell between two rules: one ordinary
+9-hour day out of 22 expected, so no per-day duration rule fired and `Mesai verisi yok`
+needed the month to be entirely empty. Those people carried no note at all.
+
+ADR-060 and ADR-061 answered that case directly: every expected working day with no record
+of the person anywhere now carries `Hem giriş hem çıkış yok`. The operator drew the
+conclusion — *"artık ay büyük ölçüde boşa gerek yok, zaten giriş çıkış yoka giriyor
+olması lazım"* — and it holds.
+
+Measured on all three months:
+
+| | May | June | July |
+| --- | --- | --- | --- |
+| people carrying `Ay büyük ölçüde boş` | 5 | 8 | 7 |
+| **of those, with no daily note** | **0** | **0** | **0** |
+| **people the selection loses without it** | **0** | **0** | **0** |
+
+Their daily-note counts are 8–21 days each, against 1–3 for somebody who forgot to badge
+twice. The month-level note was restating what the day count already says, in a form the
+mail step could never use — it carries no date, so it produces no day to tell anybody
+about.
+
+### Decision
+
+The note, the `AnomalyKind`, and the `sparse_month_ratio` config key are gone. A
+threshold nothing reads is a lie about what the program does, so it does not stay behind
+"just in case".
+
+`Mesai verisi yok` stays. It fires when there is no attendance at all, and those people
+have no workdays, so `_unrecorded_days` skips them — one clear statement about the month
+beats twenty-two identical statements about its days.
+
+### Alternatives rejected
+
+**Keep it as the only way to filter the worst cases.** It was the sole label separating
+the 5–8 people whose whole month is questionable from the 40-odd who missed a badge or
+two. But `İnceleme Listesi` carries `Gün Sayısı` per person, so 21 against 2 is visible
+where somebody is actually triaging, and the note's own removal was asked for.
+
+**Keep the config key, disabled.** ADR-030 made `sparse_month_ratio: 0` mean "off", so
+zeroing it would have been the small change. Rejected: the key would sit in
+`settings.yaml` describing a rule that no longer exists, which is exactly the drift
+ADR-052 was written about.
+
+### Consequences
+
+- Suspect records: July **730 → 723**, precisely the 7 notes removed. No other figure
+  moved, and no hours: 17 103:58 / 27 166:19 / 26 233:17.
+- `Sorunu olanlar` 75 / 73 / **85** — July gained one, a person whose only note this was
+  and who now appears through their days instead.
+- **`format_version` 8 → 9.** A label that no longer exists is the same break as a
+  rename: a saved filter or exclusion list naming it now matches nobody, silently. All
+  three months regenerated.
+- The remaining note list is eleven labels, and every one of them is about a record or a
+  day except `Mesai verisi yok`.
+- ROADMAP Q18 (hire and leaving dates) is still open and still matters — it is now what
+  would let `Hem giriş hem çıkış yok` stop flagging mid-month joiners, rather than what
+  would fix this note's false positives.
