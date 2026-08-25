@@ -62,7 +62,7 @@ class PeopleScreen:
 
     def counted(self) -> frozenset[str]:
         """The notes that put somebody in `Sorunu olanlar`, for this month's snapshot."""
-        present = {label for _family, label, _count
+        present = {label for _group, label, _count, _lost
                    in recipients.problem_labels(self.snapshot)}
         return frozenset(present - self._off)
 
@@ -413,9 +413,13 @@ class PeopleScreen:
         w.button(header, "Temizle", self._count_none, primary=False).grid(
             row=0, column=2, padx=(6, 0))
 
-        families: dict[str, list[tuple[str, int]]] = {}
-        for family, label, count in offered:
-            families.setdefault(family, []).append((label, count))
+        # `Günü sayılmayan` first, always, whatever the snapshot's order — that group is
+        # the reason the split exists and it may not drift below the other one.
+        groups: dict[str, list[tuple[str, int, int]]] = {
+            recipients.LOST: [], recipients.KEPT: []}
+        for group, label, count, lost in offered:
+            groups[group].append((label, count, lost))
+        families = {name: rows for name, rows in groups.items() if rows}
 
         # Two columns, not one per family. Four columns of Turkish labels do not fit
         # the width — `Günlük süre çok uzun (>16 saat)  (4)` was clipped mid-count, and
@@ -431,9 +435,14 @@ class PeopleScreen:
                 row=rows[side], column=side, sticky="w", padx=(10, 24),
                 pady=(6 if rows[side] > _NOTES_TOP else 2, 2))
             rows[side] += 1
-            for label, count in labels:
+            for label, count, lost in labels:
                 var = tk.BooleanVar(value=label not in self._off)
                 self._note_vars[label] = var
+                # The day count only where there is one. A note whose every day was
+                # counted elsewhere says so by sitting under the other heading; adding
+                # "0 gün" to it would be noise on the half of the list that is fine.
+                sayi = (f"{count} kişi · {lost} gün sayılmadı" if lost
+                        else f"{count} kişi")
                 # No indent for a note that is a stricter case of another, though the
                 # containment is real (`anomalies.IMPLIES`). It was tried and the first
                 # person to see it asked why that one line was pushed in — it produced
@@ -443,7 +452,7 @@ class PeopleScreen:
                 # "sub-option". The counts not summing is explained in the report and
                 # the docs, not by geometry. ADR-053.
                 tk.Checkbutton(
-                    self.notes_frame, text=f"{label}  ({count})", variable=var,
+                    self.notes_frame, text=f"{label}  ({sayi})", variable=var,
                     background=w.CARD, activebackground=w.CARD, foreground=w.INK,
                     font=(w.FACE, 9), highlightthickness=0, borderwidth=0, anchor="w",
                     command=lambda lbl=label: self._toggle_note(lbl)).grid(
@@ -469,7 +478,7 @@ class PeopleScreen:
         self._repaint()
 
     def _count_none(self) -> None:
-        self._off = {label for _f, label, _c
+        self._off = {label for _g, label, _c, _l
                      in recipients.problem_labels(self.snapshot)}
         self._remember_off()
         self._repaint()

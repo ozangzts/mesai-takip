@@ -258,7 +258,8 @@ def test_the_group_and_the_clean_group_partition_the_month(snap):
     `Sorunu olanlar (99)` beside `Sorunu olmayanlar (69)` on a 176-person month should
     be able to add them.
     """
-    every = frozenset(label for _f, label, _c in recipients.problem_labels(snap))
+    every = frozenset(label for _g, label, _c, _l
+                      in recipients.problem_labels(snap))
     problem = {p.name for p in recipients.matching(snap, recipients.PROBLEM, every)}
     clean = {p.name for p in recipients.matching(snap, recipients.NO_PROBLEM)}
 
@@ -275,19 +276,51 @@ def test_the_count_in_the_list_is_the_count_of_rows(snap):
             recipients.matching(snap, recipients.PROBLEM, labels))
 
 
-def test_the_notes_offered_for_ticking_carry_their_family_and_count(snap):
-    """Fifteen checkboxes read as a wall unless they are grouped (ADR-029)."""
-    from mesai.anomalies import GROUPS
+def test_the_notes_offered_for_ticking_carry_their_group_and_counts(snap):
+    """Fifteen checkboxes read as a wall unless they are grouped.
 
+    The grouping is `Günü sayılmayan` / `Günü sayılan` (ADR-056), not the note's kind:
+    the question somebody scanning that panel asks is which of these cost hours.
+    """
     offered = recipients.problem_labels(snap)
 
     assert offered, "a month with problems must offer something to tick"
-    families = [family for family, _label, _count in offered]
-    assert families == sorted(families, key=GROUPS.index), "families must not interleave"
-    for _family, label, count in offered:
+    assert {g for g, _l, _c, _x in offered} <= {recipients.LOST, recipients.KEPT}
+    for _group, label, count, _lost in offered:
         assert count == len(recipients.matching(snap, label)), label
     assert all(label != "Uzaktan + sistem kaydı"
-               for _f, label, _c in offered), "expected behaviour is not offered"
+               for _g, label, _c, _l in offered), "expected behaviour is not offered"
+
+
+def test_a_note_is_grouped_by_whether_its_days_cost_anybody_hours():
+    """June: `Çıkış yok` lost 126 days; `Hem giriş hem çıkış yok` lost ONE of 80.
+
+    The alarming-sounding label is the harmless one, and the panel has to say so or it
+    invites the wrong priority.
+    """
+    kayipli = _person_with(_day(3), _day(9))                       # minutes None
+    sayilan = Person(**{**person("ESRA DENEME",
+                                problems=("Tesis birleştirme",)).__dict__,
+                        "days": (_day(4, minutes=523,
+                                      problems=("Tesis birleştirme",)),)})
+    snap = Snapshot(period="2026-06", generated_at=datetime(2026, 8, 25, 10, 0),
+                    rules={}, coverage={}, people=(kayipli, sayilan))
+
+    by_label = {l: (g, lost) for g, l, _c, lost
+                in recipients.problem_labels(snap)}
+    assert by_label["Çıkış yok"] == (recipients.LOST, 2)
+    assert by_label["Tesis birleştirme"] == (recipients.KEPT, 0)
+
+
+def test_a_month_level_note_with_no_days_is_not_filed_as_counted():
+    """`Mesai verisi yok` has nothing to measure. A month nobody can account for is
+    not the thing to put under "counted"."""
+    kisi = person("KEREM DENEME", problems=("Mesai verisi yok",))
+    snap = Snapshot(period="2026-06", generated_at=datetime(2026, 8, 25, 10, 0),
+                    rules={}, coverage={}, people=(kisi,))
+
+    assert recipients.problem_labels(snap) == (
+        (recipients.LOST, "Mesai verisi yok", 1, 0),)
 
 
 def test_removals_still_apply_to_the_problem_group(snap):

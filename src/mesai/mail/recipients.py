@@ -72,18 +72,65 @@ class Choice:
         return f"{self.label}  ({self.count}){suffix}"
 
 
-def problem_labels(snapshot: Snapshot | None) -> tuple[tuple[str, str, int], ...]:
-    """`(family, label, people)` for every problem note present, in filter order.
+# The two groups the note panel is split into. Not the `anomalies.GROUPS` families:
+# those say what KIND of thing a note is, and the question somebody scanning that panel
+# is actually asking is "which of these cost somebody hours".
+LOST = "Günü sayılmayan"
+KEPT = "Günü sayılan"
 
-    The family comes along so a list of fifteen checkboxes can be grouped instead of
-    read as one wall — the same grouping the filter list uses (ADR-029).
+
+def unexplained_days(snapshot: Snapshot | None) -> dict[str, int]:
+    """Per note, how many of its days lost time — see `ProblemDay.explained`.
+
+    This is what makes the panel readable. Measured on June 2026: `Çıkış yok` has 126
+    such days, and `Hem giriş hem çıkış yok` — by far the most alarming-sounding label —
+    has **one**, its other 79 days having been counted from the person's Teknopark
+    record. Without the number the panel invites exactly the wrong priority.
+    """
+    if snapshot is None:
+        return {}
+    found: dict[str, int] = {}
+    for person in snapshot.people:
+        for day in person.days:
+            if day.explained:
+                continue
+            for label in day.problems:
+                found[label] = found.get(label, 0) + 1
+    return found
+
+
+def problem_labels(
+    snapshot: Snapshot | None,
+) -> tuple[tuple[str, str, int, int], ...]:
+    """`(group, label, people, days_that_lost_time)` for every problem note present.
+
+    The group is `LOST` or `KEPT`, computed from the data rather than declared, because
+    whether a note cost anybody hours is a fact about its days and not about its kind.
+
+    Two things follow, and the second is the reason the day count is in the tuple:
+
+    * A note can hold both sorts of day — June's `Çıkış yok` is 126 lost and 21 counted
+      — so the group says "this note has at least one day somebody lost", not "all of
+      them".
+    * **A note can change group between months.** `Giriş-çıkış tutarsız` lost a day in
+      May and none in June or July; `Günlük süre çok kısa` the other way round. That is
+      the instability ADR-029 rejected for frequency ordering, accepted here because
+      impact is the whole point of the split — and made harmless by printing the count,
+      which says why the note moved.
+
+    Notes with no dated days at all (`Mesai verisi yok`, `Ay büyük ölçüde boş`) have
+    nothing to measure and sit in `LOST`: a month nobody can account for is not the
+    thing to file under "counted".
     """
     if snapshot is None:
         return ()
-    family = {label: group for label, _s, _e, group in DESCRIPTIONS.values()}
-    return tuple((family.get(label, "Diğer"), label, count)
-                 for label, count, is_problem in snapshot.label_counts()
-                 if is_problem)
+    lost = unexplained_days(snapshot)
+    dated = {label for p in snapshot.people for d in p.days for label in d.problems}
+    return tuple(
+        (LOST if (lost.get(label) or label not in dated) else KEPT,
+         label, count, lost.get(label, 0))
+        for label, count, is_problem in snapshot.label_counts()
+        if is_problem)
 
 
 def default_labels(snapshot: Snapshot | None) -> frozenset[str]:
@@ -93,7 +140,7 @@ def default_labels(snapshot: Snapshot | None) -> frozenset[str]:
     counts by default: for a list that decides who gets contacted, including somebody
     who should not have been is a correction, and leaving somebody out is silence.
     """
-    return frozenset(label for _family, label, _count in problem_labels(snapshot)
+    return frozenset(label for _group, label, _count, _lost in problem_labels(snapshot)
                      if label not in DEFAULT_OFF)
 
 

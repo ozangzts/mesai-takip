@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (55 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (56 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **450 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **452 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -142,7 +142,29 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
 
 ---
 
-## Bu turda ne yapıldı (2026-08-25)
+## Bu turda ne yapıldı (2026-08-25, ikinci tur)
+
+**Not paneli artık maliyete göre bölünüyor** (ADR-056): `Günü sayılmayan` üstte,
+`Günü sayılan` altta, ve ilk gruptaki her kutu kaç gün kaybedildiğini yazıyor
+(`Çıkış yok (80 kişi · 126 gün sayılmadı)`). Gerekçe ölçüldü ve etiketlerin verdiği
+izlenimin tersi çıktı: `Hem giriş hem çıkış yok`, listedeki en alarm verici etiket,
+80 gününden **1'ini** kaybediyor — kalan 79'u Macunköy satırı boş kalmış Teknopark
+personeli. `Çıkış yok` ise 126 gün kaybediyor.
+
+Bir not aydan aya grup değiştirebiliyor (`Giriş-çıkış tutarsız` Mayıs'ta kayıplı, sonra
+değil). ADR-029'un frekans sıralaması için reddettiği kararsızlık bu, ama burada bölmenin
+bütün amacı maliyet; yazılan sayı da notun neden yer değiştirdiğini söylüyor.
+`anomalies.GROUPS` dokunulmadı, filtre listesini ve raporu hâlâ o sıralıyor.
+
+**Hesabın doğruluğu bir kez daha ölçüldü**, çünkü sorulmuştu: 7 376 kişi-gününde
+`(ilk giriş → son çıkış) − sayılan süre` farkı 6 452 günde tam 0, 871 günde +1 dakika
+(ekran `HH:MM`, hesap saniyeden), 53 günde −1440 (gece geçişi). Sapma yok. İki tesis
+arasında geçen 30 günün hepsi sayılıyor. **Hesap ADR-001'den beri doğruydu; yanlış olan
+raporun onun hakkında yazdığı cümleydi (ADR-055).**
+
+---
+
+## Bu turda ne yapıldı (2026-08-25, ilk tur)
 
 **Rapor yanlış bir şey yazıyordu ve kullanıcının sorusu onu buldu.** Soru şuydu: "adamın
 girişi yoksa o gün nasıl sayılıyor?" Cevap: birim **gün**, kayıt değil. Bir kişi-gününde

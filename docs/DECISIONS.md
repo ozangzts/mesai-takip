@@ -3317,3 +3317,81 @@ prevent.
 - `hhmm` is now used by the anomaly sheets, so the two impact helpers sit beside
   `_impact_text` rather than in `anomalies.py`: the wording needs the day's measurement,
   which is a report input, and `anomalies.py` has no access to it by design.
+
+---
+
+## ADR-056 — The note panel is split by what it cost, not by what kind of note it is
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Changes the grouping ADR-029 introduced, for the note panel only. Uses ADR-055.**
+
+### Context
+
+The note panel grouped its checkboxes by `anomalies.GROUPS` — `Eksik kayıt`, `Süre`,
+`Uzaktan çalışma`, `Diğer` — which says what *kind* of thing each note is. The question
+somebody scanning that panel is actually asking is different: **which of these cost
+somebody hours.**
+
+Once ADR-055 separated the two, the answer turned out to be nothing like the labels
+suggest. June 2026, days carrying each note:
+
+| Note | days that lost time | days still counted |
+| --- | --- | --- |
+| `Çıkış yok` | **126** | 21 |
+| `Giriş yok` | **19** | 1 |
+| `Hem giriş hem çıkış yok` | **1** | 79 |
+| `Günlük süre çok kısa (<2 saat)` | 2 | 18 |
+| `Tesis birleştirme` | 0 | 26 |
+| `Gece geçişi` | 0 | 23 |
+| `Günlük süre çok uzun (>16 saat)` | 0 | 4 |
+
+The most alarming-sounding label in the list has **one** costly day out of eighty. Its
+other seventy-nine are Teknopark staff whose Macunköy row is blank and whose own
+building's record covers the day. A panel that gives it the same visual weight as
+`Çıkış yok` — 126 lost days — is steering the reader to the wrong end of the list.
+
+### Decision
+
+Two groups, computed from the data: **`Günü sayılmayan`** first, always, then
+**`Günü sayılan`**. A note joins the first if any of its days lost time. Each checkbox in
+the first group carries the count — `Çıkış yok (80 kişi · 126 gün sayılmadı)` — and the
+second group shows people only, because "0 gün" on the half of the list that is fine is
+noise.
+
+Notes with no dated days at all (`Mesai verisi yok`, `Ay büyük ölçüde boş`) have nothing
+to measure and go in `Günü sayılmayan`: a month nobody can account for is not the thing
+to file under "counted".
+
+`anomalies.GROUPS` is untouched and still orders the filter dropdown and the report. Only
+the panel changed — it is the one place the question is "what do I chase".
+
+### Alternatives rejected
+
+**Group by severity** (`excluded` vs the rest). Declared in code, so perfectly stable —
+and wrong, which is the point of ADR-055: `Hem giriş hem çıkış yok` is `excluded` and 79
+of its 80 days counted. Severity is a property of the record.
+
+**One group per note, assigned by majority.** `Çıkış yok` would be "lost" and its 21
+counted days would be invisible; the count in the label states the mix instead.
+
+**Leave the panel alone and put the numbers in the report.** The panel is where somebody
+decides who to write to. A number they have to go and find in a workbook is not a number
+they will use.
+
+### Consequences
+
+- **A note can change group between months.** `Giriş-çıkış tutarsız` lost a day in May
+  and none in June or July; `Günlük süre çok kısa` the reverse. That is exactly the
+  instability ADR-029 rejected for frequency ordering, and it is accepted here because
+  impact is the whole point of the split. The printed count is what makes it harmless:
+  it says why the note moved.
+- `problem_labels()` returns `(group, label, people, days_that_lost_time)` — a fourth
+  element, so every caller was touched deliberately rather than silently accepting a
+  shorter tuple.
+- **No `format_version` change and no regeneration.** The split is computed when the
+  snapshot is read, from `days[].minutes` and `days[].covered_by`, which version 7
+  already carries.
+- Both notes that are unticked by default (`Tesis birleştirme`, `Uzaktan + kart kaydı`,
+  ADR-048) now also sit under `Günü sayılan`. The default and the grouping were arrived
+  at separately and agree, which is a check on both.
