@@ -308,3 +308,56 @@ def test_choosing_labels_selects_a_subset_of_the_days(settings):
 
     assert [d.date for d in sendable] == [date(2026, 7, 3)]
     assert len(ayse.days) == 2, "the other day stays out of the message"
+
+
+def test_the_day_carries_the_leave_that_covers_it(settings):
+    """`covered_by` exists so the mail step can tell "no record" from "on leave"."""
+    from datetime import date, datetime
+
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+    from mesai.models import LeaveRecord
+
+    collector = Collector()
+    for day in (3, 9):
+        collector.add(Anomaly(
+            kind=AnomalyKind.MISSING_EXIT, source="macunkoy", source_row=day, key=KEY_A,
+            raw_name="AYŞE DENEME", date=date(2026, 7, day)))
+
+    izin = [LeaveRecord(
+        key=KEY_A, raw_name="AYŞE DENEME", personnel_no="8801",
+        leave_type="Yıllık İzin", status="Kullanıldı",
+        start=datetime(2026, 7, 3, 8, 0), end=datetime(2026, 7, 4, 18, 0),
+        days=2.0, department="TEST EKİBİ", source_row=3)]
+
+    built = snap.build("2026-07", [_summary(_employee(KEY_A, "AYŞE DENEME"))],
+                       collector, _stats(), settings, datetime(2026, 8, 25, 10, 0),
+                       leave=izin)
+    days = {d.date.day: d for d in built.people[0].days}
+
+    assert days[3].covered_by == "Yıllık İzin", "multi-day row must cover both days"
+    assert days[9].covered_by == ""
+    assert days[3].explained and not days[9].explained
+
+
+def test_covered_by_survives_the_round_trip(tmp_path, settings):
+    from datetime import date, datetime
+
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+    from mesai.models import LeaveRecord
+
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.MISSING_EXIT, source="macunkoy", source_row=3, key=KEY_A,
+        raw_name="AYŞE DENEME", date=date(2026, 7, 3)))
+    izin = [LeaveRecord(
+        key=KEY_A, raw_name="AYŞE DENEME", personnel_no="8801",
+        leave_type="Mazeret", status="Kullanıldı",
+        start=datetime(2026, 7, 3, 8, 0), end=datetime(2026, 7, 3, 12, 0),
+        days=0.44, department="TEST EKİBİ", source_row=3)]
+
+    original = snap.build("2026-07", [_summary(_employee(KEY_A, "AYŞE DENEME"))],
+                          collector, _stats(), settings, datetime(2026, 8, 25, 10, 0),
+                          leave=izin)
+    path = snap.save(original, tmp_path / "gonderim-2026-07.json")
+
+    assert snap.load(path).people[0].days[0].covered_by == "Mazeret"

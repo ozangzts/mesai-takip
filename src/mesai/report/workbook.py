@@ -14,7 +14,8 @@ from pathlib import Path
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ..anomalies import DESCRIPTIONS, IMPACT_TEXT, TAG_TEXT, Collector
+from ..anomalies import (DESCRIPTIONS, IMPACT_TEXT, TAG_TEXT, Anomaly,
+                         Collector)
 from ..config import Settings
 from ..models import Employee, LeaveRecord, MonthSummary, NameKey, RunStats, WorkDay
 from ..normalize import sort_key
@@ -84,14 +85,21 @@ def build(
 
     footer = _footer_lines(period, stats, generated_at)
 
+    # What each person-day actually counted. The `Etki` column needs it: severity is a
+    # property of the RECORD ("this record contributed no hours") while the sentence it
+    # used to print was about the DAY ("Bu gün 0 saat sayıldı"), and the two disagree on
+    # 52 / 99 / 90 rows over May-July 2026 — every one of them a day that counted eight
+    # hours or more. See ADR-055.
+    measured = {(w.key, w.date): w.gross for w in workdays}
+
     _sheet_summary(workbook.create_sheet("Aylık Özet"), period, summaries,
                    anomalies, stats, settings, footer)
     _sheet_daily(workbook.create_sheet("Günlük Detay"), workdays, employees,
                  settings, footer)
     _sheet_worklist(workbook.create_sheet("İnceleme Listesi"), period, anomalies,
-                    employees, settings, footer)
+                    employees, settings, footer, measured)
     _sheet_anomalies(workbook.create_sheet("Şüpheli Kayıtlar"), anomalies,
-                     employees, footer)
+                     employees, footer, measured)
     _sheet_leave(workbook.create_sheet("İzin Özeti"), leave, employees,
                  summaries, settings, footer)
     _sheet_control(workbook.create_sheet("Kontrol"), period, stats, summaries,
@@ -358,7 +366,7 @@ def _single_detail(found: list[str]) -> str:
 
 def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
                     employees: dict[NameKey, Employee], settings: Settings,
-                    footer: list[str]) -> None:
+                    footer: list[str], measured: dict) -> None:
     """One row per (person, problem), with the exact dates listed.
 
     The Şüpheli Kayıtlar sheet is the audit trail — one row per defective record,
@@ -422,7 +430,7 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
             explanations.get(label, ""),
             len(unique_days) or "",
             _day_list(unique_days, period),
-            _impact_text(severity[(key, label)]),
+            _group_impact(severity[(key, label)], dates, key, measured),
             _single_detail(details[(key, label)]),
         ]
         for index, value in enumerate(values, start=1):
@@ -450,6 +458,45 @@ def _impact_text(severity: str) -> str:
     return _IMPACT_TEXT_PLURAL.get(severity, IMPACT_TEXT[severity])
 
 
+def _record_impact(anomaly: Anomaly, measured: dict) -> str:
+    """What happened, for ONE record — and it is not always what the day did.
+
+    `excluded` means this record contributed no hours. It used to print "Bu gün 0 saat
+    sayıldı", which is a claim about the day, and on 52 / 99 / 90 rows over May-July 2026
+    that claim was false: the day counted eight hours or more from another record. The
+    reader was told a day was lost when nothing was.
+
+    Almost all of those are one situation. The person is Teknopark staff who called at
+    the Macunköy site; the Macunköy row is blank or half-written, and their Teknopark
+    record covers the whole day. Measured on June 2026: 99 of 99.
+    """
+    if anomaly.severity != "excluded":
+        return IMPACT_TEXT[anomaly.severity]
+    if anomaly.date is None or anomaly.key is None:
+        return IMPACT_TEXT["excluded"]
+    gross = measured.get((anomaly.key, anomaly.date))
+    if not gross:
+        return IMPACT_TEXT["excluded"]
+    return f"Bu kayıt sayılmadı; gün başka kayıttan {hhmm(gross)} sayıldı"
+
+
+def _group_impact(severity: str, dates: list, key, measured: dict) -> str:
+    """The same question for a row that stands for several days.
+
+    Split rather than picked: a row reading `15 gün` beside one verdict would describe
+    fourteen of them wrongly, which is the mistake `Ayrıntı` avoids in the same sheet.
+    """
+    if severity != "excluded" or not dates:
+        return _impact_text(severity)
+    lost = sum(1 for d in dates if not measured.get((key, d)))
+    other = len(dates) - lost
+    if other == 0:
+        return _impact_text("excluded")
+    if lost == 0:
+        return "Bu kayıtlar sayılmadı; günler başka kayıttan sayıldı"
+    return f"{lost} gün 0 saat sayıldı; {other} gün başka kayıttan sayıldı"
+
+
 _MONTHS_LOWER = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
                  "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
 
@@ -474,7 +521,8 @@ _ANOMALY_WIDTHS = [28, 12, 34, 14, 13, 22, 22, 24, 52]
 
 
 def _sheet_anomalies(sheet: Worksheet, anomalies: Collector,
-                     employees: dict[NameKey, Employee], footer: list[str]) -> None:
+                     employees: dict[NameKey, Employee], footer: list[str],
+                     measured: dict) -> None:
     span = len(_ANOMALY_HEADERS)
     styles.write_title(sheet, 1, "ŞÜPHELİ KAYITLAR", span)
     styles.write_banner(
@@ -507,7 +555,7 @@ def _sheet_anomalies(sheet: Worksheet, anomalies: Collector,
             anomaly.source_row,
             anomaly.raw_entry,
             anomaly.raw_exit,
-            anomaly.impact,
+            _record_impact(anomaly, measured),
             anomaly.detail,
         ]
         for index, value in enumerate(values, start=1):

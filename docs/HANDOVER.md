@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (53 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (55 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **441 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **450 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -62,6 +62,18 @@ de getirir, çünkü ikisi de olmayan bir günün girişi de yoktur. Yalnızca *
 rapor kaydın başına ne geldiğini yazıyor, o gün tek satır. Sonucu: **not sayıları
 toplanmaz**, aynı gün iki filtrede. Pencere sayısı `İnceleme Listesi` satır sayısından
 büyük, bu tasarım.
+
+**Kimin mail alacağı artık kararlı** (ADR-055): `days_for(..., only_unexplained=True)`
+ve `with_unexplained_days()`. Kural — **hiçbir yerde kaydı olmayan gün**. Başka bir
+kayıttan sayılmışsa sorun yok, girişi bir tesisten çıkışı diğerinden olsa da sorun yok,
+uzaktan ya da izinliyse sorun yok. Huni, üç not işaretliyken:
+
+| | Mayıs | Haziran | Temmuz |
+| --- | --- | --- | --- |
+| İşaretli notları olan | 58 kişi / 147 gün | 82 / 247 | 64 / 244 |
+| − başka kayıttan sayılmış | − 52 gün | − 99 | − 90 |
+| − sayılmamış ama izinli | − 3 | − 2 | − 2 |
+| **mail listesi** | **34 / 92** | **42 / 146** | **36 / 152** |
 
 **Başlamadan önce üç karar gerekiyor.** Bunlar kararlaştırılmadı, uygulama tarafından
 önerildi; kararlaştırılmış kısıt gibi davranılmamalı:
@@ -127,6 +139,38 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
+
+---
+
+## Bu turda ne yapıldı (2026-08-25)
+
+**Rapor yanlış bir şey yazıyordu ve kullanıcının sorusu onu buldu.** Soru şuydu: "adamın
+girişi yoksa o gün nasıl sayılıyor?" Cevap: birim **gün**, kayıt değil. Bir kişi-gününde
+birden çok kayıt olabiliyor, biri bozuksa gün diğerinden sayılıyor. Haziran'da desen
+**99'da 99** aynı: bozuk kayıt Macunköy'de, günün süresi Teknopark'ta. Teknopark personeli
+Macunköy'e uğruyor, oradaki turnike satırı boş kalıyor, kimsenin bir dakikası kaybolmuyor.
+
+Ama `Etki` kolonu bunun tersini yazıyordu: `Bu gün 0 saat sayıldı`, Mayıs 52 / Haziran 99 /
+Temmuz 90 satırda, hepsi 8 saat ve üzeri sayılmış günler. `06.07` satırı "0 saat sayıldı"
+derken o gün **13:56** sayılmıştı. Şiddet düzeyi kaydın özelliği, cümle günün hakkındaydı.
+ADR-052'yle aynı şekil: rapor, uygulanmayan bir şeyi anlatıyor. Artık `Bu kayıt sayılmadı;
+gün başka kayıttan 8:43 sayıldı` yazıyor, gruplu satır ise **bölüyor** (`2 gün 0 saat
+sayıldı; 3 gün başka kayıttan sayıldı`) — on beş günün yanına tek hüküm yazmak on dördünü
+yanlış anlatır.
+
+**İkinci grup, birincisi ayrıldıktan sonra göründü:** hiç sayılmamış ama **izinli** günler.
+Üç ayda 3 / 2 / 2 gün — yıllık izin, mazeret, raporlu. Yıllık izindeki adama "12'sinde
+neredeydin" diye sormak, aynı partideki bütün doğru mailleri de itibarsızlaştıran mesaj.
+`ProblemDay.covered_by` o günü kapatan izin tipini taşıyor (`format_version` 7),
+`explained` tek yüklem, `days_for(only_unexplained=True)` ve `with_unexplained_days()`
+onları düşürüyor. Uzaktan çalışmaya özel durum gerekmedi — beyan zaten aralığa dönüşüyor,
+yani günün süresi var.
+
+Gün filtrelemek yetmiyordu: her günü açıklanan **24 / 40 / 27** kişi kalıyor ve boş
+listeyle mail alacaktı.
+
+Ölçüm: `Bu gün 0 saat sayıldı` deyip günü sayılmış satır artık üç ayda da **0**. Üç ay
+yeniden üretildi, rakam değişmedi.
 
 ---
 
@@ -289,7 +333,7 @@ Buradaki her madde bir kez ısırdı.
 - **`tests/conftest.py` fixture'ı gerçek config'den sapabiliyor** ve birkaç kez saptı.
   Yeni bir config anahtarı eklerken fixture'a da ekle — yoksa bütün test paketi,
   kimsenin çalıştırmadığı bir kurala karşı geçmeye devam eder.
-- Snapshot `format_version` **6**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
+- Snapshot `format_version` **7**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
   **etiketi yeniden adlandırmak** bu sürümü yükseltir (ADR-027, ADR-052): eski yazımla
   yazılmış bir filtre ya da istisna listesi yeni yazımda **sessizce kimseyi** tutmaz.
 - **`arayuz-ayarlari.json` `gui/settings.py` üzerinden yazılır** — oku, değiştir, yaz.

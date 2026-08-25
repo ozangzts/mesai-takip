@@ -684,3 +684,63 @@ def test_the_worklist_prints_the_explanation_beside_the_keyword(tmp_path, settin
     assert header[4] == "Sorun" and header[5] == "Açıklama"
     explanations = {row[4]: row[5] for row in rows[4:] if row and row[4]}
     assert explanations["Çıkış yok"] == "Giriş basılmış, çıkış kaydı yok"
+
+
+# --- the Etki column says what happened to the RECORD (ADR-055) --------------
+
+def _empty_record(day, row=7):
+    return Anomaly(
+        kind=AnomalyKind.EMPTY_RECORD, source="macunkoy", source_row=row, key=KEY,
+        raw_name="AYŞE DENEME", date=day, detail="giriş de çıkış da boş")
+
+
+def test_etki_does_not_claim_a_day_was_lost_when_it_counted(tmp_path, settings):
+    """The bug: `Bu gün 0 saat sayıldı` on a day that counted 8 hours.
+
+    Severity is a property of the record — the code has always said so — while the
+    sentence was about the day. On real data the two disagreed on 52 / 99 / 90 rows over
+    May-July 2026, every one of them a Teknopark employee whose Macunköy row was blank
+    and whose Teknopark record covered the whole day.
+    """
+    collector = Collector()
+    collector.add(_empty_record(DAY))
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["Şüpheli Kayıtlar"].iter_rows(values_only=True))
+    header = [c for c in rows[3] if c is not None]
+    etki = rows[4][header.index("Etki")]
+
+    # _workday() is DAY and counts 9:39, so the day was NOT lost
+    assert "0 saat" not in etki, etki
+    assert "başka kayıttan" in etki
+
+
+def test_etki_still_says_zero_when_the_day_really_counted_nothing(tmp_path, settings):
+    """The other half. A rule that never fires in the original direction is not a fix."""
+    collector = Collector()
+    collector.add(_empty_record(date(2026, 5, 19)))          # no workday on that date
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["Şüpheli Kayıtlar"].iter_rows(values_only=True))
+    header = [c for c in rows[3] if c is not None]
+
+    assert rows[4][header.index("Etki")] == "Bu gün 0 saat sayıldı"
+
+
+def test_a_grouped_row_splits_instead_of_picking_one_verdict(tmp_path, settings):
+    """One counted, one lost — saying either alone misdescribes the other."""
+    collector = Collector()
+    collector.add(_empty_record(DAY, row=7))               # counted
+    collector.add(_empty_record(date(2026, 5, 19), row=8))    # lost
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
+    header = [c for c in rows[3] if c is not None]
+    row = next(r for r in rows[4:] if r and r[4] == "Hem giriş hem çıkış yok")
+    etki = row[header.index("Etki")]
+
+    assert row[header.index("Gün Sayısı")] == 2
+    assert "1 gün 0 saat sayıldı" in etki and "1 gün başka kayıttan" in etki

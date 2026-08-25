@@ -231,7 +231,7 @@ into a per-person question: **144 rows**, each naming the days.
 | F | Açıklama | `Giriş basılmış, çıkış kaydı yok` |
 | G | Gün Sayısı | `15` |
 | H | Günler | `4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 17, 18, 20 Mayıs` |
-| I | Etki | `Bu günler 0 saat sayıldı` |
+| I | Etki | `2 gün 0 saat sayıldı; 3 gün başka kayıttan sayıldı` |
 | J | Ayrıntı | `22 iş gününün 2 tanesi açıklanıyor (%9) — çalışma 1 gün, izin 1 gün` |
 
 One row per **(person, problem type)** pair — a person with both a missing entry and
@@ -279,7 +279,15 @@ mostly `MISSING_EXIT`. `İnceleme Listesi` is the per-person view; this one is t
 | E | Kaynak Satır | `17` — the row number in the original file |
 | F | Ham Giriş | as recorded |
 | G | Ham Çıkış | as recorded |
-| H | Etki | `Bu gün 0 saat sayıldı` / `Toplama dahil edildi` / `Toplama dahil edildi — beklenen durum` |
+| H | Etki | `Bu gün 0 saat sayıldı` / `Bu kayıt sayılmadı; gün başka kayıttan 8:43 sayıldı` / `Toplama dahil edildi` / `Toplama dahil edildi — beklenen durum` |
+
+**`Etki` is about the record, not the day** (ADR-055). An excluded record contributed no
+hours; whether the *day* lost anything is a separate fact, and the two disagree often.
+Measured over May–July 2026, of the rows carrying a missing-punch note, **52 / 99 / 90
+counted eight hours or more** — the person is Teknopark staff who called at Macunköy, the
+Macunköy row is the blank one, and their Teknopark record covers the day. This column used
+to say `Bu gün 0 saat sayıldı` on every one of them, which was false. A grouped row on
+`İnceleme Listesi` splits the count rather than picking one verdict.
 | I | Açıklama | |
 
 Colour-coded by severity: red = excluded from totals, amber = included but

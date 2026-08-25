@@ -24,12 +24,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, timedelta
 from pathlib import Path
 
 from .anomalies import DESCRIPTIONS, GROUPS, Collector, with_implied
 from .config import Settings
-from .models import MonthSummary, RunStats, WorkDay
+from .models import LeaveRecord, MonthSummary, RunStats, WorkDay
 
 # Bump when a field changes meaning or disappears. A reader that meets a version it
 # does not know refuses rather than guessing — see load().
@@ -44,7 +44,9 @@ from .models import MonthSummary, RunStats, WorkDay
 #    same breaking change as version 2: a filter or an exclusion list written against
 #    the old wording matches nobody under the new one, silently.
 # 6: `Giriş-çıkış yok` became `Hem giriş hem çıkış yok` (ADR-054). Same reason.
-FORMAT_VERSION = 6
+# 7: `days[].covered_by` added — the leave type covering that date, so the mail step can
+#    tell "nothing was recorded" from "on annual leave" (ADR-055).
+FORMAT_VERSION = 7
 
 
 class SnapshotError(Exception):
@@ -72,6 +74,25 @@ class ProblemDay:
     entry: str = ""
     exit: str = ""
     minutes: int | None = None       # counted for that day; None if nothing counted
+    # The leave type covering this date, when one does. Empty otherwise.
+    #
+    # A note is about a RECORD; whether anything was lost is a fact about the DAY, and
+    # the two disagree often. Measured over May-July 2026: of the days carrying a
+    # missing-punch note, 52 / 99 / 90 still counted 8 hours or more, because the person
+    # is Teknopark staff who called at Macunköy and the Macunköy row is the broken one.
+    # A further 3 / 2 / 2 counted nothing but are annual leave, excused absence or sick
+    # leave. Neither group lost a minute, and asking somebody where they were on a day
+    # they were on annual leave is the mail nobody should receive.
+    covered_by: str = ""
+
+    @property
+    def explained(self) -> bool:
+        """Nothing was lost on this day: time was still counted, or leave covers it.
+
+        Remote work needs no mention here — a declared remote day becomes intervals like
+        any other record, so it already has minutes.
+        """
+        return bool(self.minutes) or bool(self.covered_by)
 
     @property
     def hours_text(self) -> str:
@@ -211,8 +232,28 @@ def default_path(period: str, output_path: Path) -> Path:
     return output_path.parent / f"gonderim-{period}.json"
 
 
+def _leave_dates(leave: list[LeaveRecord]) -> dict[tuple[tuple[str, str], date_type], str]:
+    """`(person, date) -> leave type`, one entry per covered day.
+
+    Multi-day rows are expanded, because the question asked of this table is about one
+    date. A day covered by more than one row keeps the first — the mail only needs to
+    know that the day is accounted for, not to adjudicate between two leave types.
+    """
+    covered: dict[tuple[tuple[str, str], date_type], str] = {}
+    for record in leave:
+        if record.start is None:
+            continue
+        day = record.start.date()
+        last = (record.end or record.start).date()
+        while day <= last:
+            covered.setdefault((record.key, day), record.leave_type)
+            day += timedelta(days=1)
+    return covered
+
+
 def _problem_days(
     anomalies: Collector, workdays: list[WorkDay],
+    leave: list[LeaveRecord] | None = None,
 ) -> dict[tuple[str, str], tuple[ProblemDay, ...]]:
     """Per person, the days carrying a problem note, in date order.
 
@@ -238,6 +279,7 @@ def _problem_days(
         entry["exit"] = entry["exit"] or anomaly.raw_exit
 
     measured = {(w.key, w.date): w for w in workdays}
+    covered = _leave_dates(leave or [])
     built: dict[tuple[str, str], tuple[ProblemDay, ...]] = {}
     for key, by_date in days.items():
         rows = []
@@ -254,6 +296,7 @@ def _problem_days(
                       if workday and workday.last_exit else found["exit"]),
                 minutes=(int(workday.gross.total_seconds() // 60)
                          if workday else None),
+                covered_by=covered.get((key, day), ""),
             ))
         built[key] = tuple(rows)
     return built
@@ -263,6 +306,7 @@ def build(
     period: str, summaries: list[MonthSummary], anomalies: Collector,
     stats: RunStats, settings: Settings, generated_at: datetime,
     workdays: list[WorkDay] | None = None,
+    leave: list[LeaveRecord] | None = None,
 ) -> Snapshot:
     by_key: dict[tuple[str, str], set[str]] = {}
     expected_by_key: dict[tuple[str, str], set[str]] = {}
@@ -272,7 +316,7 @@ def build(
         target = by_key if anomaly.is_problem else expected_by_key
         target.setdefault(anomaly.key, set()).add(anomaly.label)
 
-    days_by_key = _problem_days(anomalies, workdays or [])
+    days_by_key = _problem_days(anomalies, workdays or [], leave or [])
 
     people = tuple(
         Person(
@@ -341,7 +385,8 @@ def save(snapshot: Snapshot, path: Path) -> Path:
                 "notes": list(p.notes),
                 "days": [
                     {"date": d.date.isoformat(), "problems": list(d.problems),
-                     "entry": d.entry, "exit": d.exit, "minutes": d.minutes}
+                     "entry": d.entry, "exit": d.exit, "minutes": d.minutes,
+                     "covered_by": d.covered_by}
                     for d in p.days
                 ],
             }
@@ -397,7 +442,8 @@ def load(path: Path) -> Snapshot:
                         date=date_type.fromisoformat(d["date"]),
                         problems=tuple(d.get("problems", ())),
                         entry=d.get("entry", ""), exit=d.get("exit", ""),
-                        minutes=d.get("minutes"))
+                        minutes=d.get("minutes"),
+                        covered_by=d.get("covered_by", ""))
                     for d in p.get("days", ())),
             )
             for p in payload.get("people", ())

@@ -155,7 +155,8 @@ def selected(snapshot: Snapshot | None, filter_key: str, excluded: Iterable[str]
 
 
 def days_for(person: Person, labels: Iterable[str] | None = None,
-             snapshot: Snapshot | None = None) -> tuple[ProblemDay, ...]:
+             snapshot: Snapshot | None = None,
+             only_unexplained: bool = False) -> tuple[ProblemDay, ...]:
     """The person's days the message may speak about: those the ticked notes are about.
 
     The rule ADR-051 states — ticked notes choose both *who* and *which days* — lives
@@ -167,14 +168,45 @@ def days_for(person: Person, labels: Iterable[str] | None = None,
 
     `labels=None` means the default set, which needs the snapshot to know what notes
     exist. Passing neither is "every day this person has a problem on".
+
+    `only_unexplained` drops the days where **nothing was lost** — see
+    `ProblemDay.explained`. A note is about a record; whether a minute went missing is a
+    fact about the day. Measured over May-July 2026, with the three punch notes ticked:
+
+        selected days                    147   247   244
+        still counted (another record)  - 52  - 99  - 90
+        counted nothing, but on leave   -  3  -  2  -  2
+        actually lost                     92   146   152
+
+    and by person, 58 / 82 / 64 becomes 34 / 42 / 36. Those dropped are Teknopark staff
+    who called at Macunköy: the Macunköy row is the broken one, their day was recorded
+    in full at Teknopark, and they lost nothing. Where the entry was read at one site
+    and the exit at another, that is a complete day too — the union already counted it.
+
+    Not the default, because this module also answers "what is wrong with this person's
+    month", where an explained day is still worth showing. The mail step passes True.
     """
     if labels is None:
         if snapshot is None:
-            return person.days
+            days = person.days
+            return tuple(d for d in days if not d.explained) if only_unexplained                 else days
         labels = default_labels(snapshot)
     counted = frozenset(labels)
     return tuple(day for day in person.days
-                 if counted.intersection(with_implied(day.problems)))
+                 if counted.intersection(with_implied(day.problems))
+                 and not (only_unexplained and day.explained))
+
+
+def with_unexplained_days(people: Iterable[Person],
+                          labels: Iterable[str] | None = None) -> tuple[Person, ...]:
+    """Those of `people` who still have a day left once the explained ones are dropped.
+
+    Filtering days is not enough on its own: somebody every one of whose days was
+    counted elsewhere would otherwise be written to with an empty list. 24 / 40 / 27
+    people over May-July 2026 are exactly that.
+    """
+    return tuple(p for p in people
+                 if days_for(p, labels, only_unexplained=True))
 
 
 def without_email(people: Iterable[Person]) -> tuple[Person, ...]:

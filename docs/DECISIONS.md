@@ -3217,3 +3217,103 @@ conjunction needed spelling out.
 - Earlier ADRs quote the old wording (ADR-027's dropdown sketch, ADR-051's
   contradiction example, ADR-053's title). They are the record of what was decided when
   and are left alone — this entry is where the log says the wording moved.
+
+---
+
+## ADR-055 — A note is about a record; whether anything was lost is about the day
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Fixes a false statement in the report. Extends ADR-051, ADR-053.**
+
+### Context
+
+The operator asked the obvious question: *"adamın girişi yoksa o gün nasıl sayılıyor?"*
+The answer is that the unit is the **day**, and a person-day can carry several records.
+One record being unusable does not zero the day.
+
+Measured on June 2026, and the pattern is total — **99 of 99** cases:
+
+```
+broken record : Macunköy   (row exists, times blank)
+the day        : Teknopark  (07:16 -> 16:49, 8:43 counted)
+```
+
+This is AGENTS §4 in the small. Teknopark staff call at the Macunköy site; the Macunköy
+turnstile row is blank or half-written, their Teknopark record covers the whole day, and
+**not a minute is lost**.
+
+The question was prompted by the report, which was **stating the opposite**. The `Etki`
+column printed `Bu gün 0 saat sayıldı` on 52 / 99 / 90 rows over May–July 2026 where the
+day had counted eight hours or more — `06.07 · Hem giriş hem çıkış yok · "Bu gün 0 saat
+sayıldı"` on a day that counted **13:56**. Severity has always been documented as a
+property of the record (`anomalies.py`: *"the record contributed zero hours"*), but the
+sentence built from it was a claim about the day. Nothing failed; it is prose to every
+test. Same shape as ADR-052.
+
+A second group followed once the first was separated out: days that counted nothing but
+are covered by **leave**. Three, two and two days over the three months — annual leave,
+excused absence, sick leave. Asking somebody where they were on a day they were on annual
+leave is the message that discredits every other message in the batch.
+
+### Decision
+
+1. **`Etki` says what happened to the record.** Excluded and the day counted nothing →
+   `Bu gün 0 saat sayıldı`, unchanged and true. Excluded and the day counted anyway →
+   `Bu kayıt sayılmadı; gün başka kayıttan 8:43 sayıldı`. A grouped row on `İnceleme
+   Listesi` **splits** — `2 gün 0 saat sayıldı; 3 gün başka kayıttan sayıldı` — rather
+   than picking one verdict for fifteen days, which is the mistake the `Ayrıntı` column
+   already avoids in the same sheet.
+
+2. **`ProblemDay.covered_by`** carries the leave type covering that date, and
+   **`ProblemDay.explained`** is the single predicate for "nothing was lost here":
+   time was still counted, or leave covers it. Remote work needs no case of its own — a
+   declared remote day becomes intervals like any record, so it already has minutes.
+
+3. **`recipients.days_for(..., only_unexplained=True)`** drops those days, and
+   **`recipients.with_unexplained_days()`** drops the people left with none. Filtering
+   days alone is not enough: 24 / 40 / 27 people have *every* day explained and would be
+   written to with an empty list.
+
+The funnel, measured, with the three punch notes ticked:
+
+| | May | June | July |
+| --- | --- | --- | --- |
+| selected | 58 people / 147 days | 82 / 247 | 64 / 244 |
+| still counted elsewhere | − 52 days | − 99 | − 90 |
+| counted nothing, on leave | − 3 | − 2 | − 2 |
+| **actually lost** | **34 / 92** | **42 / 146** | **36 / 152** |
+
+### Alternatives rejected
+
+**Reword `Etki` to be record-level and leave it at that** — `Bu kayıt sayılmadı` on every
+excluded row. Always true, one line, and it throws away the fact the reader wants: was
+time lost or not. The whole point of the column is what it cost.
+
+**Make `only_unexplained` the default in `days_for`.** Rejected — this module also
+answers "what is wrong with this person's month", where an explained day is still worth
+showing. The mail step passes the flag; the report keeps every row, because the audit
+trail must contain the record that was refused whether or not the day survived it.
+
+**Filter the explained days out of the report too.** Rejected for the same reason
+ADR-053 refused to expand notes in the sheets: the report states what happened to every
+input row (AGENTS §2.2). A row that vanishes is a bug.
+
+**Derive leave coverage in the mail step from the leave sheet.** Rejected — the sheet is
+per-person totals with no dates, and re-reading the source file at mail time would
+recompute figures a human already reviewed, which is the thing `snapshot.py` exists to
+prevent.
+
+### Consequences
+
+- **`format_version` 6 → 7** for `covered_by`. All three months regenerated; no figure
+  changed — 17 103:58 / 27 166:19 / 26 233:17.
+- Rows still saying `Bu gün 0 saat sayıldı` where the day counted: **0 / 0 / 0**,
+  verified against the regenerated workbooks.
+- The mail list is now the operator's stated rule — *"tamamen olmayanlar"* — and nothing
+  else: no record at any site, no remote declaration, no leave. Where an entry was read
+  at one site and the exit at another, the union already counted the day and it does not
+  appear.
+- `hhmm` is now used by the anomaly sheets, so the two impact helpers sit beside
+  `_impact_text` rather than in `anomalies.py`: the wording needs the day's measurement,
+  which is a report input, and `anomalies.py` has no access to it by design.

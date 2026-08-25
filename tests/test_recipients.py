@@ -441,3 +441,63 @@ def _stats_for_report():
         rows_read={"macunkoy": 1}, records_built={"macunkoy": 1},
         intervals_accepted=0, union_total=timedelta(), accepted_total=timedelta(),
         files={"macunkoy": "test.xlsx"}, roster_date=date(2026, 7, 28))
+
+
+# --- days where nothing was actually lost (ADR-055) --------------------------
+
+def _day(day, *, minutes=None, covered_by="", problems=("Çıkış yok",)):
+    from datetime import date
+
+    from mesai.snapshot import ProblemDay
+    return ProblemDay(date=date(2026, 6, day), problems=tuple(problems),
+                      entry="07:41", minutes=minutes, covered_by=covered_by)
+
+
+def _person_with(*days):
+    p = person("KEREM DENEME", problems=("Çıkış yok",))
+    return Person(**{**p.__dict__, "days": tuple(days)})
+
+
+def test_a_day_that_still_counted_is_not_a_day_anybody_lost():
+    """The Macunköy visit: broken row there, full day recorded at Teknopark.
+
+    Measured on June 2026 this is 99 of the 99 counted days — every one of them. The
+    person lost nothing and has nothing to answer for.
+    """
+    kisi = _person_with(_day(3, minutes=523), _day(9))
+
+    hepsi = recipients.days_for(kisi, {"Çıkış yok"})
+    kayipli = recipients.days_for(kisi, {"Çıkış yok"}, only_unexplained=True)
+
+    assert [d.date.day for d in hepsi] == [3, 9]
+    assert [d.date.day for d in kayipli] == [9]
+
+
+def test_a_day_covered_by_leave_is_not_asked_about():
+    """Seven days over three months. Asking somebody where they were while on annual
+    leave is the message that discredits every other message in the batch."""
+    kisi = _person_with(_day(3, covered_by="Yıllık İzin"), _day(9))
+
+    assert [d.date.day for d in
+            recipients.days_for(kisi, {"Çıkış yok"}, only_unexplained=True)] == [9]
+    assert _day(3, covered_by="Yıllık İzin").explained
+    assert not _day(9).explained
+
+
+def test_remote_work_needs_no_special_case():
+    """A declared remote day becomes intervals like any record, so it has minutes."""
+    assert _day(3, minutes=540).explained
+
+
+def test_somebody_whose_every_day_was_explained_drops_out_of_the_list():
+    """Filtering days is not enough: they would be written to with an empty list.
+
+    24 / 40 / 27 people over May-July 2026 are exactly this — every one of their days
+    counted somewhere else.
+    """
+    temiz = _person_with(_day(3, minutes=523), _day(9, covered_by="Mazeret"))
+    kayipli = _person_with(_day(3, minutes=523), _day(9))
+
+    kalan = recipients.with_unexplained_days([temiz, kayipli], {"Çıkış yok"})
+    assert [p for p in kalan] == [kayipli]
+    assert recipients.days_for(temiz, {"Çıkış yok"}, only_unexplained=True) == ()
