@@ -218,8 +218,8 @@ ADR-047.
 ### Sheet 3 — `İnceleme Listesi`
 
 The sheet you take to HR or IT and ask about. `Şüpheli Kayıtlar` is the audit trail
-— one row per defective record, 245 of them for May 2026. This one collapses those
-into a per-person question: **144 rows**, each naming the days.
+— one row per defective record, **402** of them for May 2026. This one collapses those
+into a per-person question: **191 rows**, each naming the days.
 
 | # | Header | Example |
 | --- | --- | --- |
@@ -254,8 +254,9 @@ on June 2026: 76 of 213 rows carry an `Ayrıntı`.
 | Grey | `info` | **expected behaviour, not a problem** — listed so the audit trail is complete |
 
 Grey rows exist so that a genuine question is not buried among expected ones. For May
-2026 the remote-work overlap produces 19 grey rows and **2 amber** — and those 2 are
-the only cases anyone needs to ask about.
+2026: **112 rows** where the days counted nothing, **25** where the record was refused but
+the day counted anyway from another one, **3** split between the two, 29 amber and 19 grey.
+The 112 are the ones somebody has to chase.
 
 Sorted worst first: `excluded`, then `included`, then `info`, and within each by day
 count descending. The person costing the most hours is the first thing you see; the

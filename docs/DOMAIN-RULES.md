@@ -86,6 +86,19 @@ contribute **zero** hours and emit anomaly `MISSING_ENTRY` or `MISSING_EXIT`.
 
 **3.4 Neither punch present.** Emit `EMPTY_RECORD`. Zero hours.
 
+**3.4b No record at all for an expected working day.** Also `EMPTY_RECORD`, one per
+person per day, when the person has attendance somewhere in the period but nothing at all
+for that day — no row at either site, no leave, no remote declaration (ADR-060). The fact
+is the same as 3.4, so the note is the same; the anomaly's `detail` distinguishes a blank
+row from an absent one, and its source reads `kayıt yok` rather than a file name.
+
+**No condition of any kind** (ADR-061). An anchor at the person's first record of the
+month was tried, to spare a mid-month joiner: measured across June and July 2026, of the
+people whose first record falls after the month's first working day, **13 of 15 and 11 of
+16 had records in the previous month** — so the anchor was hiding 60 and 45 days to spare
+2–5 people a question. Telling a joiner from a gap needs a hire date, which the roster
+does not carry (ROADMAP Q18). Until it does, the program lists both and a person decides.
+
 **3.5 Implausibly short interval.**
 Duration below `min_plausible_minutes` (default 5) — e.g. the real
 `13:32 → 13:34` = 2 min. Keep the interval in the total, but emit anomaly
@@ -504,7 +517,7 @@ an input mechanism (Q8). Public-holiday rows are colour-coded in the report
   distinguish "worked zero" from "no data".
 
 
-## Plausibility: four thresholds, and only one of them removes hours
+## Plausibility: three thresholds, and only one of them removes hours
 
 Easy to confuse, and every one of them has been confused at some point. The
 plain-Turkish version of all this is `KURALLAR.md`.
@@ -515,12 +528,15 @@ plain-Turkish version of all this is `KURALLAR.md`.
 | `Günlük süre çok uzun (>16 saat)` | one person-day, total | `max_shift_hours` | counted, flagged |
 | `Giriş-çıkış tutarsız (>20 saat)` | **our own repair** of one interval | `repair_max_hours` (20 h) | **excluded**, 0 hours |
 
-The first three ask about a **person**: did they barely work that day, work an
-implausibly long one, or barely appear all month. None of them removes an hour — a
-16-hour day is real work until somebody says otherwise (ADR-032), and the month
-coverage rule cannot tell a mid-month joiner from missing records (ADR-030).
+The first two ask about a **person-day**: did they barely work that day, or work an
+implausibly long one. Neither removes an hour — a 16-hour day is real work until somebody
+says otherwise (ADR-032).
 
-The fourth asks about a **record**, and it is the only one that zeroes a day. When the
+There used to be a fourth, `Ay büyük ölçüde boş`, asking whether somebody barely appeared
+all month. ADR-062 removed it: every day it was summarising now carries
+`Hem giriş hem çıkış yok` of its own, which says the same thing and says which days.
+
+The third asks about a **record**, and it is the only one that zeroes a day. When the
 exit precedes the entry the tool assumes the shift crossed midnight and adds 24 hours.
 That assumption is *ours*; if it produces something above `repair_max_hours` it was the
 wrong assumption and the record is refused. All five real cases across May–July are two

@@ -475,30 +475,41 @@ the column that is not a label (ADR-049). The single exception is
 Anomaly **labels are keywords, and they are filter keys** (ADR-027) — the people
 screen builds its dropdown from them. Two kinds may never share a label, no label may
 grow back into a sentence, and the sentence lives in the kind's `explanation` instead.
-Changing a label is a breaking change to the snapshot, not a copy edit. Every note also
-declares a **family** (`anomalies.py:GROUPS`); the filter list is ordered by family then
-by declaration order, never by frequency, so it reads the same every month (ADR-029).
+Changing a label — or removing one — is a breaking change to the snapshot, not a copy
+edit (ADR-054, ADR-062). Every note also declares a **family** (`anomalies.py:GROUPS`);
+the **dropdown** is ordered by family then by declaration order, never by frequency, so it
+reads the same every month (ADR-029). The **checkbox panel** is grouped differently, by
+what each note cost — `Günü sayılmayan` / `Günü sayılan`, computed from the data (ADR-056)
+— because the question asked there is which of these to chase.
 
 **One note is a stricter case of two others, and only for selection**
 (`anomalies.py:IMPLIES`, ADR-053). `Hem giriş hem çıkış yok` is a day with no entry
 *and* no exit, so a filter on `Giriş yok` returns it too — the labels read as predicates
 and a both-missing day satisfies them. That label is spelled as a conjunction on purpose
-(ADR-054): `Giriş yok (48)` beside `Hem giriş hem çıkış yok (34)` reads as containment on
-its face, which is the job an indent in the window failed to do. Everything that selects goes through
-`anomalies.with_implied`; nothing that *reports* does, because the sheets state what
-happened to a record and a day with neither punch is one row, not three.
+(ADR-054): read beside its neighbour, the containment is on the face of the words.
+Everything that selects goes through `anomalies.with_implied`; nothing that *reports*
+does, because the sheets state what happened to a record and a day with neither punch is
+one row, not three.
 
-Two consequences to know before adding an entry to that table:
+**A filter selects only what is still outstanding** (`recipients.outstanding`, ADR-059,
+ADR-061). Ticking `Giriş yok` returns the people whose entry is missing **everywhere** —
+not the ones whose Macunköy row was blank on a day their Teknopark record covered in full.
+A day is outstanding when nothing was counted for it and no leave covers it
+(`ProblemDay.explained`); a note with no dated day at all (`Mesai verisi yok`) has nothing
+to explain and always stands. `Sorunu olmayanlar` asks the same question, so the two stay
+a partition of the month.
 
-- **Note counts no longer partition.** June's punch days were 147 + 20 + 80 = 247 with
-  no overlap; now the same day is in two filters. Anything that adds note counts
-  together is wrong. The people screen does **not** indent the stricter note to signal
-  this — that was tried and read as "sub-option", which it is not: ticking it alone is a
-  full selection of its own.
-- **The window's counts are larger than `İnceleme Listesi`'s row counts** for those
-  notes. That is the design, not a discrepancy. A test asserts each count equals the
-  number of rows its filter returns, because the failure mode is a dropdown offering
-  `Giriş yok (48)` and handing back 15.
+Three consequences to know before touching any of this:
+
+- **Note counts do not partition.** The same day appears under two filters, so anything
+  that adds note counts together is wrong.
+- **A note may show `(0)`** — it occurred this month and nothing is outstanding under it.
+  Do not drop those rows from the list: a bug in `explained` would then remove a whole
+  note from the window silently, which is the failure ADR-017 and ADR-048 guard against.
+- **Do not put an explanatory figure beside a label.** Tried and removed the same day
+  (ADR-058 → ADR-059): `27 kişi · 5/78 gün sayılmadı` read as an arithmetic error, and
+  once the filter itself is right there is no second number to reconcile. The panel prints
+  `{label} ({people})`. An indent to mark the stricter note was tried and removed too.
 
 Three severities, and the third one earns its keep: `excluded` (counted as zero
 hours), `included` (counted, worth a look), `info` (counted, **expected behaviour**).

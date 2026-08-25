@@ -485,16 +485,20 @@ Ayrıntılı sayfa ve kolon tasarımı: [docs/OUTPUT-SPEC.md](docs/OUTPUT-SPEC.m
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
-| Raporda yer alan kişi | 171 | 163 | 175 |
-| mesai verisi olan | 145 | 145 | 144 |
+| Raporda yer alan kişi | 171 | 163 | 176 |
+| mesai verisi olan | 145 | 145 | 145 |
 | mesai verisi olmayan | 26 | 18 | 31 |
 | personel listesinde olmayan (muhtemelen ayrılmış) | 11 | 9 | 9 |
-| Kişi-gün kaydı | 1 823 | 2 822 | 1 729 |
-| **Toplam çalışma süresi** | **17 103:58** | **27 166:19** | **16 078:44** |
-| Şüpheli kayıt | 250 (175'i dahil edilmedi) | 427 (266) | 554 (449) |
+| Kişi-gün kaydı | 1 823 | 2 822 | 2 731 |
+| **Toplam çalışma süresi** | **17 103:58** | **27 166:19** | **26 233:17** |
+| Şüpheli kayıt | 399 (329'u dahil edilmedi) | 721 (568) | 723 (571) |
 
-**Temmuz sayıları eksik veriye dayanıyor** — Teknopark dosyası ayın 1–19'unu
-kapsıyor. Karşılaştırma için kullanılmamalı.
+Üç ayın üçü de tam; Temmuz'un Teknopark dosyası önce ayın 1–19'unu kapsıyordu ve o
+hâliyle 16 078:44 gösteriyordu — tam ay dosyası gelince 26 233:17 oldu.
+
+Şüpheli kayıt sayısı Ağustos sonunda 250/427/436'dan buraya çıktı ve **hiçbir saat
+değişmedi**: kaydı hiç olmayan iş günleri de artık işaretleniyor. O günlerde sayılacak
+bir şey yoktu, yalnızca görünmüyorlardı.
 
 Mayıs ve Haziran toplamları 2026-08-17'de yükseldi: öğle arası kesintisi kaldırıldı
 ve gün "ilk giriş → son çıkış" olarak ölçülmeye başlandı. Mayıs için
@@ -504,7 +508,7 @@ otomatik yazılan nominal gün artık sayılmıyor, bu da bir miktar düşürdü
 ## Geliştirme
 
 ```bash
-python -m pytest          # 339 test
+python -m pytest          # 471 test
 ```
 
 Doğrulama mekanizmaları:
