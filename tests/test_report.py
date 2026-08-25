@@ -656,7 +656,7 @@ def test_the_worklist_carries_a_month_level_notes_own_figures(tmp_path, settings
     header = [c for c in rows[3] if c is not None]
     assert header[9] == "Ayrıntı"
 
-    row = next(r for r in rows[4:] if r and r[4] == "Mesai verisi yok")
+    row = next(r for r in rows[4:] if r and r[4] == "Kart bilgisi yok")
     assert row[9] == sparse.detail
 
 

@@ -213,7 +213,7 @@ def test_an_expected_behaviour_note_produces_no_day(settings):
 
 
 def test_a_month_level_note_produces_no_day(settings):
-    """`Mesai verisi yok` has no date, so there is no day to tell anybody about."""
+    """`Kart bilgisi yok` has no date, so there is no day to tell anybody about."""
     from mesai.anomalies import Anomaly, AnomalyKind, Collector
 
     collector = Collector()
@@ -226,7 +226,7 @@ def test_a_month_level_note_produces_no_day(settings):
     person = built.people[0]
 
     assert person.days == ()
-    assert "Mesai verisi yok" in person.problems, "still a problem, just not a day"
+    assert "Kart bilgisi yok" in person.problems, "still a problem, just not a day"
 
 
 def test_a_day_that_counted_carries_the_measured_times(settings):

@@ -122,7 +122,7 @@ for Phase 4, but putting 162 addresses in a circulated workbook serves no report
 purpose. It stays in the mail step's own data.
 
 **People with no attendance data** (Q4) appear as rows with G–I blank — **not
-zero** — and `Mesai verisi yok` in the Not column. A blank and a zero mean different
+zero** — and `Kart bilgisi yok` in the Not column. A blank and a zero mean different
 things and the sheet must preserve the difference.
 
 **People with attendance but no roster entry** (11 in May 2026, Q4b) get full hour
@@ -253,7 +253,7 @@ a missing exit gets two rows, because they are two different questions.
 `Açıklama` is the note's meaning and reads the same on every row carrying that note.
 `Ayrıntı` is the opposite: the record's **own** words, and it is filled only where the
 row stands for a single record. That is always true of a month-level note, which is the
-case the column exists for — `Mesai verisi yok` says what it found about the month, and
+case the column exists for — `Kart bilgisi yok` says what it found about the month, and
 until ADR-052 the only sheet showing it was the row-per-record audit trail. A note spanning several days has several different sentences and gets none;
 printing one of them beside a count of fifteen would misdescribe fourteen days. Measured
 on June 2026: 76 of 213 rows carry an `Ayrıntı`.

@@ -7,7 +7,6 @@ See AGENTS.md §2.2.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
@@ -91,8 +90,9 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
     # of the two it was; the label says the thing the reader needs.
     AnomalyKind.EMPTY_RECORD: (
         "Hem giriş hem çıkış yok", "excluded",
-        "O gün için giriş de çıkış da kaydedilmemiş — dosyada saatleri boş bir satır "
-        "var ya da o güne ait hiç satır yok",
+        "TEK BİR GÜN için giriş de çıkış da kaydedilmemiş — dosyada saatleri boş bir "
+        "satır var ya da o güne ait hiç satır yok. Kişinin ayın başka günlerinde "
+        "kaydı vardır; ayın tamamı boşsa 'Kart bilgisi yok' yazar",
         "Eksik kayıt"),
     AnomalyKind.NEGATIVE_DURATION: (
         "Gece geçişi", "included",
@@ -144,9 +144,16 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
         "Süre uyuşmazlığı", "included",
         "Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil",
         "Süre"),
+    # Was `Mesai verisi yok`, and nobody could say how it differed from `Hem giriş hem
+    # çıkış yok` — a fair question, since both mean "no reading". The difference is the
+    # SCOPE: this one is about the whole period, the other about one day. The name now
+    # says what is missing (the badge record) instead of naming a concept ("mesai
+    # verisi") the reader has to map onto it, and the explanation states the scope in
+    # its first words. ADR-066.
     AnomalyKind.NO_ATTENDANCE_DATA: (
-        "Mesai verisi yok", "excluded",
-        "Dönem boyunca hiç kart kaydı yok",
+        "Kart bilgisi yok", "excluded",
+        "Ayın hiçbir gününde kart kaydı yok. Bu kişi dosyalarda yalnızca izin ya da "
+        "personel kaydıyla görünüyor; tek tek günler değil, ayın tamamı boş",
         "Eksik kayıt"),
     AnomalyKind.REMOTE_OVERLAP_REAL: (
         "Uzaktan + kart kaydı", "included",
@@ -163,41 +170,14 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
         "Diğer"),
 }
 
-# One note is a STRICTER CASE of two others, and selecting on it has to say so.
+# `Hem giriş hem çıkış yok` used to also select under `Giriş yok` and `Çıkış yok`, on
+# the reading that a day with neither punch is also a day with no entry (ADR-053). That
+# is gone (ADR-065): the three notes are three separate questions to ask somebody — what
+# time did you leave, what time did you arrive, and were you here at all — and the third
+# is not a case of the other two. Ticking one brings only its own days.
 #
-# `Hem giriş hem çıkış yok` is a day with no entry *and* no exit — so it is also a day
-# with no
-# entry, and a day with no exit. The labels read as predicates ("girişi yok"), and a
-# both-missing day satisfies both of them. Ticking `Giriş yok` and not getting those
-# days back is the reading nobody expects.
-#
-# This is a **selection** relation, not a reporting one, and the difference is the whole
-# design. The report states what happened to a record: a day with neither punch is one
-# row, labelled `Hem giriş hem çıkış yok`, and expanding it into three rows would triple
-# the
-# sheet and invent two facts. The filter answers "who do I write to", where the broader
-# reading is the correct one. So the counts in the window are deliberately larger than
-# the row counts in `İnceleme Listesi`, and that is not a discrepancy — see ADR-053.
-#
-# Consequence to know before adding an entry here: the counts stop partitioning. Before
-# this, June's 147 + 20 + 80 punch days summed to 247 with no overlap; now the same day
-# is in two filters. Anything that ADDS note counts together is wrong.
-IMPLIES: dict[str, tuple[str, ...]] = {
-    "Hem giriş hem çıkış yok": ("Giriş yok", "Çıkış yok"),
-}
-
-
-def with_implied(labels: Iterable[str]) -> frozenset[str]:
-    """`labels`, plus every broader note they also satisfy.
-
-    The one place the relation is applied. Every filter, count and day selection goes
-    through it, so the window cannot show 48 and hand back 15.
-    """
-    found = set(labels)
-    for label in tuple(found):
-        found.update(IMPLIES.get(label, ()))
-    return frozenset(found)
-
+# There is no implication table any more. If one is ever wanted again, the reasoning for
+# and against is in ADR-053 and ADR-065; do not reintroduce it without reading both.
 
 # A day's tags, in words. `merge.py` sets short internal names on a WorkDay; the daily
 # detail sheet printed them raw — `kısa-gün`, `uzaktan-çakışma`, and two that differ by

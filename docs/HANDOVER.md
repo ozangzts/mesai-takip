@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (64 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (66 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **482 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **475 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -67,10 +67,13 @@ ikisi de tek kural altında (ADR-059, ADR-061):
 > diğerinden olsa da sorun yok (birleşim günü zaten saymış); uzaktan çalışmaysa saate
 > dönüştüğü için sorun yok.
 
-İşaretli notlar hem **kimi** hem **hangi günleri** seçer, ve `Hem giriş hem çıkış yok`
-günleri `Giriş yok` / `Çıkış yok` seçimlerine de girer (ADR-053) — ikisi de olmayan bir
-günün girişi de yoktur. Yalnızca **seçimde** böyle; rapor kaydın başına ne geldiğini
-yazıyor, o gün tek satır. Sonucu: **not sayıları toplanmaz**, aynı gün iki filtrede.
+İşaretli notlar hem **kimi** hem **hangi günleri** seçer, ve **her not yalnızca kendi
+günlerini getirir** (ADR-065, yönetici kararı). `Hem giriş hem çıkış yok` bir süre
+`Giriş yok` / `Çıkış yok` seçimlerine de giriyordu (ADR-053); artık girmiyor. Üçü üç ayrı
+soru: kaçta çıktın, kaçta geldin, o gün burada mıydın.
+
+Varsayılan ayarlarla Temmuz'da not başına: `Giriş yok` 15 kişi/20 gün, `Çıkış yok` 31/127,
+`Hem giriş hem çıkış yok` 52/297, `Kart bilgisi yok` 31 kişi (günü yok, ay seviyesi).
 
 Varsayılan ayarlarla mail listesi:
 
@@ -173,6 +176,8 @@ gerekiyor.
 | 062 | `Ay büyük ölçüde boş` kaldırıldı | Artık gereksiz: o kişilerin hepsi günlük notu taşıyor, seçim 0 kişi değişiyor |
 | 063 | `Günlük Detay` herkesin her iş gününü tutuyor | Kaydı olmayan gün hiç satır almıyordu; Temmuz'da 1 141 kişi-günü ve 31 kişi sayfada yoktu |
 | 064 | Kişiler ekranına gün paneli, günler seçilebilir | Hangi günler olduğu yalnızca raporda vardı; seçim için iki pencere arasında gidip gelmek gerekiyordu |
+| **065** | **ADR-053 geri alındı: üç eksik-kayıt notu tamamen ayrı** | Yönetici kararı. `Giriş yok` artık ikisi de olmayan günleri getirmiyor |
+| 066 | `Mesai verisi yok` → **`Kart bilgisi yok`**; `+N` kolonu → **`Gün`**; iki listeye kolon başlıkları | Aynı kişi için dört farklı sayı dolaşıyordu ve hangisinin ne olduğunu söyleyen bir şey yoktu |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.
@@ -224,7 +229,7 @@ Buradaki her madde bir kez ısırdı.
 - **`tests/conftest.py` fixture'ı gerçek config'den sapabiliyor** ve birkaç kez saptı.
   Yeni bir config anahtarı eklerken fixture'a da ekle — yoksa bütün test paketi,
   kimsenin çalıştırmadığı bir kurala karşı geçmeye devam eder.
-- Snapshot `format_version` **9**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
+- Snapshot `format_version` **10**. Eski dosyalar "yeniden üret" diye reddediliyor. Bir
   **etiketi yeniden adlandırmak** bu sürümü yükseltir (ADR-027, ADR-052): eski yazımla
   yazılmış bir filtre ya da istisna listesi yeni yazımda **sessizce kimseyi** tutmaz.
 - **`arayuz-ayarlari.json` `gui/settings.py` üzerinden yazılır** — oku, değiştir, yaz.

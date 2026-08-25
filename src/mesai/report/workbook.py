@@ -422,7 +422,7 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
 # `Ayrıntı` carries the record's OWN words, where the row is about a single record.
 # `Açıklama` is the note's meaning and is the same on every row with that note, so a
 # figure that differs per person had nowhere to go. Written for `Ay büyük ölçüde boş`,
-# which ADR-062 removed; `Mesai verisi yok` is the month-level note that needs it now,
+# which ADR-062 removed; `Kart bilgisi yok` is the month-level note that needs it now,
 # and every single-record row gets its own words. Only the row-per-record audit sheet
 # was showing them, and that is the sheet you do not take to a meeting.
 _WORKLIST_HEADERS = [
@@ -689,7 +689,7 @@ def _sheet_leave(sheet: Worksheet, leave: list[LeaveRecord],
         employee = employees.get(key)
         other = sum(days for name, days in types.items() if name not in _LEAVE_TYPES)
         total = sum(types.values())
-        note = "" if key in has_attendance else "Mesai verisi yok"
+        note = "" if key in has_attendance else "Kart bilgisi yok"
 
         values: list[object] = [
             employee.display_name if employee else "",

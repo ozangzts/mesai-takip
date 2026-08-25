@@ -201,7 +201,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 482 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 475 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -483,20 +483,19 @@ reads the same every month (ADR-029). The **checkbox panel** is grouped differen
 what each note cost — `Günü sayılmayan` / `Günü sayılan`, computed from the data (ADR-056)
 — because the question asked there is which of these to chase.
 
-**One note is a stricter case of two others, and only for selection**
-(`anomalies.py:IMPLIES`, ADR-053). `Hem giriş hem çıkış yok` is a day with no entry
-*and* no exit, so a filter on `Giriş yok` returns it too — the labels read as predicates
-and a both-missing day satisfies them. That label is spelled as a conjunction on purpose
-(ADR-054): read beside its neighbour, the containment is on the face of the words.
-Everything that selects goes through `anomalies.with_implied`; nothing that *reports*
-does, because the sheets state what happened to a record and a day with neither punch is
-one row, not three.
+**Each note brings only its own people and days.** `Hem giriş hem çıkış yok` used to
+also select under `Giriş yok` and `Çıkış yok`, on the reading that a day with neither
+punch is also a day with no entry (ADR-053). That is gone (ADR-065): the three are three
+separate questions to ask somebody — what time did you leave, what time did you arrive,
+were you here at all — and the third is not a case of the other two. There is no
+implication table; the reasoning both ways is in ADR-053 and ADR-065, and neither should
+be reintroduced without reading both.
 
 **A filter selects only what is still outstanding** (`recipients.outstanding`, ADR-059,
 ADR-061). Ticking `Giriş yok` returns the people whose entry is missing **everywhere** —
 not the ones whose Macunköy row was blank on a day their Teknopark record covered in full.
 A day is outstanding when nothing was counted for it and no leave covers it
-(`ProblemDay.explained`); a note with no dated day at all (`Mesai verisi yok`) has nothing
+(`ProblemDay.explained`); a note with no dated day at all (`Kart bilgisi yok`) has nothing
 to explain and always stands. `Sorunu olmayanlar` asks the same question, so the two stay
 a partition of the month.
 

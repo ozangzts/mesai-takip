@@ -33,7 +33,7 @@ def snap():
             person("ÇAĞLA DENEME", problems=("Çıkış yok",)),
             person("AHMET SINAMA", problems=("Çıkış yok", "Günlük süre çok kısa (<2 saat)")),
             person("ZEYNEP ÖRNEK", expected=("Uzaktan + sistem kaydı",)),
-            person("BERK NUMUNE", email=None, problems=("Mesai verisi yok",)),
+            person("BERK NUMUNE", email=None, problems=("Kart bilgisi yok",)),
             person("SEDA TASLAK"),
         ),
     )
@@ -172,99 +172,22 @@ def test_someone_with_two_notes_appears_under_both(snap):
         assert "AHMET SINAMA" in [p.name for p in recipients.matching(snap, label)]
 
 
-# --- "is there more going on with this person" ------------------------------
+# --- how many days, not how many notes -------------------------------------
 
-def test_the_extra_count_excludes_the_note_being_filtered_on(snap):
-    ahmet = next(p for p in snap.people if p.name == "AHMET SINAMA")
+def test_the_day_count_is_what_the_person_row_shows(snap):
+    """The people screen prints `Gün` per person, and it has to be the number of rows
+    the day panel beside it will show — one number for one person, not four (ADR-066).
 
-    assert recipients.other_problems(ahmet, "Çıkış yok") == 1, "the short day remains"
-    assert recipients.other_problems(ahmet, "Günlük süre çok kısa (<2 saat)") == 1
-    assert recipients.other_problems(ahmet, recipients.ALL) == 2, "nothing to exclude"
-
-
-def test_expected_behaviour_does_not_inflate_the_extra_count(snap):
-    """It is not a problem. Counting it as one is the mistake ADR-017 exists for."""
-    zeynep = next(p for p in snap.people if p.name == "ZEYNEP ÖRNEK")
-    assert zeynep.expected
-    assert recipients.other_problems(zeynep, recipients.ALL) == 0
-
-
-def test_someone_with_one_note_shows_nothing_extra(snap):
-    cagla = next(p for p in snap.people if p.name == "ÇAĞLA DENEME")
-    assert recipients.other_problems(cagla, "Çıkış yok") == 0
-
-
-# --- the problem group, and which notes count (ADR-048) ---------------------
-#
-# The workflow this exists for: pick the people whose records need chasing, and later
-# mail them. Which notes make somebody one of those people is a decision that will
-# change, so it is an argument rather than a constant — and the default is measured
-# rather than guessed.
-
-def test_the_problem_group_is_everybody_the_counted_notes_admit(snap):
-    """`ÇAĞLA` and `AHMET` have `Çıkış yok`; nobody else does."""
-    people = recipients.matching(snap, recipients.PROBLEM, ["Çıkış yok"])
-
-    assert [p.name for p in people] == ["AHMET SINAMA", "ÇAĞLA DENEME"]
-
-
-def test_a_person_with_two_notes_appears_once(snap):
-    """`AHMET` has both, and a union is not a concatenation."""
-    people = recipients.matching(
-        snap, recipients.PROBLEM,
-        ["Çıkış yok", "Günlük süre çok kısa (<2 saat)"])
-
-    assert [p.name for p in people] == ["AHMET SINAMA", "ÇAĞLA DENEME"]
-
-
-def test_no_counted_note_means_an_empty_list_not_everybody(snap):
-    """The dangerous direction. An empty tick list must not quietly mean "all"."""
-    assert recipients.matching(snap, recipients.PROBLEM, []) == ()
-
-
-def test_the_default_counts_every_problem_note_but_the_two(snap):
-    """A note added to `anomalies.py` later counts without anybody being told.
-
-    For a list that decides who gets contacted, including somebody who should not have
-    been is a correction; leaving somebody out is silence.
+    It used to print `+2`, a count of the person's OTHER notes, which answered "how many
+    filters is this person in". Nobody asks that, and it was the fourth number the screen
+    carried for the same person.
     """
-    default = recipients.default_labels(snap)
-
-    assert "Çıkış yok" in default
-    assert "Mesai verisi yok" in default
-    for label in recipients.DEFAULT_OFF:
-        assert label not in default
-    assert "Uzaktan + sistem kaydı" not in default, "expected behaviour is not a problem"
-
-
-def test_the_two_switched_off_notes_can_be_switched_on(snap):
-    """They are a default, not a rule. `Tesis birleştirme` is a repaired punch, but
-    somebody may still want to look at those people."""
-    snapshot = Snapshot(
-        period=snap.period, generated_at=snap.generated_at, rules={},
-        coverage=snap.coverage,
-        people=(person("SEDA TASLAK", problems=("Tesis birleştirme",)),))
-
-    assert recipients.matching(snapshot, recipients.PROBLEM) == ()
-    admitted = recipients.matching(snapshot, recipients.PROBLEM,
-                                   ["Tesis birleştirme"])
-    assert [p.name for p in admitted] == ["SEDA TASLAK"]
-
-
-def test_the_group_and_the_clean_group_partition_the_month(snap):
-    """With every problem note counted, the two must add up to everybody exactly once.
-
-    The complement is the property that makes the pair trustworthy: somebody reading
-    `Sorunu olanlar (99)` beside `Sorunu olmayanlar (69)` on a 176-person month should
-    be able to add them.
-    """
-    every = frozenset(label for _g, label, _c
-                      in recipients.problem_labels(snap))
-    problem = {p.name for p in recipients.matching(snap, recipients.PROBLEM, every)}
-    clean = {p.name for p in recipients.matching(snap, recipients.NO_PROBLEM)}
-
-    assert problem | clean == {p.name for p in snap.people}
-    assert problem & clean == set()
+    for person in snap.people:
+        gun = len(recipients.days_for(person, recipients.default_labels(snap)))
+        assert gun == len([d for d in person.days
+                           if not d.explained
+                           and recipients.default_labels(snap)
+                           .intersection(d.problems)])
 
 
 def test_the_count_in_the_list_is_the_count_of_rows(snap):
@@ -313,14 +236,14 @@ def test_a_note_is_grouped_by_whether_its_days_cost_anybody_hours():
 
 
 def test_a_month_level_note_with_no_days_is_not_filed_as_counted():
-    """`Mesai verisi yok` has nothing to measure. A month nobody can account for is
+    """`Kart bilgisi yok` has nothing to measure. A month nobody can account for is
     not the thing to put under "counted"."""
-    kisi = person("KEREM DENEME", problems=("Mesai verisi yok",))
+    kisi = person("KEREM DENEME", problems=("Kart bilgisi yok",))
     snap = Snapshot(period="2026-06", generated_at=datetime(2026, 8, 25, 10, 0),
                     rules={}, coverage={}, people=(kisi,))
 
     assert recipients.problem_labels(snap) == (
-        (recipients.LOST, "Mesai verisi yok", 1),)
+        (recipients.LOST, "Kart bilgisi yok", 1),)
 
 
 def test_removals_still_apply_to_the_problem_group(snap):
@@ -354,24 +277,19 @@ def _both_missing():
     )
 
 
-def test_a_day_with_neither_punch_is_also_a_day_with_no_entry():
+def test_each_punch_note_brings_only_its_own_people():
+    """The three notes are three separate questions — what time did you leave, what time
+    did you arrive, were you here at all — and the third is not a case of the other two.
+
+    They were linked for two days (ADR-053) and the link is gone (ADR-065). Asserted in
+    both directions, because a half-removed relation would still pass one of them.
+    """
     snap = _both_missing()
 
-    for label in ("Giriş yok", "Çıkış yok", "Hem giriş hem çıkış yok"):
-        chosen = {p.name for p in recipients.matching(snap, label)}
-        assert "KEREM DENEME" in chosen, f"{label} bu kişiyi kaçırıyor"
-
-    assert {p.name for p in recipients.matching(snap, "Giriş yok")} == {
-        "KEREM DENEME", "AHMET SINAMA"}
-
-
-def test_the_implication_runs_one_way_only():
-    """A missing exit is NOT a day with neither punch — the entry is right there."""
-    snap = _both_missing()
-    chosen = {p.name for p in recipients.matching(snap, "Hem giriş hem çıkış yok")}
-
-    assert chosen == {"KEREM DENEME"}
-    assert "ÇAĞLA DENEME" not in chosen and "AHMET SINAMA" not in chosen
+    assert {p.name for p in recipients.matching(snap, "Hem giriş hem çıkış yok")} == {
+        "KEREM DENEME"}
+    assert {p.name for p in recipients.matching(snap, "Giriş yok")} == {"AHMET SINAMA"}
+    assert {p.name for p in recipients.matching(snap, "Çıkış yok")} == {"ÇAĞLA DENEME"}
 
 
 def test_the_count_beside_a_note_is_the_number_of_rows_it_shows():
@@ -389,15 +307,15 @@ def test_the_count_beside_a_note_is_the_number_of_rows_it_shows():
         assert choice.count == len(recipients.matching(snap, choice.key)), choice.key
 
 
-def test_the_problem_group_admits_a_person_through_an_implied_note():
-    """Ticking `Giriş yok` alone must still reach somebody who only has the strict note."""
+def test_the_problem_group_admits_only_the_ticked_notes_own_people():
+    """Ticking `Giriş yok` reaches the people who have it and nobody else (ADR-065)."""
     snap = _both_missing()
 
     chosen = {p.name for p in recipients.matching(snap, recipients.PROBLEM,
                                                   labels={"Giriş yok"})}
-    assert chosen == {"KEREM DENEME", "AHMET SINAMA"}
+    assert chosen == {"AHMET SINAMA"}
 
-    # and unticking everything else does not smuggle them in through the group
+    # unticking everything empties the group rather than falling back to a default
     assert recipients.matching(snap, recipients.PROBLEM, labels=set()) == ()
 
 
@@ -422,11 +340,11 @@ def test_the_ticked_notes_choose_the_days_as_well_as_the_person():
                       problems=("Günlük süre çok kısa (<2 saat)",), minutes=105)
     kisi = _with_days(bos, cikis, kisa)
 
-    # the both-missing day comes back under the broader note — the whole point
-    assert [d.date for d in recipients.days_for(kisi, {"Giriş yok"})] == [bos.date]
-    assert [d.date for d in recipients.days_for(kisi, {"Çıkış yok"})] == [
-        bos.date, cikis.date]
-    assert [d.date for d in recipients.days_for(kisi, {"Hem giriş hem çıkış yok"})] == [bos.date]
+    # each note brings its own day and no other (ADR-065)
+    assert recipients.days_for(kisi, {"Giriş yok"}) == ()
+    assert [d.date for d in recipients.days_for(kisi, {"Çıkış yok"})] == [cikis.date]
+    assert [d.date for d in
+            recipients.days_for(kisi, {"Hem giriş hem çıkış yok"})] == [bos.date]
     assert recipients.days_for(kisi, set()) == ()
     # no labels given: every day that cost something. `kisa` counted 1:45 and drops out
     # — a short day that was still paid is not a day anybody has to answer for.

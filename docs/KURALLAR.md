@@ -206,7 +206,7 @@ Sayılar Mayıs, Haziran ve Temmuz 2026'nın toplamıdır (kişi-gün).
 | `Giriş yok` | Çıkış basılmış, giriş kaydı yok | 🔴 | 78 |
 | `Çıkış yok` | Giriş basılmış, çıkış kaydı yok | 🔴 | 526 |
 | `Hem giriş hem çıkış yok` | O gün için ne giriş ne çıkış kaydedilmiş: ya saatleri boş bir satır var, ya o güne ait hiç satır yok. İzin ve uzaktan çalışma da yok. **Koşulsuz** — ay içinde işe girmiş olabilecekler de listeye girer, kararı veren kişi çıkarır | 🔴 | 226 |
-| `Mesai verisi yok` | Dönem boyunca hiç kart kaydı yok | 🔴 | 75 |
+| `Kart bilgisi yok` | **Ayın hiçbir gününde** kart kaydı yok. Kişi dosyalarda yalnızca izin ya da personel kaydıyla görünüyor | 🔴 | 75 |
 
 `Hem giriş hem çıkış yok` notu, o gün için hiçbir yerde kayıt olmaması hâlinde de düşer.
 Böylece tek bir normal 9 saatlik günü ve 21 kayıtsız günü olan biri de görünür — eskiden

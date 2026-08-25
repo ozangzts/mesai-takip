@@ -505,7 +505,7 @@ def test_a_month_with_no_records_at_all_gets_only_the_louder_note(settings):
     _, collector = _summaries(settings, [], employees={key: _employee()})
 
     labels = [a.label for a in collector.items]
-    assert "Mesai verisi yok" in labels
+    assert "Kart bilgisi yok" in labels
     assert "Ay büyük ölçüde boş" not in labels
 
 
@@ -734,5 +734,5 @@ def test_a_mostly_empty_month_is_flagged_day_by_day_as_well():
 
 
 def test_somebody_with_no_attendance_at_all_gets_no_daily_notes():
-    """`Mesai verisi yok` already says it, and says it louder."""
+    """`Kart bilgisi yok` already says it, and says it louder."""
     assert _unrecorded([]) == []

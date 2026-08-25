@@ -3996,3 +3996,120 @@ mistake in a new place: the noise the filter was fixed to remove.
   release the same way (ADR-039).
 - 482 tests. Eight cover the panel, including that an explained day never reaches it and
   that a person the filter drops leaves it.
+
+---
+
+## ADR-065 — The three punch notes are separate again
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Reverses ADR-053.**
+
+### Context
+
+ADR-053 made `Hem giriş hem çıkış yok` select under `Giriş yok` and `Çıkış yok` too, on
+the operator's reading that a day with neither punch is also a day with no entry. The
+argument was sound and the counter-argument was recorded in that ADR: the three notes are
+three different questions to ask somebody — *what time did you leave*, *what time did you
+arrive*, *were you here at all* — and the third is not a case of the other two, because it
+is the only one where there is no evidence the person was present.
+
+The operator took it to their manager, who decided for separation: *"giriş-çıkış ikisi de
+yoksa o tamamen ayrı olmalı. sadece girişi olmayanlar oraya dahil edilmemeli."*
+
+### Decision
+
+`anomalies.IMPLIES` and `with_implied` are gone. A note holds exactly the people and days
+that carry it. `Snapshot.with_label`, `with_problem`, `label_counts`,
+`recipients.matching`, `days_for` and `outstanding` all read the labels plainly.
+
+The table is removed rather than emptied: a mechanism with nothing in it is dead code that
+reads as a decision still in force.
+
+### Alternatives rejected
+
+**Keep it and rename the labels so the containment shows** — `Giriş var, çıkış yok`. That
+was ADR-053's rejected alternative and it stays rejected for the same reason, in reverse:
+with the notes separate, `Giriş yok` is a correct predicate for its own days and needs no
+qualifier.
+
+**Keep an empty `IMPLIES` for the next time.** The reasoning both ways is in ADR-053 and
+here; that is what the log is for.
+
+### Consequences
+
+- July, people and days per note, before → after: `Giriş yok` 52/305 → **15/20**,
+  `Çıkış yok` 60/379 → **31/127**, `Hem giriş hem çıkış yok` 52/297 → **52/297**
+  (unchanged — nothing implied it).
+- `Sorunu olanlar` is still **85** and `Sorunu olmayanlar` **91**: the same days are
+  outstanding, they are just reachable under one note instead of three. The partition
+  holds.
+- **`format_version` 9 → 10.** No label changed, but a saved selection means something
+  different under the same words, which is the same break.
+- Note counts partition again for the punch notes, so the warning against adding them
+  together is no longer needed for these three.
+
+---
+
+## ADR-066 — One number per person, and columns that say what they are
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Renames a label from ADR-030's era. Follows ADR-064.**
+
+### Context
+
+Three things the operator and their manager could not read, all of them the same
+underlying fault — the screen and the report each had their own number for one person and
+nothing said which was which.
+
+**`Mesai verisi yok` versus `Hem giriş hem çıkış yok`.** *"anlamamış, ben de
+açıklayamadım — giriş-çıkış verisi olmayanla ne farkı var dedi."* Both mean "no reading",
+and neither name says the difference, which is **scope**: one is the whole period, the
+other is one day.
+
+**`+1` / `+2` in the person list.** A count of the person's *other* notes — it answered
+"how many filters is this person in", a question nobody asks.
+
+**Four numbers for one person.** Measured on July: a person's row in `Aylık Özet` says
+`Şüpheli Kayıt 13`, the `Şüpheli Kayıtlar` sheet holds 13 rows for them, they have 10
+distinct problem days, and the day panel shows 4. Every figure is correct and they count
+four different things. 101 of 177 people had at least two of them disagree.
+
+### Decision
+
+**`Mesai verisi yok` → `Kart bilgisi yok`.** The name says what is missing — the badge
+record — instead of naming a concept the reader has to map onto it. Both explanations now
+lead with the scope: *"Ayın hiçbir gününde kart kaydı yok…"* against *"TEK BİR GÜN için
+giriş de çıkış da kaydedilmemiş… ayın tamamı boşsa 'Kart bilgisi yok' yazar."*
+
+**The `+N` column becomes `Gün`: the number of days the panel beside it will show.** One
+number, and clicking the person confirms it by counting rows. `recipients.other_problems`
+is deleted with its last caller.
+
+**Both lists name their columns.** Headings were off while the list had one obvious
+column; with five, `9:39` beside `+2` beside an address was guesswork. The tick columns
+stay unlabelled — a heading over a 34 px glyph is noise.
+
+The report keeps `Şüpheli Kayıt` as a count of records, which is what its sheet is: a
+per-record audit trail. What changes is that the screen no longer offers a competing
+number without saying so.
+
+### Alternatives rejected
+
+**Make the screen show the record count too**, so it matches the report. It would then
+disagree with its own day panel, which is the pair somebody actually reads together.
+
+**Add a day count to `Aylık Özet` as well.** A fifth number. The sheet is per-record by
+design and says so in its title.
+
+**Leave `Mesai verisi yok` and explain it in the banner.** It had an explanation already;
+the name was doing the damage.
+
+### Consequences
+
+- `format_version` 9 → 10, with ADR-065. All three months regenerated; no figure moved.
+- Anything reading `Mesai verisi yok` out of an old data file — a saved filter, an
+  exclusion list — matches nobody now. That is what the version guard is for.
+- 475 tests. One asserts every person row's `Gün` equals what the panel shows for them,
+  so the two cannot drift apart again.

@@ -22,7 +22,6 @@ from tkinter import filedialog, ttk
 from .. import snapshot as snapshot_module
 from ..mail import recipients
 from . import settings as settings_file
-from ..mail.recipients import other_problems
 from . import widgets as w
 from .period import period_label
 
@@ -162,20 +161,30 @@ class PeopleScreen:
         style.layout("Kisiler.Treeview",
                      [("Treeview.treearea", {"sticky": "nswe"})])
 
+        # Headings on. They were off while the list had one obvious column; with five,
+        # `9:39` and `+2` beside each other were guesswork (ADR-066).
+        style.configure("Kisiler.Treeview.Heading", background=w.BG, foreground=w.MUTED,
+                        font=(w.FACE, 8, "bold"), relief="flat", borderwidth=0)
         self.tree = ttk.Treeview(
-            card, style="Kisiler.Treeview", show="", selectmode="none",
-            columns=("tik", "ad", "saat", "diger", "eposta"))
+            card, style="Kisiler.Treeview", show="headings", selectmode="none",
+            columns=("tik", "ad", "saat", "gun", "eposta"))
         self.tree.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
-        for column, width, anchor, stretch in (
-                ("tik", 34, "center", False),
-                ("ad", 210, "w", False),
+        for column, title, width, anchor, stretch in (
+                ("tik", "", 34, "center", False),
+                ("ad", "Ad Soyad", 210, "w", False),
                 # Right-aligned rather than set in the fixed-width face: a Treeview
                 # takes one font for the whole widget, and lining up the ends of the
                 # figures is what made this column readable without one.
-                ("saat", 66, "e", False),
-                ("diger", 38, "w", False),
-                ("eposta", 240, "w", True)):
+                ("saat", "Süre", 66, "e", False),
+                # The count of days this person has outstanding — the number of rows the
+                # panel on the right will show. It used to be `+2`, a count of the
+                # person's OTHER notes, which answered "how many filters is this person
+                # in" — a question nobody asks, and one more number in a screen that had
+                # four of them for the same person. ADR-066.
+                ("gun", "Gün", 44, "e", False),
+                ("eposta", "E-posta", 240, "w", True)):
             self.tree.column(column, width=width, anchor=anchor, stretch=stretch)
+            self.tree.heading(column, text=title, anchor=anchor)
         # A tag colours a whole row — a Treeview has no per-cell colour. Only the
         # missing address earns one, because it is the one thing on a row that stops
         # the mail step from working. The note count stays plain text.
@@ -222,19 +231,22 @@ class PeopleScreen:
         style.layout("Gunler.Treeview",
                      [("Treeview.treearea", {"sticky": "nswe"})])
 
+        style.configure("Gunler.Treeview.Heading", background=w.BG, foreground=w.MUTED,
+                        font=(w.FACE, 8, "bold"), relief="flat", borderwidth=0)
         self.day_tree = ttk.Treeview(
-            day_card, style="Gunler.Treeview", show="", selectmode="none",
+            day_card, style="Gunler.Treeview", show="headings", selectmode="none",
             columns=("tik", "tarih", "gun", "giris", "cikis", "sure", "not"))
         self.day_tree.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
-        for column, width, anchor, stretch in (
-                ("tik", 34, "center", False),
-                ("tarih", 74, "w", False),
-                ("gun", 38, "w", False),
-                ("giris", 50, "e", False),
-                ("cikis", 50, "e", False),
-                ("sure", 52, "e", False),
-                ("not", 150, "w", True)):
+        for column, title, width, anchor, stretch in (
+                ("tik", "", 34, "center", False),
+                ("tarih", "Tarih", 74, "w", False),
+                ("gun", "Gün", 38, "w", False),
+                ("giris", "Giriş", 50, "e", False),
+                ("cikis", "Çıkış", 50, "e", False),
+                ("sure", "Süre", 52, "e", False),
+                ("not", "Sorun", 150, "w", True)):
             self.day_tree.column(column, width=width, anchor=anchor, stretch=stretch)
+            self.day_tree.heading(column, text=title, anchor=anchor)
 
         self._day_scroll = ttk.Scrollbar(day_card, orient="vertical",
                                          command=self.day_tree.yview)
@@ -714,13 +726,13 @@ class PeopleScreen:
             # the missing exit" is a different conversation if the same person also has
             # three short days — but printing every label on every row turns the list
             # into a wall of text and pushes the address off the edge.
-            others = other_problems(person, self.filter_key)
             # No address is a fact about the row, not a reason to hide it. Eleven of
             # May's people are leavers the roster no longer carries an address for.
+            gun = len(recipients.days_for(person, self.counted()))
             row = self.tree.insert(
                 "", "end", tags=() if person.email else ("adres-yok",),
                 values=(self._glyph(person.name), person.name, person.hours_text,
-                        f"+{others}" if others else "",
+                        gun or "",
                         person.email or "e-posta yok"))
             self._rows.append((person.name, row))
 

@@ -1675,7 +1675,7 @@ def problem_screen(people_screen, tmp_path):
             _person("AYŞE DENEME", ["Çıkış yok"]),
             _person("BERK NUMUNE", ["Çıkış yok", "Gece geçişi"]),
             _person("CEM ÖRNEK", ["Tesis birleştirme"]),
-            _person("DENİZ TASLAK", ["Mesai verisi yok"]),
+            _person("DENİZ TASLAK", ["Kart bilgisi yok"]),
             _person("EDA MİSAL", []),
         ]))
         screen.filter_key = recipients.PROBLEM
@@ -1774,7 +1774,7 @@ def test_a_remembered_selection_is_applied_on_the_next_window(shell, tmp_path):
     screen = window._screens["kisiler"]
     screen.load(_snapshot_file(tmp_path, [
         _person("AYŞE DENEME", ["Çıkış yok"]),
-        _person("DENİZ TASLAK", ["Mesai verisi yok"])]))
+        _person("DENİZ TASLAK", ["Kart bilgisi yok"])]))
     screen.filter_key = recipients.PROBLEM
     screen._repaint()
     window.root.update()
@@ -1870,7 +1870,7 @@ def test_the_note_panel_fits_with_every_note_present(people_screen, tmp_path):
                                     "Günlük süre çok kısa (<2 saat)",
                                     "Günlük süre çok uzun (>16 saat)",
                                     "Gece geçişi", "Tesis birleştirme",
-                                    "Mesai verisi yok", "Ay büyük ölçüde boş"])
+                                    "Kart bilgisi yok", "Ay büyük ölçüde boş"])
         for n in range(120)
     ]))
     screen.filter_key = recipients.PROBLEM
@@ -2108,7 +2108,7 @@ def test_a_person_the_filter_drops_leaves_the_panel(day_screen):
     _click(screen, row, on_tick=False)
     assert screen._person == name
 
-    screen.filter_key = "Mesai verisi yok"
+    screen.filter_key = "Kart bilgisi yok"
     screen._repaint()
 
     if name not in {n for n, _ in screen._rows}:
@@ -2164,3 +2164,33 @@ def test_the_panel_shows_the_times_and_the_note_for_each_day(day_screen):
     values = [screen.day_tree.set(day_row, c)
               for c in ("tarih", "gun", "giris", "cikis", "sure", "not")]
     assert values == ["05.05.2026", "Sal", "—", "18:26", "—", "Giriş yok"]
+
+
+def test_both_lists_name_their_columns(day_screen):
+    """Five columns of bare figures were guesswork: `9:39` beside `+2` beside an
+    address, with nothing saying which was which (ADR-066)."""
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    assert [screen.tree.heading(c, "text")
+            for c in ("ad", "saat", "gun", "eposta")] == [
+        "Ad Soyad", "Süre", "Gün", "E-posta"]
+    assert [screen.day_tree.heading(c, "text")
+            for c in ("tarih", "gun", "giris", "cikis", "sure", "not")] == [
+        "Tarih", "Gün", "Giriş", "Çıkış", "Süre", "Sorun"]
+    # The tick columns stay unlabelled: a heading over a 34 px glyph column is noise.
+    assert screen.tree.heading("tik", "text") == ""
+    assert screen.day_tree.heading("tik", "text") == ""
+
+
+def test_the_person_row_counts_the_days_the_panel_will_show(day_screen):
+    """One number for one person. It printed a count of the person's other notes before,
+    which answered a question nobody asks and disagreed with every other figure."""
+    screen = day_screen()
+    for name, row in screen._rows:
+        screen._person = name
+        beklenen = len(screen._person_days())
+        yazan = screen.tree.set(row, "gun")
+        assert yazan == (str(beklenen) if beklenen else ""), (
+            f"{name}: satır {yazan!r}, panel {beklenen}")

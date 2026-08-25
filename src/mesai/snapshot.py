@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from datetime import date as date_type, datetime, timedelta
 from pathlib import Path
 
-from .anomalies import DESCRIPTIONS, GROUPS, Collector, with_implied
+from .anomalies import DESCRIPTIONS, GROUPS, Collector
 from .config import Settings
 from .models import LeaveRecord, MonthSummary, RunStats, WorkDay
 
@@ -51,7 +51,10 @@ from .models import LeaveRecord, MonthSummary, RunStats, WorkDay
 #    a short export at the end (ADR-057).
 # 9: `Ay büyük ölçüde boş` is gone (ADR-062). A label that no longer exists: a filter or
 #    exclusion list naming it now matches nobody, which is the same break as a rename.
-FORMAT_VERSION = 9
+# 10: `Kart bilgisi yok` became `Kart bilgisi yok` (ADR-066), and `Hem giriş hem çıkış
+#    yok` no longer implies the two one-sided notes (ADR-065) — so a saved selection
+#    means something different under the same words.
+FORMAT_VERSION = 10
 
 
 class SnapshotError(Exception):
@@ -165,7 +168,7 @@ class Person:
     expected: tuple[str, ...]
     notes: tuple[str, ...]
     # The person's problem days, for the mail step. A month-level note
-    # (`Mesai verisi yok`) carries no date and stays in `problems` only — there is no
+    # (`Kart bilgisi yok`) carries no date and stays in `problems` only — there is no
     # day to tell somebody about.
     days: tuple[ProblemDay, ...] = ()
 
@@ -200,16 +203,14 @@ class Snapshot:
         return not (any(c.get("partial") for c in self.coverage.values())
                     or self.blank_workdays)
 
-    # `with_implied` on both: a note that is a stricter case of another selects under
-    # the broader one too (`anomalies.IMPLIES`). Applied here rather than in each
-    # caller, so `label_counts` and the filters cannot disagree about who a label
-    # holds — the window showing 48 and handing back 15 is the bug this prevents.
+    # One label, its own people. There was an implication table here (ADR-053) and it is
+    # gone (ADR-065) — a note now holds exactly the people who carry it.
     def with_problem(self, label: str) -> tuple[Person, ...]:
-        return tuple(p for p in self.people if label in with_implied(p.problems))
+        return tuple(p for p in self.people if label in p.problems)
 
     def with_label(self, label: str) -> tuple[Person, ...]:
         """People carrying `label`, whether it is a problem or expected behaviour."""
-        return tuple(p for p in self.people if label in with_implied(p.labels))
+        return tuple(p for p in self.people if label in p.labels)
 
     @property
     def problem_labels(self) -> tuple[str, ...]:
@@ -229,21 +230,17 @@ class Snapshot:
         order = {name: index for index, name in enumerate(GROUPS)}
         # Declaration order within a family, not frequency. Frequency reshuffles the
         # dropdown every month, so somebody who learned where a note sits has to find
-        # it again; and it split the punch pair, putting "Mesai verisi yok" between
+        # it again; and it split the punch pair, putting "Kart bilgisi yok" between
         # "Çıkış yok" and "Giriş yok".
         declared = {label: index for index, (label, _s, _e, _g)
                     in enumerate(DESCRIPTIONS.values())}
 
-        # Counted with the implied labels included, because this list IS the filter:
-        # a count that excluded them would promise 15 rows and the filter would show 41.
-        # Problems and expected behaviour are expanded separately so an implication can
-        # never quietly move a note across that line.
         seen: dict[str, tuple[int, bool]] = {}
         for person in self.people:
-            for label in with_implied(person.problems):
+            for label in person.problems:
                 count, _ = seen.get(label, (0, True))
                 seen[label] = (count + 1, True)
-            for label in with_implied(person.expected):
+            for label in person.expected:
                 count, _ = seen.get(label, (0, False))
                 seen[label] = (count + 1, False)
 

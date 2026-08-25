@@ -171,7 +171,7 @@ def _unrecorded_days(
 
     The gap this closed. `Hem giriş hem çıkış yok` needed a **row** with both times
     blank, so a day with no row at all raised nothing; `Ay büyük ölçüde boş` needs under
-    half the month unaccounted for and `Mesai verisi yok` needs it entirely empty.
+    half the month unaccounted for and `Kart bilgisi yok` needs it entirely empty.
     Somebody who worked 17 of 22 days with nothing explaining the other five carried no
     note at all — 11 people in July 2026, the worst with 10 such days.
 
@@ -207,7 +207,7 @@ def _unrecorded_days(
     for key, employee in employees.items():
         worked = {w.date for w in by_key.get(key, [])}
         if not worked:
-            continue                 # `Mesai verisi yok` already says it, louder
+            continue                 # `Kart bilgisi yok` already says it, louder
         leave_days = covered.get(key, set())
         for day in expected:
             if day in worked or day in leave_days:

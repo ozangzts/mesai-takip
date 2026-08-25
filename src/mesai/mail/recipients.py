@@ -22,7 +22,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from ..anomalies import DESCRIPTIONS, with_implied
+from ..anomalies import DESCRIPTIONS
 from ..normalize import sort_key
 from ..snapshot import Person, ProblemDay, Snapshot
 
@@ -82,13 +82,12 @@ KEPT = "Günü sayılan"
 def day_counts(snapshot: Snapshot | None) -> dict[str, tuple[int, int]]:
     """Per note, `(days it covers, how many of those lost time)`.
 
-    Both numbers go through `with_implied`, which is the whole point of computing them
-    together. They were two separate rules by accident and the panel showed the result:
-    `Giriş yok` said 40 people — counting the both-missing people ADR-053 admits — beside
-    23 days, which did not count their 78. One number obeyed the implication and the
-    other did not, on the same line.
+    Computed together so the two cannot drift: they were separate rules once and the
+    panel showed the result, one obeying an implication the other did not, on the same
+    line. The implication itself is gone (ADR-065); computing the pair in one place is
+    what stays.
 
-    The pair is also what makes the line readable at all. July: `Hem giriş hem çıkış yok`
+    July: `Hem giriş hem çıkış yok`
     covers 78 days and **5** of them lost time — the other 73 were counted from the
     person's Teknopark record. Printing 5 next to "27 kişi" and nothing else invites the
     reader to look for an arithmetic error rather than a fact.
@@ -98,7 +97,7 @@ def day_counts(snapshot: Snapshot | None) -> dict[str, tuple[int, int]]:
     found: dict[str, list[int]] = {}
     for person in snapshot.people:
         for day in person.days:
-            for label in with_implied(day.problems):
+            for label in day.problems:
                 row = found.setdefault(label, [0, 0])
                 row[0] += 1
                 if not day.explained:
@@ -118,7 +117,7 @@ def problem_labels(
     second number left to reconcile. The heading says which half of the list is the one
     to chase; that is the whole job.
 
-    A note with no dated days — `Mesai verisi yok` is the only one left — sits in
+    A note with no dated days — `Kart bilgisi yok` is the only one left — sits in
     `LOST`: a month nobody can account for is not the thing to file under "counted".
     """
     if snapshot is None:
@@ -192,7 +191,7 @@ def matching(snapshot: Snapshot | None, filter_key: str,
         # the month-level branch, so they still list their people.
         people = tuple(p for p in snapshot.people
                        if outstanding(p, {filter_key})
-                       or filter_key in with_implied(p.expected))
+                       or filter_key in p.expected)
     return tuple(sorted(people, key=lambda p: sort_key(p.name)))
 
 
@@ -233,9 +232,8 @@ def days_for(person: Person, labels: Iterable[str] | None = None,
     so the flag existed only to be forgotten by a caller. `ProblemDay.explained` is the
     predicate and it applies here always.
 
-    Ticked notes choose both *who* and *which days* (ADR-051), and `with_implied` applies
-    for the same reason it applies to the person (ADR-053): ticking `Giriş yok` returns a
-    day that had no entry and no exit either.
+    Ticked notes choose both *who* and *which days* (ADR-051). Each note brings only its
+    own days: `Giriş yok` no longer returns a day that had neither punch (ADR-065).
 
     Measured over May-July 2026 with the three punch notes ticked: of 147 / 247 / 244
     days carrying a note, 92 / 146 / 152 are here. The rest were counted elsewhere or are
@@ -248,7 +246,7 @@ def days_for(person: Person, labels: Iterable[str] | None = None,
     counted = frozenset(labels)
     return tuple(day for day in person.days
                  if not day.explained
-                 and counted.intersection(with_implied(day.problems)))
+                 and counted.intersection(day.problems))
 
 
 def outstanding(person: Person, labels: Iterable[str]) -> frozenset[str]:
@@ -257,19 +255,19 @@ def outstanding(person: Person, labels: Iterable[str]) -> frozenset[str]:
     A note reaches somebody one of two ways, and only one of them can be explained away:
 
     * through a **day** — outstanding only if that day lost time (`days_for`),
-    * through a **month-level note** with no date at all (`Mesai verisi yok`) — there
+    * through a **month-level note** with no date at all (`Kart bilgisi yok`) — there
       is no day to explain, so it always stands.
 
     Without the second case the 31 people whose July has no attendance record at all
     would drop out of every list, which is the opposite of the point.
     """
     counted = frozenset(labels)
-    carried = counted.intersection(with_implied(person.problems))
+    carried = counted.intersection(person.problems)
     if not carried:
         return frozenset()
-    dated = {label for day in person.days for label in with_implied(day.problems)}
+    dated = {label for day in person.days for label in day.problems}
     from_days = {label for day in days_for(person, carried)
-                 for label in with_implied(day.problems)}
+                 for label in day.problems}
     return frozenset(label for label in carried
                      if label in from_days or label not in dated)
 
@@ -282,19 +280,3 @@ def without_email(people: Iterable[Person]) -> tuple[Person, ...]:
     removing them would make a list of 30 quietly become 27.
     """
     return tuple(p for p in people if not p.email)
-
-
-def other_problems(person: Person, filter_key: str) -> int:
-    """How many problems this person has *besides* the one being filtered on.
-
-    A count, not a list. Under a specific note it answers "is there more going on with
-    this person than the thing I filtered for"; under `Herkes` there is nothing to
-    exclude, so it is simply how many problems they have.
-
-    Expected-behaviour labels are not counted. They are not problems, and inflating a
-    problem count with them is the mistake ADR-017 exists to prevent.
-
-    Under the problem group there is no single note to subtract, so it is the whole
-    count — which is what somebody scanning that list wants to know.
-    """
-    return sum(1 for label in person.problems if label != filter_key)
