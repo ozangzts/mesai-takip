@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (57 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (58 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **455 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **456 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -139,6 +139,36 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
+
+---
+
+## Bu turda ne yapıldı (2026-08-25, dördüncü tur)
+
+**Panel etiketindeki iki sayı bağlanamıyordu, ve farklı kural kullanıyordu** (ADR-058).
+Soru şuydu: "hem girişi hem çıkışı olmayan 27 kişi diyor ama 5 gün sayılmadı demiş,
+neden?" Cevap: o not **78 gün** taşıyor, 5'i kaybolmuş, kalan 73 Teknopark kaydından
+sayılmış. Aradaki 78 satırda yoktu, o yüzden 27 ile 5 arasında mantık kurulamıyordu.
+
+Daha ciddisi: **aynı satırdaki iki sayı farklı kural uyguluyordu.** Kişi sayısı
+`with_implied` ile geliyordu (ADR-053), gün sayısı gelmiyordu. `Giriş yok` **40 kişi**
+yazıp **23 gün** diyordu — ikisi de boş olanların 78 günü sayılmıyordu. Doğrusu
+**101 gün / 25 kayıp**. Yani eski sayı yanlıştı, sadece kafa karıştırıcı değil.
+
+Artık tek fonksiyon ikisini birden hesaplıyor (`day_counts`) ve panel oranı yazıyor:
+`Çıkış yok (61 kişi · 132/221 gün sayılmadı)`. `Günü sayılan` grubu yalnızca kişi
+gösteriyor — `0/26` iyi olan yarıya gürültü.
+
+Bir test her not için iki gün sayısının `days_for()`'un döndürdüğüne eşit olduğunu
+doğruluyor. Önlediği hata tam olarak yaşanan hata: aynı şeyi iki farklı yerde sayıp
+ikisinin de makul görünmesi.
+
+Eğik çizgi tercih edildi, `221 günün 132 tanesi` değil: panel 336 px kolonda **243 px**
+kullanıyor, uzun biçim 52 karakter. Bir de Türkçe sayı eki son hanenin okunuşuna göre
+değişiyor (`5'i` ama `2'si`, `9'u`, `6'sı`) ve bordro rakamının yanında yanlış ek
+rakama karşı özensizlik gibi okunuyor. Raporun `Kontrol` sayfası zaten `18 / 21` yazıyor.
+
+**Panel genişliği artık testle sabit** — en geniş kutu 243 px, kolon 336 px, 93 px pay.
+Panel daha önce kırpılmıştı (ADR-039 civarı), o yüzden gözle değil ölçümle.
 
 ---
 

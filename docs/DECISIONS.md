@@ -3467,3 +3467,75 @@ A guard that stops the work teaches people to work around it.
 - **`format_version` 7 → 8**, so `is_complete` on the people screen accounts for both
   shapes. All three months regenerated; no figure changed.
 - `is_complete` is now two conditions. Anything reading it gets both without changing.
+
+---
+
+## ADR-058 — Both day figures on a note, under one rule
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Fixes ADR-056's label. Applies ADR-053's implication where it had been skipped.**
+
+### Context
+
+The operator read the July panel and asked the right question: *"hem girişi hem çıkışı
+olmayan 27 kişi diyor ama 5 gün sayılmadı demiş yanına? neden?"*
+
+Two defects, and the second is the real one.
+
+**The line could not be reconciled.** `27 kişi · 5 gün sayılmadı` puts a person count
+beside a day count with the middle term missing: the note covers **78** days, and 5 of
+them lost time. Without the 78 the two figures look like an arithmetic error, so the
+reader stops trusting the panel instead of reading it.
+
+**The two figures obeyed different rules.** `problem_labels` took its person count from
+`Snapshot.label_counts`, which applies `with_implied` (ADR-053), and its day count from
+`unexplained_days`, which did not. So `Giriş yok` showed **40 kişi** — counting the
+both-missing people the implication admits — beside **23 gün**, which excluded their 78.
+One number honoured the implication and the other did not, on the same line. Every other
+consumer of the relation went through `with_implied`; this was the one place that did not,
+added two ADRs later.
+
+### Decision
+
+One function computes both: `day_counts()` returns `(days the note covers, how many of
+those lost time)` per label, with `with_implied` applied once, to the day's own labels.
+`problem_labels()` returns five elements, so no caller could silently accept the old
+shape.
+
+The panel prints the ratio: **`Çıkış yok  (61 kişi · 132/221 gün sayılmadı)`**. Notes
+under `Günü sayılan` keep the person count alone — a ratio of `0/26` is noise on the half
+of the list that is fine.
+
+A test asserts, for every note in the panel, that both day figures equal what
+`days_for()` returns for that label, with and without `only_unexplained`. The failure this
+prevents is precisely the one that happened: two ways of counting the same thing drifting
+apart while both look plausible.
+
+### Alternatives rejected
+
+**`221 günün 132 tanesi sayılmadı`** — the house wording elsewhere (`22 iş gününün 8
+tanesi açıklanıyor`). Rejected for the panel only, on width: 52 characters against the
+slash form's 31, and the panel measured 243 px of a 336 px column *with* the slash.
+The `Kontrol` sheet already writes coverage as `18 / 21`, so the ratio is not a new idiom.
+
+**`221 günün 132'si`** — rejected outright. The Turkish numeral suffix follows the last
+digit's reading: `5'i` but `2'si`, `9'u`, `6'sı`. Getting it wrong beside a payroll figure
+reads as carelessness about the figure, and a suffix table is a lot of code to avoid a
+slash.
+
+**Change the person count to "people with a lost day"** so it matched the day figure —
+3 people rather than 27 for July's both-missing note. Rejected: a test guarantees that
+number is the number of rows the filter shows (ADR-053), which is what somebody choosing
+a filter needs.
+
+### Consequences
+
+- July's line now reads `27 kişi · 5/78 gün sayılmadı`, and the answer to the question is
+  on the line: 73 of those days were counted from the person's Teknopark record.
+- `Giriş yok`'s day figures moved from 23 to **101 / 25** for July, matching
+  `days_for()`. The old number was simply wrong, not merely confusing.
+- Panel width measured with the widest real labels: **243 px against a 336 px column**,
+  93 px spare, and a GUI test holds it. The panel has clipped before (ADR-039's
+  neighbourhood), so this is asserted rather than eyeballed.
+- No `format_version` change. Both figures are computed when the snapshot is read.

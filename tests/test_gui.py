@@ -1809,3 +1809,46 @@ def test_the_copied_list_follows_the_ticked_notes(problem_screen):
     screen._count_all()
     screen._copy()
     assert len(captured[0].split("\n")) == 4
+
+
+def test_the_note_panel_still_fits_once_the_labels_carry_two_day_figures(
+        people_screen, tmp_path):
+    """The panel clipped once already, at four columns (ADR-039's neighbourhood).
+
+    `Çıkış yok  (61 kişi · 132/221 gün sayılmadı)` is the widest line the real months
+    produce and it is 13 characters longer than anything the panel held before, so the
+    fit is measured rather than assumed. A clipped checkbox is worse than a tall panel:
+    the reader cannot tell which note they are ticking.
+
+    Measured when written: widest box 243 px against a 336 px column, 93 px spare. If a
+    label grows past that, widen the panel or shorten the label — do not clip.
+    """
+    import tkinter as tk
+
+    from mesai.mail import recipients
+
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        # every punch note, on days that mostly counted, so both figures are wide
+        _person(f"KİŞİ{n} DENEME", ["Çıkış yok", "Giriş yok",
+                                    "Hem giriş hem çıkış yok",
+                                    "Günlük süre çok kısa (<2 saat)",
+                                    "Günlük süre çok uzun (>16 saat)",
+                                    "Gece geçişi", "Tesis birleştirme",
+                                    "Mesai verisi yok", "Ay büyük ölçüde boş"])
+        for n in range(120)
+    ]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+    people_screen.root.update_idletasks()
+
+    kutular = [child for child in screen.notes_frame.winfo_children()
+               if isinstance(child, tk.Checkbutton)]
+    assert kutular, "the panel must have rendered something to measure"
+
+    available = screen.notes_frame.winfo_width()
+    assert available > 1, "frame not mapped; the measurement would be meaningless"
+    # Two columns share the width, so one label may not exceed half of it.
+    en_genis = max(k.winfo_reqwidth() for k in kutular)
+    assert en_genis <= available / 2, (
+        f"kutu {en_genis}px, kolon {available / 2:.0f}px — kırpılır")

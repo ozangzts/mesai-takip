@@ -79,30 +79,37 @@ LOST = "Günü sayılmayan"
 KEPT = "Günü sayılan"
 
 
-def unexplained_days(snapshot: Snapshot | None) -> dict[str, int]:
-    """Per note, how many of its days lost time — see `ProblemDay.explained`.
+def day_counts(snapshot: Snapshot | None) -> dict[str, tuple[int, int]]:
+    """Per note, `(days it covers, how many of those lost time)`.
 
-    This is what makes the panel readable. Measured on June 2026: `Çıkış yok` has 126
-    such days, and `Hem giriş hem çıkış yok` — by far the most alarming-sounding label —
-    has **one**, its other 79 days having been counted from the person's Teknopark
-    record. Without the number the panel invites exactly the wrong priority.
+    Both numbers go through `with_implied`, which is the whole point of computing them
+    together. They were two separate rules by accident and the panel showed the result:
+    `Giriş yok` said 40 people — counting the both-missing people ADR-053 admits — beside
+    23 days, which did not count their 78. One number obeyed the implication and the
+    other did not, on the same line.
+
+    The pair is also what makes the line readable at all. July: `Hem giriş hem çıkış yok`
+    covers 78 days and **5** of them lost time — the other 73 were counted from the
+    person's Teknopark record. Printing 5 next to "27 kişi" and nothing else invites the
+    reader to look for an arithmetic error rather than a fact.
     """
     if snapshot is None:
         return {}
-    found: dict[str, int] = {}
+    found: dict[str, list[int]] = {}
     for person in snapshot.people:
         for day in person.days:
-            if day.explained:
-                continue
-            for label in day.problems:
-                found[label] = found.get(label, 0) + 1
-    return found
+            for label in with_implied(day.problems):
+                row = found.setdefault(label, [0, 0])
+                row[0] += 1
+                if not day.explained:
+                    row[1] += 1
+    return {label: (total, lost) for label, (total, lost) in found.items()}
 
 
 def problem_labels(
     snapshot: Snapshot | None,
-) -> tuple[tuple[str, str, int, int], ...]:
-    """`(group, label, people, days_that_lost_time)` for every problem note present.
+) -> tuple[tuple[str, str, int, int, int], ...]:
+    """`(group, label, people, days, days_that_lost_time)` for every note present.
 
     The group is `LOST` or `KEPT`, computed from the data rather than declared, because
     whether a note cost anybody hours is a fact about its days and not about its kind.
@@ -124,11 +131,10 @@ def problem_labels(
     """
     if snapshot is None:
         return ()
-    lost = unexplained_days(snapshot)
-    dated = {label for p in snapshot.people for d in p.days for label in d.problems}
+    days = day_counts(snapshot)
     return tuple(
-        (LOST if (lost.get(label) or label not in dated) else KEPT,
-         label, count, lost.get(label, 0))
+        (LOST if (days.get(label, (0, 0))[1] or label not in days) else KEPT,
+         label, count, days.get(label, (0, 0))[0], days.get(label, (0, 0))[1])
         for label, count, is_problem in snapshot.label_counts()
         if is_problem)
 
@@ -140,7 +146,7 @@ def default_labels(snapshot: Snapshot | None) -> frozenset[str]:
     counts by default: for a list that decides who gets contacted, including somebody
     who should not have been is a correction, and leaving somebody out is silence.
     """
-    return frozenset(label for _group, label, _count, _lost in problem_labels(snapshot)
+    return frozenset(label for _g, label, _c, _d, _l in problem_labels(snapshot)
                      if label not in DEFAULT_OFF)
 
 
