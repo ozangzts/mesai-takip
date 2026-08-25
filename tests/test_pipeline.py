@@ -658,7 +658,7 @@ def _absent_employee(key):
                     in_roster=True, sources=frozenset({"teknopark"}))
 
 
-def _unrecorded(worked_days, *, leave=(), skip=()):
+def _unrecorded(worked_days, *, leave=()):
     """Run the check over one person and return the dates it flagged."""
     from mesai.anomalies import AnomalyKind, Collector
     from mesai.pipeline import _unrecorded_days
@@ -669,8 +669,7 @@ def _unrecorded(worked_days, *, leave=(), skip=()):
     collector = Collector()
     _unrecorded_days(
         collector, {key: _absent_employee(key)},
-        {key: [_wd(key, d) for d in worked_days]}, list(leave),
-        expected, settings, set(skip))
+        {key: [_wd(key, d) for d in worked_days]}, list(leave), expected)
     return sorted(a.date for a in collector.items
                   if a.kind is AnomalyKind.EMPTY_RECORD)
 
@@ -687,14 +686,20 @@ def test_a_day_with_no_record_anywhere_is_flagged():
     assert _unrecorded(calisti) == [gunler[3], gunler[7]]
 
 
-def test_days_before_the_first_record_are_not_the_persons_problem():
-    """The operator's rule, and the thing that makes the check usable: somebody hired
-    on the 20th has no record before the 20th, so those days are not theirs."""
+def test_there_is_no_anchor_at_the_start_of_the_month():
+    """An anchor at the first record was tried and removed (ADR-061).
+
+    It swallowed the case it could not tell apart. Measured across June and July 2026: of
+    the people whose first record falls after the month's first working day, **13 of 15
+    and 11 of 16 had records in the previous month** — not new at all, and 60 and 45 days
+    were being hidden. Telling a joiner from a gap needs a hire date, which the roster
+    does not carry (ROADMAP Q18), so the program says what it found and a person decides.
+    """
     settings = _settings_with_calendar(holidays=())
     gunler = settings.calendar.expected_workdays(2026, 6)
 
-    # first record is the 15th expected day; the 14 before it must stay silent
-    assert _unrecorded([gunler[14], gunler[15]]) == gunler[16:]
+    # first record is the 15th expected day; the 14 before it are flagged too
+    assert _unrecorded([gunler[14], gunler[15]]) == gunler[:14] + gunler[16:]
 
 
 def test_a_day_covered_by_leave_is_not_flagged():
@@ -716,15 +721,17 @@ def test_a_day_covered_by_leave_is_not_flagged():
     assert _unrecorded(calisti, leave=izin) == []
 
 
-def test_a_month_already_called_mostly_empty_gets_no_daily_notes():
-    """Measured on July 2026: 6 such people produced 90 of 325 days, all of them a
-    month-long silence rather than a forgotten badge reading. A second note per day
-    buries the 235 real cases. Same reasoning as ADR-030's `elif`."""
+def test_a_mostly_empty_month_is_flagged_day_by_day_as_well():
+    """Skipping these people was tried too, and removed with the anchor (ADR-061).
+
+    Both were a threshold deciding what the operator gets to see. Somebody with one
+    worked day now carries that one day plus every other working day of the month, and
+    the month-level note besides — which is what "yönetim karar versin" means.
+    """
     settings = _settings_with_calendar(holidays=())
     gunler = settings.calendar.expected_workdays(2026, 6)
 
-    assert _unrecorded([gunler[0]]) == gunler[1:], "without skip, everything is flagged"
-    assert _unrecorded([gunler[0]], skip={("AYSE", "DENEME")}) == []
+    assert _unrecorded([gunler[0]]) == gunler[1:]
 
 
 def test_somebody_with_no_attendance_at_all_gets_no_daily_notes():

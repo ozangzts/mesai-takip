@@ -3698,3 +3698,74 @@ right answer and this ADR should be revisited.
   exist.
 - No `format_version` change — no new label and no new field. The three months were
   regenerated because the content changed.
+
+---
+
+## ADR-061 — No condition on an unrecorded day
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Removes both conditions ADR-060 attached to its own rule.**
+
+### Context
+
+ADR-060 flagged the expected working days a person is absent from the export, and hedged
+it twice: an anchor at the person's first record of the month, and a skip for people
+already carrying `Ay büyük ölçüde boş`. Both existed to keep a mid-month joiner or leaver
+from filling the list.
+
+The operator found what the anchor cost: *"kişi aslında çalışandır ama mesela ağustos
+başında 5 gün yok hiçbir yerde kaydı. biz ağustos raporunu oluşturunca bunu görmezden
+geliyoruz sanki işe ağustosta başlamış gibi."*
+
+Measured, and it is not a small case. Of the people whose first record falls after the
+month's first working day:
+
+| | June | July |
+| --- | --- | --- |
+| first record after the first working day | 15 people | 16 |
+| **of those, had records the previous month** | **13 — 60 days hidden** | **11 — 45 days hidden** |
+| no previous-month record (plausibly new) | 2 — 19 days | 5 — 37 days |
+
+So the anchor was hiding **45–60 days a month** to spare 2–5 people a question. The two
+cases cannot be told apart without a hire date, which the roster does not carry
+(ROADMAP Q18).
+
+### Decision
+
+**No condition.** Every expected working day with no record of the person anywhere, no
+leave and no remote declaration raises `EMPTY_RECORD`. The anchor is gone and so is the
+`Ay büyük ölçüde boş` skip — both were a threshold deciding what the operator gets to
+see, which is not this program's decision to make.
+
+The operator's reasoning, and it is the right one: *"o kişinin günleri boşsa giriş-çıkış
+yok diye ekleyelim, yönetim karar versin. daha deterministik olur. işe giriş çıkış
+onların problemi."* Flagging somebody who turns out to have joined on the 20th costs one
+manual removal from a list. Not flagging somebody whose records went missing costs their
+hours. The asymmetry is the whole argument, and it is the same one behind ADR-017,
+ADR-030 and ADR-048: a list that decides who gets contacted errs towards one person too
+many.
+
+### Alternatives rejected
+
+**Read the previous month's snapshot** to tell a joiner from a gap — the measurement
+above is exactly that computation, so it works. Rejected on the operator's call, and the
+reasons hold up: it makes one month's report depend on whether last month's was produced
+and complete, it fails silently when the previous file is missing, and it buys a
+distinction that hire dates would give properly.
+
+**Keep the skip, drop only the anchor.** Rejected for consistency: the skip is the same
+threshold in a different place. Somebody with one worked day now carries that day's
+neighbours *and* the month-level note, which is more information, not less.
+
+### Consequences
+
+- July: `Hem giriş hem çıkış yok` **45 → 46 people, 163 → 226 days**. Suspect records
+  595 → 730. May 346 → 404, June 570 → 729.
+- **No figure changed.** 17 103:58 / 27 166:19 / 26 233:17. There was never anything to
+  count on these days.
+- The tail is now visible: July has 18 people with one flagged day, 13 with two, and a
+  run up to 21 — the 21-day rows being the joiners and leavers, in the list where the
+  person deciding can see them and take them out.
+- `_month_share()` is gone with the skip that needed it; the sparse note computes its own
+  share again, as it did before ADR-060.

@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (60 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (61 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -155,26 +155,35 @@ Artık her açıklanamayan gün `EMPTY_RECORD` üretiyor — aynı not, çünkü
 ne giriş ne çıkış kaydedilmiş. Dolayısıyla `Giriş yok` ve `Çıkış yok` seçimlerine de
 giriyor (ADR-053).
 
-**İki çıpa gerekti:**
+**İlk hâlinde iki koşul vardı, ikisi de aynı turda kaldırıldı** (ADR-061): kişinin ilk
+kaydında bir çıpa, ve `Ay büyük ölçüde boş` işaretlilerin atlanması. İkisi de ay içinde
+giren/ayrılanı listeden uzak tutmak içindi.
 
-1. **Sayım kişinin o aydaki ilk kaydından başlıyor** — kullanıcının kuralı. Ayın 20'sinde
-   işe girenin öncesi sorulmuyor. Çıpa, ilk çalışma günü ile ilk izin gününün erkeni:
-   izin de var olduğunun kanıtı.
-2. **Ayı `Ay büyük ölçüde boş` diye işaretlenmiş kişiye günlük not düşmüyor.** Sonda çıpa
-   yok, çünkü personel listesinde çıkış tarihi yok (Q18) ve "10'unda ayrıldı" ile
-   "kayıtlar gelmeyi bıraktı" aynı şekle sahip; ikincisi sessizce geçmemeli. Ölçüldü:
-   Temmuz'da 6 kişi 325 günün **90'ını** üretiyordu, hepsi ay boyu suskunluk. Zaten bir
-   notları var; günlük ikinci not 235 gerçek vakayı gömüyordu (ADR-030'un aynı gerekçesi).
+Çıpanın bedeli ölçüldü ve büyük çıktı. İlk kaydı ayın ilk iş gününden sonra olanların:
 
-Eşik tek fonksiyonda: `_month_share()`, hem not hem atlama onu kullanıyor.
+| | Haziran | Temmuz |
+| --- | --- | --- |
+| ilk kaydı ilk iş gününden sonra | 15 kişi | 16 |
+| **önceki ayda da kaydı var** | **13 — 60 gün gizli** | **11 — 45 gün gizli** |
+| önceki ayda kaydı yok (yeni olabilir) | 2 — 19 gün | 5 — 37 gün |
+
+Yani çıpa, 2–5 kişiyi bir sorudan korumak için ayda **45–60 günü** saklıyordu. İkisini
+ayırmak işe giriş tarihi gerektiriyor, personel listesinde o yok (Q18).
+
+**Kural artık koşulsuz.** Kullanıcının gerekçesi: *"o kişinin günleri boşsa giriş-çıkış
+yok diye ekleyelim, yönetim karar versin. daha deterministik olur. işe giriş çıkış onların
+problemi."* Ayın 20'sinde girmiş biri işaretlenirse bedeli listeden bir elle çıkarma;
+kayıtları kaybolmuş biri işaretlenmezse bedeli o kişinin saatleri.
 
 **Etki:** `Sorunu olanlar` 59 → 75 (Mayıs), 60 → 73 (Haziran), 66 → 84 (Temmuz).
-`Hem giriş hem çıkış yok` Temmuz'da 3 kişi/5 günden **45 kişi/163 güne** çıktı.
+`Hem giriş hem çıkış yok` Temmuz'da 3 kişi/5 günden **46 kişi/226 güne** çıktı. Şüpheli
+kayıt: Mayıs 346 → 404, Haziran 570 → 729, Temmuz 595 → 730.
 **Hiçbir rakam değişmedi** — 17 103:58 / 27 166:19 / 26 233:17, çünkü o günlerde sayılacak
 bir şey hiç yoktu. Üç ay yeniden üretildi.
 
-Temmuz'da kişi başına notlu gün: 19 kişi 1 gün, 13 kişi 2, 12 kişi 3, sonra 17'ye kadar
-ince bir kuyruk. Kovalanmaya değer olanlar tek haneliler.
+Temmuz'da kişi başına notlu gün: 18 kişi 1 gün, 13 kişi 2, 8 kişi 3, sonra 21'e kadar
+kuyruk. 19–21 günlük satırlar ay içinde giren/ayrılanlar — artık listede görünüyorlar,
+kararı veren kişi çıkarabilir.
 
 ---
 
