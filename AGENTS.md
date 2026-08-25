@@ -186,7 +186,8 @@ mesai-takip/
 │   │   ├── app.py             # the shell: header, SCREENS registry, main()
 │   │   ├── nav.py             # the left rail — one item per registered screen
 │   │   ├── rapor.py           # the report screen
-│   │   ├── people.py          # the people screen: filter a data file, select
+│   │   ├── people.py          # people screen — two panels: filter and pick
+│   │   │                      # people left, that person's days right
 │   │   ├── period.py          # month parsing and labels — pure, tested
 │   │   ├── places.py          # where output goes; the month folder name
 │   │   └── widgets.py         # palette and shared widget primitives
