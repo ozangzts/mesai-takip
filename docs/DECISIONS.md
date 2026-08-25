@@ -3610,3 +3610,91 @@ exactly what the operator ruled out — "girişi yok seçtiğimde" is a single-n
   half is which, and because the alternative is another change to the same panel.
 - `with_unexplained_days()` is gone; `matching` does its job.
 - No `format_version` change. All of this is computed when the snapshot is read.
+
+---
+
+## ADR-060 — A day the person is simply absent from the export
+
+**Date:** 2026-08-25
+**Status:** Accepted
+**Closes a gap between ADR-030, ADR-053 and ADR-057.**
+
+### Context
+
+The operator asked the question that found it: *"diyelim ben 17/22 gün çalıştım, diğer
+günlerde ne izin var ne uzaktan, hiç kart kaydım da yok. ben nereye düşüyorum bu 5 gün
+için?"*
+
+Nowhere. Every existing check missed it:
+
+| check | why it missed |
+| --- | --- |
+| `Hem giriş hem çıkış yok` | needs a **row** with both times blank; there was no row |
+| `Ay büyük ölçüde boş` | needs under half the month unaccounted for; 17/22 is 77 % |
+| `Mesai verisi yok` | needs the whole month empty |
+| blank working day (ADR-057) | needs **nobody at all** recorded that day, company-wide |
+
+Measured on July 2026 before the fix: **11 people carried no note at all** while having
+days nothing explained, the worst of them with 10 unexplained days out of 22.
+
+The hours were never wrong — there is nothing to count, so nothing was lost. The days
+were simply never flagged.
+
+### Decision
+
+For each person with attendance, every expected working day with no record at any site,
+no leave and no remote declaration raises `EMPTY_RECORD` — the same note, because the
+fact is the same: no entry and no exit were recorded. It therefore also selects under
+`Giriş yok` and `Çıkış yok` (ADR-053), which is what the reader expects.
+
+Two anchors, and both were needed to make it usable:
+
+1. **Counting starts at the person's first record of the month** — the operator's rule.
+   Somebody hired on the 20th has no record before the 20th, so those days are not theirs
+   to answer for. The anchor is the earlier of their first workday and their first leave
+   day: leave is evidence they existed, and using the workday alone would hide a person
+   who was on leave for a week and then vanished from the export.
+
+2. **A month already called `Ay büyük ölçüde boş` gets no daily notes.** There is no
+   anchor at the end — the roster carries no leaving date (ROADMAP Q18), so "left on the
+   10th" and "records stopped arriving" are the same shape, and the second must not pass
+   quietly. Measured on July: 6 such people accounted for **90 of 325** flagged days, all
+   of them a month-long silence rather than a forgotten badge reading. Their month already
+   carries a note; a second one per day buried the 235 real cases. Same reasoning as
+   ADR-030 made that note an `elif` to `Mesai verisi yok`.
+
+The threshold behind (2) lives in one function, `_month_share()`, used by both the note
+and the skip — two copies of a threshold drift, which is what ADR-052 was about.
+
+### Alternatives rejected
+
+**A new note of its own.** Rejected: the reader's question is "was my entry recorded",
+and the answer is no in both shapes. Two labels for one fact is what ADR-027 and ADR-049
+exist to prevent. The `detail` on each record says which shape it was — a blank row or
+no row.
+
+**No anchor at all** — flag every unexplained day. That was the first measurement: 51
+people in July, with joiners and leavers carrying 18–21 days each and burying everything
+else.
+
+**Anchor the end at the last record too.** Symmetric and tempting, and it would silence a
+person whose records stopped arriving mid-month — the failure this project exists to
+prevent. Rejected for now; if the roster ever carries leaving dates (Q18) it becomes the
+right answer and this ADR should be revisited.
+
+### Consequences
+
+- **`Sorunu olanlar`: 59 → 75 (May), 60 → 73 (June), 66 → 84 (July).** `Hem giriş hem
+  çıkış yok` goes from 3 people to 45 in July, and its days from 5 to 163.
+- **No figure changed.** 17 103:58 / 27 166:19 / 26 233:17 before and after; the
+  reconciliation invariant holds because there was never anything to count on these days.
+- Distribution of flagged days per person in July: 19 people with 1 day, 13 with 2, 12
+  with 3, then a thin tail to 17. The single figures are the ones worth chasing.
+- One person legitimately carries both `Ay büyük ölçüde boş` and a daily note: their
+  Macunköy row for 16 July really is blank. That is the pre-existing shape, not this
+  check, and both facts are true.
+- The anomaly's source is `kayit-yok`, labelled `kayıt yok` on the report. It is not a
+  file, and naming a site or "Uzaktan" would be a claim about a record that does not
+  exist.
+- No `format_version` change — no new label and no new field. The three months were
+  regenerated because the content changed.

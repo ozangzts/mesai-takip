@@ -633,3 +633,100 @@ def test_an_unmarked_holiday_on_which_somebody_worked_raises_nothing():
     assert tatil not in _blank_workdays(tek_kisi, "2026-06", settings)
     # and with nobody at all, it does fire — the check is not inert
     assert tatil in _blank_workdays([], "2026-06", settings)
+
+
+# --- days the person is simply absent from the export (ADR-060) ---------------
+
+def _wd(key, day, hours=9):
+    """One counted workday, enough for the checks that only look at dates."""
+    from datetime import datetime, timedelta
+
+    from mesai.models import Interval, WorkDay
+    start = datetime.combine(day, datetime.min.time()).replace(hour=8)
+    end = start + timedelta(hours=hours)
+    return WorkDay(key=key, date=day,
+                   intervals=(Interval(start, end, frozenset({"teknopark"})),),
+                   gross=timedelta(hours=hours), break_deduction=timedelta(),
+                   net=timedelta(hours=hours))
+
+
+def _absent_employee(key):
+    """Named apart from this file's older `_employee()`, which takes no argument."""
+    from mesai.models import Employee
+    return Employee(key=key, display_name="AYŞE DENEME", email=None,
+                    personnel_no=None, department=None, facility=None,
+                    in_roster=True, sources=frozenset({"teknopark"}))
+
+
+def _unrecorded(worked_days, *, leave=(), skip=()):
+    """Run the check over one person and return the dates it flagged."""
+    from mesai.anomalies import AnomalyKind, Collector
+    from mesai.pipeline import _unrecorded_days
+
+    key = ("AYSE", "DENEME")
+    settings = _settings_with_calendar(holidays=())
+    expected = settings.calendar.expected_workdays(2026, 6)
+    collector = Collector()
+    _unrecorded_days(
+        collector, {key: _absent_employee(key)},
+        {key: [_wd(key, d) for d in worked_days]}, list(leave),
+        expected, settings, set(skip))
+    return sorted(a.date for a in collector.items
+                  if a.kind is AnomalyKind.EMPTY_RECORD)
+
+
+def test_a_day_with_no_record_anywhere_is_flagged():
+    """The gap: `Hem giriş hem çıkış yok` needed a blank ROW, so a day with no row at
+    all raised nothing. July 2026 had 11 people in that position with no note at all."""
+    from mesai.pipeline import _blank_workdays  # noqa: F401  (same module)
+
+    settings = _settings_with_calendar(holidays=())
+    gunler = settings.calendar.expected_workdays(2026, 6)
+    calisti = [g for g in gunler if g not in (gunler[3], gunler[7])]
+
+    assert _unrecorded(calisti) == [gunler[3], gunler[7]]
+
+
+def test_days_before_the_first_record_are_not_the_persons_problem():
+    """The operator's rule, and the thing that makes the check usable: somebody hired
+    on the 20th has no record before the 20th, so those days are not theirs."""
+    settings = _settings_with_calendar(holidays=())
+    gunler = settings.calendar.expected_workdays(2026, 6)
+
+    # first record is the 15th expected day; the 14 before it must stay silent
+    assert _unrecorded([gunler[14], gunler[15]]) == gunler[16:]
+
+
+def test_a_day_covered_by_leave_is_not_flagged():
+    from datetime import datetime
+
+    from mesai.models import LeaveRecord
+
+    settings = _settings_with_calendar(holidays=())
+    gunler = settings.calendar.expected_workdays(2026, 6)
+    izinli = gunler[3]
+    izin = [LeaveRecord(
+        key=("AYSE", "DENEME"), raw_name="AYŞE DENEME", personnel_no=None,
+        leave_type="Yıllık İzin", status="Kullanıldı",
+        start=datetime.combine(izinli, datetime.min.time()),
+        end=datetime.combine(izinli, datetime.min.time()), days=1.0,
+        department=None, source_row=3)]
+
+    calisti = [g for g in gunler if g != izinli]
+    assert _unrecorded(calisti, leave=izin) == []
+
+
+def test_a_month_already_called_mostly_empty_gets_no_daily_notes():
+    """Measured on July 2026: 6 such people produced 90 of 325 days, all of them a
+    month-long silence rather than a forgotten badge reading. A second note per day
+    buries the 235 real cases. Same reasoning as ADR-030's `elif`."""
+    settings = _settings_with_calendar(holidays=())
+    gunler = settings.calendar.expected_workdays(2026, 6)
+
+    assert _unrecorded([gunler[0]]) == gunler[1:], "without skip, everything is flagged"
+    assert _unrecorded([gunler[0]], skip={("AYSE", "DENEME")}) == []
+
+
+def test_somebody_with_no_attendance_at_all_gets_no_daily_notes():
+    """`Mesai verisi yok` already says it, and says it louder."""
+    assert _unrecorded([]) == []

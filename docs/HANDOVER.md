@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (59 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (60 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **467 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **472 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -139,6 +139,42 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
+
+---
+
+## Bu turda ne yapıldı (2026-08-25, altıncı tur)
+
+**Kullanıcının sorusu bir açığı buldu:** "17/22 gün çalıştım, kalan 5 günde ne izin ne
+uzaktan ne kart kaydı var — nereye düşüyorum?" Cevap: **hiçbir yere.** `Hem giriş hem
+çıkış yok` dosyada **satır** olmasını istiyordu; satır hiç yoksa hiçbir anomali
+üretilmiyordu. `Ay büyük ölçüde boş` %50 altını istiyor (17/22 = %77), `Mesai verisi yok`
+ayın tamamen boş olmasını, ADR-057 ise **hiç kimsenin** o gün kaydı olmamasını. Temmuz'da
+**11 kişi hiçbir not taşımıyordu**, en kötüsünün 22 günün 10'u açıklanamıyordu.
+
+Artık her açıklanamayan gün `EMPTY_RECORD` üretiyor — aynı not, çünkü olgu aynı: o gün
+ne giriş ne çıkış kaydedilmiş. Dolayısıyla `Giriş yok` ve `Çıkış yok` seçimlerine de
+giriyor (ADR-053).
+
+**İki çıpa gerekti:**
+
+1. **Sayım kişinin o aydaki ilk kaydından başlıyor** — kullanıcının kuralı. Ayın 20'sinde
+   işe girenin öncesi sorulmuyor. Çıpa, ilk çalışma günü ile ilk izin gününün erkeni:
+   izin de var olduğunun kanıtı.
+2. **Ayı `Ay büyük ölçüde boş` diye işaretlenmiş kişiye günlük not düşmüyor.** Sonda çıpa
+   yok, çünkü personel listesinde çıkış tarihi yok (Q18) ve "10'unda ayrıldı" ile
+   "kayıtlar gelmeyi bıraktı" aynı şekle sahip; ikincisi sessizce geçmemeli. Ölçüldü:
+   Temmuz'da 6 kişi 325 günün **90'ını** üretiyordu, hepsi ay boyu suskunluk. Zaten bir
+   notları var; günlük ikinci not 235 gerçek vakayı gömüyordu (ADR-030'un aynı gerekçesi).
+
+Eşik tek fonksiyonda: `_month_share()`, hem not hem atlama onu kullanıyor.
+
+**Etki:** `Sorunu olanlar` 59 → 75 (Mayıs), 60 → 73 (Haziran), 66 → 84 (Temmuz).
+`Hem giriş hem çıkış yok` Temmuz'da 3 kişi/5 günden **45 kişi/163 güne** çıktı.
+**Hiçbir rakam değişmedi** — 17 103:58 / 27 166:19 / 26 233:17, çünkü o günlerde sayılacak
+bir şey hiç yoktu. Üç ay yeniden üretildi.
+
+Temmuz'da kişi başına notlu gün: 19 kişi 1 gün, 13 kişi 2, 12 kişi 3, sonra 17'ye kadar
+ince bir kuyruk. Kovalanmaya değer olanlar tek haneliler.
 
 ---
 

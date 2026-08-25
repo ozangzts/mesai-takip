@@ -52,7 +52,11 @@ def _hours_rule_note(settings: Settings) -> str:
     return f"HESAP KURALI: {measure}. Ayrıca {brk}."
 
 # How an interval's origin is shown to the reader.
-_SOURCE_LABEL = {"macunkoy": "Macunköy", "teknopark": "Teknopark", "izin": "Uzaktan"}
+# `kayit-yok` is not a file. The day was derived from the calendar rather than read
+# from anywhere, and saying "Uzaktan" or naming a site would be a claim about a record
+# that does not exist. ADR-060.
+_SOURCE_LABEL = {"macunkoy": "Macunköy", "teknopark": "Teknopark", "izin": "Uzaktan",
+                 "kayit-yok": "kayıt yok"}
 # How an input file is named on the Kontrol sheet. Still its own table rather than a
 # reuse of the one above, for one reason that has not changed: the leave file is
 # "İzin", even though the intervals it contributes are labelled "Uzaktan".

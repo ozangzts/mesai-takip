@@ -85,9 +85,15 @@ DESCRIPTIONS: dict[AnomalyKind, tuple[str, str, str, str]] = {
     # The explanation now carries what the label drops: a row EXISTS for that day. That
     # is what separates this from `Mesai verisi yok` — the day was expected and written
     # down, and only the times are absent.
+    # Two shapes, one fact: no entry and no exit were recorded for that day. Either the
+    # source file has a row with both times blank, or it has no row for that day at all
+    # — the second was raising nothing until ADR-060, so somebody absent from the export
+    # on five of twenty-two days carried no note. The `detail` on each record says which
+    # of the two it was; the label says the thing the reader needs.
     AnomalyKind.EMPTY_RECORD: (
         "Hem giriş hem çıkış yok", "excluded",
-        "Kaynak dosyada o gün için satır var ama ne giriş ne çıkış saati yazılmış",
+        "O gün için giriş de çıkış da kaydedilmemiş — dosyada saatleri boş bir satır "
+        "var ya da o güne ait hiç satır yok",
         "Eksik kayıt"),
     AnomalyKind.NEGATIVE_DURATION: (
         "Gece geçişi", "included",

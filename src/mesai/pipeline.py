@@ -155,6 +155,86 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
     }
 
 
+
+
+def _month_share(worked: int, leave: float, expected: int) -> float:
+    """How much of the period this person's month accounts for. One formula, two users.
+
+    `Ay büyük ölçüde boş` decides with it, and `_unrecorded_days` skips the people it
+    catches. Written once because two copies of a threshold drift, which is what
+    ADR-052 was about.
+    """
+    return (worked + leave) / expected if expected else 1.0
+
+
+def _unrecorded_days(
+    anomalies: Collector, employees: dict[NameKey, Employee],
+    by_key: dict[NameKey, list[WorkDay]], leave: list[LeaveRecord],
+    expected: list[date], settings: Settings, skip: set[NameKey],
+) -> None:
+    """An expected working day the person is simply **absent from the export**.
+
+    The gap this closes. `Hem giriş hem çıkış yok` needs a row in the source file with
+    both times blank; a day with **no row at all** raised nothing. `Ay büyük ölçüde boş`
+    needs under half the month unaccounted for, and `Mesai verisi yok` needs the whole
+    month empty. So somebody who worked 17 of 22 days, with no leave and no record on
+    the other five, carried no note whatsoever. Measured on July 2026 before this
+    existed: 11 people in exactly that position, the worst of them with 10 unexplained
+    days out of 22.
+
+    **Counting starts at the person's first record of the month**, which is the
+    operator's rule and the thing that makes the check usable: somebody hired on the
+    20th has no record before the 20th, so those days are not theirs to answer for. The
+    anchor is the earlier of their first workday and their first leave day — leave is
+    evidence they existed too, and using only the workday would hide a person who was on
+    leave for a week and then vanished from the export.
+
+    There is no anchor at the end, and that is what `skip` is for. The roster carries no
+    leaving date (ROADMAP Q18), so a person who left on the 10th looks exactly like one
+    whose records stopped arriving — and the first-record anchor, which protects joiners,
+    does nothing for them. Measured on July 2026: 6 people already carrying
+    `Ay büyük ölçüde boş` accounted for 90 of 325 days, all of them month-long silences
+    rather than a forgotten badge reading. `skip` holds those people: their month already
+    has a note, and a second one per day buries the 235 real cases among them. Same
+    reasoning as ADR-030 made `Ay büyük ölçüde boş` an `elif` to `Mesai verisi yok` —
+    two notes for one situation read as two problems.
+
+    The kind is `EMPTY_RECORD`: no entry and no exit were recorded, which is what the
+    label says. It therefore also selects under `Giriş yok` and `Çıkış yok` (ADR-053),
+    which is what the reader expects. The `detail` is what separates the two cases —
+    a blank row versus no row.
+    """
+    if not expected:
+        return
+    covered: dict[NameKey, set[date]] = {}
+    for record in leave:
+        if record.start is None:
+            continue
+        day, last = record.start.date(), (record.end or record.start).date()
+        while day <= last:
+            covered.setdefault(record.key, set()).add(day)
+            day += timedelta(days=1)
+
+    for key, employee in employees.items():
+        if key in skip:
+            continue                 # the month already carries a louder note
+        worked = {w.date for w in by_key.get(key, [])}
+        if not worked:
+            continue                 # `Mesai verisi yok` already says it, louder
+        leave_days = covered.get(key, set())
+        first = min(worked | leave_days)
+        for day in expected:
+            if day < first or day in worked or day in leave_days:
+                continue
+            anomalies.add(Anomaly(
+                kind=AnomalyKind.EMPTY_RECORD, source="kayit-yok", source_row=0,
+                key=key, raw_name=employee.display_name, date=day,
+                detail=f"o gün için hiçbir tesiste kayıt yok; izin ve uzaktan "
+                       f"çalışma da yok. Sayım {first:%d.%m} tarihindeki ilk "
+                       f"kayıttan başlatıldı",
+            ))
+
+
 def _blank_workdays(
     records: list[PunchRecord], period: str, settings: Settings,
 ) -> tuple[date, ...]:
@@ -429,9 +509,24 @@ def _summarise(
         else:
             leave_days[record.key] += record.days
 
-    anomaly_counts = anomalies.count_by_key()
     year, month = (int(part) for part in period.split("-"))
-    expected_days = len(settings.calendar.expected_workdays(year, month))
+    expected_workdays = settings.calendar.expected_workdays(year, month)
+    expected_days = len(expected_workdays)
+
+    # Whose month is mostly unaccounted for. Computed here rather than inside the loop
+    # below, because `_unrecorded_days` has to know before it starts.
+    ratio = settings.plausibility.sparse_month_ratio
+    sparse = {key for key in employees
+              if by_key.get(key) and expected_days and ratio
+              and _month_share(len(by_key[key]), leave_days.get(key, 0.0),
+                               expected_days) < ratio}
+
+    # Days the person is simply absent from the export, with nothing to explain them.
+    # Added BEFORE the counts are taken, so `Şüpheli Kayıt` includes them.
+    _unrecorded_days(anomalies, employees, by_key, leave, expected_workdays,
+                     settings, sparse)
+
+    anomaly_counts = anomalies.count_by_key()
 
     summaries: list[MonthSummary] = []
     for key, employee in employees.items():
@@ -453,19 +548,21 @@ def _summarise(
                 detail="İzin kaydı var, hiçbir kart kaydı yok. Bu kişinin ayı eksik "
                        "görünüyor — kart sisteminden kontrol edilmeli",
             ))
-        elif expected_days and settings.plausibility.sparse_month_ratio:
+        elif key in sparse:
             # Deliberately `elif`: somebody with no attendance at all already has the
             # louder note above, and two notes for one situation reads as two problems.
-            covered = len(days) + leave_days.get(key, 0.0)
-            share = covered / expected_days
-            if share < settings.plausibility.sparse_month_ratio:
-                anomalies.add(Anomaly(
-                    kind=AnomalyKind.SPARSE_MONTH, source="izin", source_row=0,
-                    key=key, raw_name=employee.display_name,
-                    detail=f"{expected_days} iş gününün {covered:g} tanesi "
-                           f"açıklanıyor (%{share * 100:.0f}) — çalışma "
-                           f"{len(days)} gün, izin {leave_days.get(key, 0.0):g} gün",
-                ))
+            # `sparse` was decided before the loop, because `_unrecorded_days` skips the
+            # same people — one set, so the two can never disagree about who is in it.
+            izin = leave_days.get(key, 0.0)
+            covered = len(days) + izin
+            share = _month_share(len(days), izin, expected_days)
+            anomalies.add(Anomaly(
+                kind=AnomalyKind.SPARSE_MONTH, source="izin", source_row=0,
+                key=key, raw_name=employee.display_name,
+                detail=f"{expected_days} iş gününün {covered:g} tanesi "
+                       f"açıklanıyor (%{share * 100:.0f}) — çalışma "
+                       f"{len(days)} gün, izin {izin:g} gün",
+            ))
         summaries.append(MonthSummary(
             employee=employee,
             period=period,
