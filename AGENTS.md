@@ -139,11 +139,14 @@ learned by it failing:
 
 - Scan **every committed file** (`git ls-files`), not only the lines this change added.
   A name committed months ago is just as public, and the added-lines version had been
-  reporting clean over four real surnames — `KAYIKCI`/`KAYIKÇI` in this file, in
-  `DOMAIN-RULES.md`, in `normalize.py` and in `personel.example.yaml`, plus `KUŞÇU`,
-  `ÜNAL` and `ŞAHİN` elsewhere.
+  reporting clean over **four real surnames** sitting in this file, `DOMAIN-RULES.md`,
+  `normalize.py`, `personel.example.yaml`, `DECISIONS.md` and `test_normalize.py`. They
+  were replaced with their pseudonyms on 2026-08-26.
 - Load the names from **`docs/ISIM-ESLESMELERI.local.md` as well as the roster**, and do
-  not skip short ones. `ÜNAL` is four letters and a length filter had been dropping it.
+  not skip short ones: one of the four was four letters and a length filter had been
+  dropping it.
+- **Do not name them when writing this up.** The first version of this very paragraph
+  listed the four surnames, which put them back where they had just been taken from.
 
 Turkish words collide with surnames (`alır`, `uzun`, `örnek`, and `elif` is a Python
 keyword), so match whole words on the folded text and expect noise. A doc example never

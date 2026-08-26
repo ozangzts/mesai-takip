@@ -214,7 +214,10 @@ Buradaki her madde bir kez ısırdı.
     değil. Aylar önce girmiş bir ad da aynı derecede açık; eklenen-satır sürümü dört
     gerçek soyadın üzerinden temiz rapor veriyordu.
   - İsimleri **hem roster'dan hem `ISIM-ESLESMELERI.local.md`'den** yükle ve kısa
-    olanları atlama — `ÜNAL` dört harf ve uzunluk filtresi onu düşürüyordu.
+    olanları atlama — dördünden biri dört harfliydi ve uzunluk filtresi onu
+    düşürüyordu.
+  - **Yazarken adlarını yazma.** Bu maddenin ilk hâli dört soyadı tek tek saydı, yani
+    az önce çıkarıldıkları yere geri koydu.
   - Türkçe sözcükler soyadlarla çakışıyor (`alır`, `uzun`, `örnek`; `elif` Python
     anahtar sözcüğü), o yüzden katlanmış metinde **tam kelime** ara ve gürültü bekle.
 
