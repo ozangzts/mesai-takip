@@ -748,7 +748,11 @@ class PeopleScreen:
                      if (self._person, d.date.isoformat()) not in off)
         text = f"{self._person} — {len(lost)} sayılmayan gün"
         if kept:
-            text += f", {len(kept)} sayılan/izinli"
+            # `sayılan`, not `sayılan/izinli`: leave days left this panel in ADR-075 and
+            # the heading below dropped the word, but this line kept it — so the one
+            # number a reader could check against the block said it held something the
+            # block does not. A stale word in a count is a false statement.
+            text += f", {len(kept)} sayılan"
         return f"{text}, {chosen} seçili"
 
     def _paint_days(self) -> None:

@@ -2583,3 +2583,28 @@ def test_the_problem_day_column_does_not_move_with_the_ticks(day_screen):
 
     after = {n: screen.tree.set(r, "gun") for n, r in screen._rows}
     assert after == before, f"{before} -> {after}"
+
+
+def test_the_day_headline_counts_only_what_the_panel_holds(day_screen):
+    """It said `2 sayılan/izinli` after leave days had already left the panel.
+
+    ADR-075 took them out and the block heading dropped the word; this line kept it, so
+    the one number a reader can check against the block claimed it held something the
+    block does not. A stale word inside a count is a false statement, which is the class
+    of defect ADR-055, ADR-068 and ADR-070 were each about.
+    """
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+
+    for name, row in screen._rows:
+        _click(screen, row, on_tick=False)
+        baslik = screen.day_title.cget("text")
+        assert "izinli" not in baslik, baslik
+        lost, kept = screen._person_days()
+        if kept:
+            assert f"{len(kept)} sayılan" in baslik, baslik
+        if lost or kept:
+            assert f"{len(lost)} sayılmayan gün" in baslik, baslik

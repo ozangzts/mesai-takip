@@ -4790,6 +4790,11 @@ Two or three days a month (July 2, May and June 3), so this is about the panel r
 cleanly, not about volume. A day that was counted **and** has leave against it stays in
 `kept` — counted is counted, and the leave column does not remove measured hours.
 
+**Follow-up, same day:** the block heading dropped the word but the panel's own headline
+line did not — it went on reading `2 sayılan/izinli` about a block with no leave day in
+it, which is a false statement inside the one number a reader can check against the block.
+It says `sayılan` now and a test refuses the word `izinli` in that line.
+
 ### 2. The message says what was read that day
 
 > *"giriş çıkış saatlerini de ekleyebilir miyiz o günler için?"*
