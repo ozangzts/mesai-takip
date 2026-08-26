@@ -87,9 +87,14 @@ def _values(day: ProblemDay, counted: frozenset[str]) -> dict[str, str]:
         "gun": _DAYS[day.date.weekday()],
         "sorun": ", ".join(shown),
         "okuma": reading(day),
-        "giris": day.entry_text,
-        "cikis": day.exit_text,
-        "sure": day.hours_text,
+        # A dash when there is no reading, not an empty string. In a prose line an empty
+        # half is spelled out (`{okuma}` -> "çıkış kaydı yok") because a dash there reads
+        # as a formatting artefact; in a table CELL the opposite holds — a blank cell
+        # looks like the mail failed to render, and `—` is what `Günlük Detay` already
+        # prints for exactly this case (`OUTPUT-SPEC.md` sheet 2).
+        "giris": day.entry_text or "—",
+        "cikis": day.exit_text or "—",
+        "sure": day.hours_text or "—",
     }
 
 

@@ -5103,8 +5103,23 @@ socket" was true when written and had quietly stopped being true.
 The operator supplied the existing DEICO notification template (`Mail Örnek Şablon.txt`
 — a purchasing-agreements mail from another system): header band `#004c7a`, an info box
 in `#e8f1fb` with a `#ff6f00` left rule, a table, a footer with the year. That layout is
-kept; only the content is ours (`Tarih | Gün | Durum | Kayıt | Açıklamanız`, the last
-column deliberately empty for the person to write in).
+kept; only the content is ours: **`Tarih | Giriş | Çıkış | Sebep | Açıklama`**, the last
+column deliberately empty.
+
+The weekday column was dropped on request — the `Sebep` column already says what is
+wrong, so the day of the week was one column of nothing. The reading is split into two
+columns instead of one prose cell, and an unread half prints **`—`**: in a sentence the
+missing half is spelled out (`çıkış kaydı yok`) because a dash reads as a formatting
+artefact, but in a table cell the opposite holds — a blank cell looks like the mail failed
+to render, and `—` is what `Günlük Detay` already prints for this case.
+
+**The table cannot be filled in like a spreadsheet, and the wording does not ask anybody
+to try.** A table in an e-mail is markup, not a form: replying in desktop Gmail or Outlook
+does let somebody click into a quoted cell and type, but it is fiddly, phone clients
+commonly flatten the table, and a client that quotes as plain text turns it into a mess.
+So the instruction says *"günü belirterek bu e-postayı yanıtlayarak"* — which works in
+every client — and the table is there to show the reader what is being asked about. The
+empty column is a space to answer next to, not a field.
 
 Two things could not be carried over as written:
 

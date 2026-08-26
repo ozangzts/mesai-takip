@@ -18,9 +18,9 @@
 #   {gun}     Sal
 #   {sorun}   o gün için işaretlenmiş notun adı, örn. "Çıkış yok"
 #   {okuma}   o gün ne okunduğu, örn. "giriş 07:41, çıkış kaydı yok"
-#   {giris}   07:41   (okunmamışsa boş)
-#   {cikis}   18:26   (okunmamışsa boş)
-#   {sure}    9:05    (o gün için süre sayılmamışsa boş)
+#   {giris}   07:41   (okunmamışsa "—")
+#   {cikis}   18:26   (okunmamışsa "—")
+#   {sure}    9:05    (o gün için süre sayılmamışsa "—")
 
 konu: "{donem} mesai kayıtları"
 
@@ -71,7 +71,13 @@ gunsuz_govde: |
 #      bloğunun çoğunu yok sayıyor; satır içi yazılmayan renk orada kaybolur.
 #      Yuvarlatılmış köşeler ve max-width Outlook'ta yine görünmez, bu kabul edildi.
 #
-# Son kolon (`Açıklamanız`) bilerek boş: kişi cevabını oraya yazıyor.
+# Son kolon (`Açıklama`) bilerek boş.
+#
+# DİKKAT: bir e-postadaki tablo Excel gibi doldurulamaz. Masaüstü Gmail ve Outlook'ta
+# "Yanıtla"ya basıp alıntılanan tablonun hücresine tıklayıp yazmak ÇALIŞIR ama zahmetli;
+# telefondaki uygulamalar çoğu zaman tabloyu düzleştirir ve düz metne çeviren istemcilerde
+# tablo bozulur. Bu yüzden `notes-section` metni "tabloya yaz" demiyor, günü belirtip
+# yanıtlamayı istiyor — her istemcide çalışan tek yol bu. Tablo bilgiyi göstermek için.
 
 html_govde: |
   <!DOCTYPE html>
@@ -106,10 +112,10 @@ html_govde: |
       <thead>
         <tr>
           <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Tarih</th>
-          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Gün</th>
-          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Durum</th>
-          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Kayıt</th>
-          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Açıklamanız</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Giriş</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Çıkış</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Sebep</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Açıklama</th>
         </tr>
       </thead>
       <tbody>
@@ -117,8 +123,8 @@ html_govde: |
       </tbody>
     </table>
     <div class="notes-section" style="padding:16px 20px;background-color:#e8f1fb;border-left:5px solid #ff6f00;margin:18px 0">
-      Yukarıdaki günlere ilişkin açıklamanızı tablonun son kolonuna yazıp bu
-      e-postayı yanıtlayarak iletmenizi rica ederiz.
+      Yukarıdaki günlere ilişkin açıklamanızı, <span style="font-weight:bold">günü
+      belirterek</span> bu e-postayı yanıtlayarak iletmenizi rica ederiz.
     </div>
     <div class="footer" style="background-color:#004c7a;color:#ffffff;text-align:center;padding:10px 0;font-size:13px">
       © {yil} DEICO Mühendislik
@@ -128,7 +134,7 @@ html_govde: |
   </html>
 
 html_gun_satiri: |
-      <tr><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{tarih}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{gun}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{sorun}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{okuma}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0"></td></tr>
+      <tr><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{tarih}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{giris}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{cikis}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{sorun}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0"></td></tr>
 
 html_gunsuz_govde: |
   <!DOCTYPE html>
