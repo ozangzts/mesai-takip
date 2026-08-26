@@ -314,12 +314,25 @@ class Collector:
                                    declared.get(label, len(declared)), label)))
             for key, labels in found.items()}
 
-    def count_by_key(self) -> dict[NameKey, int]:
-        """Per-person count of actual problems — `info` items are not problems."""
+    def count_by_key(
+        self, counted_days: set[tuple[NameKey, date]] | None = None,
+    ) -> dict[NameKey, int]:
+        """Per-person count of actual problems — `info` items are not problems.
+
+        `counted_days` behaves as in `labels_by_key`: a record on a day that ended up
+        with measured time is not counted. The summary's `Şüpheli Kayıt` and its `Not`
+        column then describe the same thing, which they did not — a person could read
+        `Şüpheli Kayıt 1` beside an empty note and have no way to tell what the 1 was
+        (ADR-069). `Şüpheli Kayıtlar` keeps every record; it is the audit trail.
+        """
         counts: dict[NameKey, int] = {}
         for a in self.items:
-            if a.key and a.is_problem:
-                counts[a.key] = counts.get(a.key, 0) + 1
+            if not (a.key and a.is_problem):
+                continue
+            if (counted_days is not None and a.date is not None
+                    and (a.key, a.date) in counted_days):
+                continue
+            counts[a.key] = counts.get(a.key, 0) + 1
         return counts
 
     def __len__(self) -> int:

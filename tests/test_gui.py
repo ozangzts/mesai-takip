@@ -2018,6 +2018,10 @@ def day_screen(people_screen, tmp_path):
             _person("CEM ÖRNEK", ["Çıkış yok"],
                     days=[_pday(6, minutes=523),
                           _pday(7, covered_by="Yıllık İzin")]),
+            # A note nobody has anything outstanding under: it happened, and every day
+            # of it counted. It belongs in the `also_happened` line, not on a checkbox.
+            _person("DENİZ TASLAK", ["Tesis birleştirme"],
+                    days=[_pday(8, ["Tesis birleştirme"], minutes=540)]),
             _person("EDA MİSAL", []),
         ]))
         screen.filter_key = recipients.PROBLEM
@@ -2194,3 +2198,49 @@ def test_the_person_row_counts_the_days_the_panel_will_show(day_screen):
         yazan = screen.tree.set(row, "gun")
         assert yazan == (str(beklenen) if beklenen else ""), (
             f"{name}: satır {yazan!r}, panel {beklenen}")
+
+
+def test_a_note_with_nothing_outstanding_is_not_a_checkbox(day_screen):
+    """`Tesis birleştirme (0)` on a control read as "did not happen". It did — to 13
+    people and 26 days in July. It is a line of text now, counting occurrences (ADR-069).
+    """
+    import tkinter as tk
+
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    oldu = dict(recipients.also_happened(screen.snapshot))
+    assert oldu, "sentetik ayda hiç 'günü sayılan' not yok — test bir şey ölçmüyor"
+
+    for label in oldu:
+        assert label not in screen._note_vars, f"{label} hâlâ kutu"
+    metin = " ".join(
+        c.cget("text") for c in screen.notes_frame.winfo_children()
+        if isinstance(c, tk.Label))
+    for label, sayi in oldu.items():
+        assert label in metin and f"({sayi} kişi)" in metin, (label, sayi, metin)
+
+
+def test_somebody_with_no_card_record_does_not_look_clean(day_screen, tmp_path):
+    """The panel said `sorunlu gün yok` to somebody whose whole month has no badge
+    record, because a month-level note has no day to list. That is the opposite of what
+    the note says (ADR-069)."""
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    screen.load(_snapshot_file(tmp_path / "kartsiz", [
+        _person("KEREM DENEME", ["Kart bilgisi yok"]),
+        _person("AYŞE DENEME", ["Çıkış yok"], days=[_pday(4)]),
+    ]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+
+    row = next(r for n, r in screen._rows if n == "KEREM DENEME")
+    _click(screen, row, on_tick=False)
+
+    assert screen._person_days() == ()
+    baslik = screen.day_title.cget("text")
+    metin = screen.day_note.cget("text")
+    assert "sorunlu gün yok" not in baslik, baslik
+    assert "Kart bilgisi yok" in metin, metin
+    assert "Dönem:" in metin, "hangi dönem olduğu yazmalı"

@@ -4248,3 +4248,72 @@ Nothing flags the overlap. There is a note for the remote-work version of it
 somebody worked through should be flagged — and whether it should be paid as leave, as
 work, or both — is a question for whoever owns the leave data, not a decision to take
 here.
+
+---
+
+## ADR-069 — Three things the summary and the screen were saying badly
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Completes ADR-068. Revisits ADR-059's `(0)` rows.**
+
+Three reports in one message, and they turned out to be the same fault seen from three
+sides: a number or a blank that was true about one thing and read as another.
+
+### 1. `Şüpheli Kayıt` counted records the day survived
+
+*"günü 0 sayılmayan şeylere şüpheli kayıt demeyelim artık … aylık özette şüpheli olarak
+çıkmasın."*
+
+ADR-068 had already taken those records out of the `Not` column beside it, so the row read
+`Şüpheli Kayıt 1` with an empty note and no way to tell what the 1 was. ADR-066 rejected
+this change on the grounds that the count would then disagree with the sheet it
+summarises — that reasoning was about `Not` and the count disagreeing with **each other**,
+which is now the situation it was meant to prevent.
+
+`Collector.count_by_key()` takes the same `counted_days` set. Measured: the two columns
+now agree on **every one of the 176 rows** in July. `Şüpheli Kayıtlar` still holds all 689
+records; it is the audit trail and its banner says so.
+
+`Günlük Detay` keeps its colours: the day still shows what happened to it.
+
+### 2. `Tesis birleştirme (0)` read as "did not happen"
+
+*"temmuz için neden günü sayılan filtresinde hepsi 0 kişi? gerçekten hiç uzaktan + kart
+kaydı veya tesis birleştirme falan olmamış mı?"*
+
+They happened. July: `Tesis birleştirme` **13 people / 26 days**, `Gece geçişi` 6/21,
+`Uzaktan + kart kaydı` 5/5, `Günlük süre çok uzun` 4/5, `Giriş-çıkış tutarsız` 2/2. The
+`(0)` was the number of people with something **outstanding** under the note, which for
+these is nobody — a true number on a control that invites the wrong reading.
+
+ADR-059 kept them as checkboxes so a bug in `explained` could not silently remove a note
+from the window. That still matters, so they are still shown — as **a line of text**
+carrying the occurrence count: *"Bu ay ayrıca: Tesis birleştirme (13 kişi), … Günleri
+sayıldı, kimsenin bekleyen bir sorunu yok — bu yüzden seçime girmiyorlar."*
+
+A control that selects nobody is not a control. A count of occurrences is a different
+number from a count of selectable people, and it does not belong on the same widget as
+one — the mistake ADR-058 made with the day ratio.
+
+### 3. Somebody with no card record at all looked clean
+
+The day panel said `sorunlu gün yok` to a person whose only note is `Kart bilgisi yok`,
+because a month-level note has no dated day to list. That is the opposite of what the note
+says, and there are 26 such people in July.
+
+The panel now shows the month-level notes with their explanations and spells out the
+period. "Which days" is the question the panel exists to answer, and for this note the
+answer is all of them.
+
+### Consequences
+
+- `Şüpheli Kayıt` and `Not` agree on every row: 0 disagreements across 176 people,
+  measured. The reported person's row is blank in both and their record is still on both
+  audit sheets.
+- The checkbox panel is five notes in July instead of ten, and the five that left say what
+  they were, to how many people.
+- No `format_version` change and no hours moved: 17 103:58 / 27 166:19 / 26 233:17.
+  The run's own total (`Şüpheli kayıt 689`) is unchanged — it counts the audit trail.
+- 483 tests. Two are new: a note with nothing outstanding is not a checkbox, and somebody
+  with no card record does not read as clean.

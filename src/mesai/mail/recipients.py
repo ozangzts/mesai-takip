@@ -130,6 +130,22 @@ def problem_labels(
         if is_problem)
 
 
+def also_happened(snapshot: Snapshot | None) -> tuple[tuple[str, int], ...]:
+    """`(label, people it happened to)` for the notes with nothing outstanding.
+
+    They belong nowhere near a checkbox: ticking one selects nobody, so the panel was
+    offering `Tesis birleştirme (0)` and the reader fairly asked whether it had happened
+    at all. It had — 13 people and 26 days in July. The count here is **occurrences**,
+    not selectable people, which is why this is a separate function and a plain line of
+    text rather than a fourth number on a control. ADR-069.
+    """
+    if snapshot is None:
+        return ()
+    return tuple((label, sum(1 for p in snapshot.people if label in p.problems))
+                 for group, label, _count in problem_labels(snapshot)
+                 if group == KEPT)
+
+
 def default_labels(snapshot: Snapshot | None) -> frozenset[str]:
     """Which notes count as a problem before anybody has said otherwise.
 

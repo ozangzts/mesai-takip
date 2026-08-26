@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (68 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (69 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **481 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **483 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -186,6 +186,7 @@ gerekiyor.
 | 066 | `Mesai verisi yok` → **`Kart bilgisi yok`**; `+N` kolonu → **`Gün`**; iki listeye kolon başlıkları | Aynı kişi için dört farklı sayı dolaşıyordu ve hangisinin ne olduğunu söyleyen bir şey yoktu |
 | **067** | **Kullanılamayan bir kayıt da kayıttır** | Tek taraflı damga WorkDay üretmiyor; üç yer bunu "hiç kayıt yok" sanıyordu. Aynı gün hem `Giriş yok` hem `Hem giriş hem çıkış yok` yazıyordu |
 | 068 | `Not` kolonu yalnızca bekleyen notları taşır | Özet `Hem giriş hem çıkış yok` derken `Günlük Detay` o gün için sıradan 9 saatlik gün gösteriyordu |
+| 069 | `Şüpheli Kayıt` de öyle; `Günü sayılan` notlar kutu değil satır; kart kaydı olmayan panelde boş görünmüyor | Sayı ile notu aynı satırda çelişiyordu; `Tesis birleştirme (0)` "olmamış" gibi okunuyordu; kart kaydı hiç olmayan kişi panelde temiz görünüyordu |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.

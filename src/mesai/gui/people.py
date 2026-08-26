@@ -20,6 +20,7 @@ from pathlib import Path
 from tkinter import filedialog, ttk
 
 from .. import snapshot as snapshot_module
+from ..anomalies import DESCRIPTIONS
 from ..mail import recipients
 from . import settings as settings_file
 from . import widgets as w
@@ -508,6 +509,34 @@ class PeopleScreen:
             for day in recipients.days_for(person, counted)
             if (person.name, day.date.isoformat()) not in self._days_off)
 
+    def _month_level_notes(self) -> list[str]:
+        """This person's notes that are about the month rather than a day.
+
+        `Kart bilgisi yok` has no dated day, so the day list has nothing to show for it
+        and an empty panel read as "nothing wrong with this person" — the opposite of
+        what the note says. The period is spelled out, because "which days" is the
+        question the panel is there to answer and for this note the answer is all of
+        them.
+        """
+        if self.snapshot is None or self._person is None:
+            return []
+        person = next((p for p in self.snapshot.people
+                       if p.name == self._person), None)
+        if person is None:
+            return []
+        dated = {label for day in person.days for label in day.problems}
+        satirlar = []
+        for label in person.problems:
+            if label in dated:
+                continue
+            aciklama = next((e for l, _s, e, _g in DESCRIPTIONS.values()
+                             if l == label), "")
+            satirlar.append(f"{label}" + chr(10) + f"    {aciklama}")
+        if satirlar:
+            satirlar.append("")
+            satirlar.append(f"Dönem: {period_label(self.snapshot.period)}")
+        return satirlar
+
     def _day_headline(self, days: tuple) -> str:
         chosen = sum(1 for d in days
                      if (self._person, d.date.isoformat()) not in self._days_off)
@@ -524,6 +553,16 @@ class PeopleScreen:
             self.day_note.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
             if self._person is None:
                 self.day_title.configure(text="GÜNLER")
+                return
+            # A person can have nothing to list for two very different reasons, and
+            # saying "sorunlu gün yok" to both made somebody with no card record at all
+            # look fine. A month-level note has no day to show, so the panel shows the
+            # note. ADR-069.
+            aylik = self._month_level_notes()
+            if aylik:
+                self.day_title.configure(
+                    text=f"{self._person} — gün bazlı kayıt yok")
+                self.day_note.configure(text=chr(10).join(aylik))
             else:
                 self.day_title.configure(text=f"{self._person} — sorunlu gün yok")
                 self.day_note.configure(
@@ -630,13 +669,14 @@ class PeopleScreen:
         w.button(header, "Temizle", self._count_none, primary=False).grid(
             row=0, column=2, padx=(6, 0))
 
-        # `Günü sayılmayan` first, always, whatever the snapshot's order — that group is
-        # the reason the split exists and it may not drift below the other one.
-        groups: dict[str, list[tuple[str, int]]] = {
-            recipients.LOST: [], recipients.KEPT: []}
-        for group, label, count in offered:
-            groups[group].append((label, count))
-        families = {name: rows for name, rows in groups.items() if rows}
+        # Only the notes with something outstanding get a checkbox. Ticking one of the
+        # others selects nobody, so the panel was offering `Tesis birleştirme (0)` and
+        # the reader fairly asked whether it had happened at all — it had, to 13 people
+        # in July. They are a line of text below instead, counting occurrences, which is
+        # a different number and does not belong on a control. ADR-069.
+        families = {recipients.LOST: [(label, count) for group, label, count in offered
+                                      if group == recipients.LOST]}
+        families = {k: v for k, v in families.items() if v}
 
         # Two columns, not one per family. Four columns of Turkish labels do not fit
         # the width — `Günlük süre çok uzun (>16 saat)  (4)` was clipped mid-count, and
@@ -665,8 +705,23 @@ class PeopleScreen:
 
         for column in (0, 1):
             self.notes_frame.columnconfigure(column, weight=1)
+
+        # What else the month contains. Not selectable, so not a control — but saying
+        # nothing about it made the month look cleaner than it is.
+        oldu = recipients.also_happened(self.snapshot)
+        son = max(rows)
+        if oldu:
+            tk.Label(
+                self.notes_frame, background=w.CARD, foreground=w.MUTED,
+                font=(w.FACE, 8), anchor="w", justify="left", wraplength=760,
+                text="Bu ay ayrıca: "
+                     + ", ".join(f"{ad} ({n} kişi)" for ad, n in oldu)
+                     + ". Günleri sayıldı, kimsenin bekleyen bir sorunu yok — "
+                       "bu yüzden seçime girmiyorlar.").grid(
+                row=son, column=0, columnspan=2, sticky="ew", padx=10, pady=(6, 0))
+            son += 1
         tk.Frame(self.notes_frame, background=w.CARD, height=8).grid(
-            row=max(rows), column=0, columnspan=2, sticky="ew")
+            row=son, column=0, columnspan=2, sticky="ew")
 
     def _toggle_note(self, label: str) -> None:
         if self._note_vars[label].get():

@@ -97,7 +97,7 @@ One row per employee, sorted by name. **This is what the project was asked for.*
 | I | Çalışma (Saat) | `168.62` | decimal, for HR's own formulas |
 | J | Uzaktan Çalışma | `4.0` | days counted as worked from the leave export (ADR-007) |
 | K | İzin Günü | `1.5` | genuine leave — **excludes** `Uzaktan Çalışma` |
-| L | Şüpheli Kayıt | `3` | anomaly count; >0 shaded amber |
+| L | Şüpheli Kayıt | `3` | records still outstanding for this person; >0 shaded amber |
 | M | Not | `Eksik çıkış var` | short human-readable summary |
 
 **The hours block is one pair of columns, not two.** With `break.deduct: false`

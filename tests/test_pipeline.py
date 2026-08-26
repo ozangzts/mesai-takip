@@ -852,8 +852,10 @@ def test_a_note_about_a_day_that_counted_is_not_the_persons_note(settings):
                            collector, settings, kayitlar)
 
     assert "Hem giriş hem çıkış yok" not in summaries[0].notes, summaries[0].notes
-    # the record is still counted and still in the audit trail
-    assert summaries[0].anomaly_count >= 1
+    # `Şüpheli Kayıt` says the same thing as the note beside it (ADR-069): a record the
+    # day survived is not this person's suspect record.
+    assert summaries[0].anomaly_count == 0
+    # and the record is still in the audit trail, which is where it belongs
     assert any(a.label == "Hem giriş hem çıkış yok" for a in collector.items)
 
 
