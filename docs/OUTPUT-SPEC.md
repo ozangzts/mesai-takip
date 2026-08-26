@@ -138,11 +138,25 @@ using the pre-2026-08-17 rules — check `break.deduct`, `daily_hours` and
 
 ### Sheet 2 — `Günlük Detay`
 
-**Every person, every day** — 3 901 rows for July 2026, all 176 people. The audit trail
+**Every person, every day** — 3 917 rows for July 2026, all 176 people. The audit trail
 for sheet 1, and since ADR-063 that means a row exists whether or not anything was
-recorded: every **expected working day** of the period, plus any weekend or holiday the
-person actually worked. Weekends and holidays with no record stay out; nobody accounts for
-a day they were not expected.
+recorded. The row set is three things:
+
+1. every **expected working day** of the period,
+2. plus any weekend or holiday the person **worked**,
+3. plus any weekend or holiday the person has a **record** on, **even a broken one**
+   (ADR-077).
+
+The third was missing and it is the one that mattered. A one-sided punch yields no
+interval and therefore no `WorkDay` (ADR-067), so somebody who badged in on a Saturday
+with no exit stamped had **no row at all** — while the people screen listed that day as
+lost time and offered to ask them about it. 15 / 15 / 14 person-days over May–July, almost
+every one a real stamp on a weekend or a public holiday, so these are lost **weekend**
+hours. Two end-to-end tests now refuse any day the window would show that this sheet
+cannot.
+
+A weekend or holiday with **no record of any kind** still stays out: nobody accounts for a
+day they were not expected on.
 
 It held one row per measured day before, so a day with no usable record had no row and the
 reader could not tell "did not come in" from "not in this sheet". July had 1 141 person-days

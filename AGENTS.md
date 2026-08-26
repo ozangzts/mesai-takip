@@ -218,7 +218,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 533 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 535 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -482,6 +482,15 @@ positions. Source globs are `*.xls*`. This is not defensive over-engineering: th
 Macunköy export changed container, dropped a column and gained a title row in a single
 month (ADR-020, `DATA-SOURCES.md` D10). **Never reintroduce a fixed column index or a
 single-container glob.**
+
+**The workbook and the window may show different sets, but they may not disagree.**
+Each consumer decides which days it shows — `Günlük Detay` is the audit grid, the day
+panel is what to ask somebody, `İnceleme Listesi` is a record's fate — and that is
+deliberate (ADR-055). What is **not** allowed is the same day being described two
+different ways, which is what happened when the sheet omitted a Saturday the window was
+offering to ask about (ADR-077). Two end-to-end tests walk both artifacts of one run and
+refuse any disagreement. Do not answer "which days do I show" in a fourth place without
+extending them.
 
 **Errors are data.** Anomalies (missing punch, negative duration, unresolvable
 name, implausible duration) are collected into a structured list and written to a

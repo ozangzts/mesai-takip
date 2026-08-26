@@ -469,3 +469,66 @@ def test_the_two_missing_data_groups_never_overlap(result):
     section = control.split("5. Kapsam")[1].split("6.")[0]
     listed = {name for name in carded if name in section}
     assert not listed, f"already has a row: {listed}"
+
+
+# --- the workbook and the window must say the same thing ---------------------
+
+def test_every_day_the_window_shows_has_a_row_in_the_daily_sheet(result):
+    """The complaint that produced ADR-077, as a test rather than a one-off script.
+
+    *"excelde bir şey yazıyor, guide başka bir şey yazıyor falan. neden böyle yapıyon?
+    hepsi aynı kökten gelmiyor mu?"* — they do come from one run and one set of objects,
+    but each consumer was deciding for itself which days to show, and that is exactly
+    how two views of one truth drift apart. `Günlük Detay`'s row set was
+    `expected working days ∪ measured days`, and a one-sided punch yields no `WorkDay`,
+    so a Saturday somebody badged on with no exit had no row at all — while the window
+    listed it as lost time. 15 / 15 / 14 person-days over the real months, almost all of
+    them real weekend or holiday stamps.
+
+    This test walks both artifacts of one run and refuses any day the window would put in
+    front of somebody that the sheet cannot show them.
+    """
+    from mesai.mail import recipients
+
+    loaded = snapshot.load(result["snapshot"])
+    book = openpyxl.load_workbook(result["output"], read_only=True)
+    rows = list(book["Günlük Detay"].iter_rows(min_row=5, values_only=True))
+    on_sheet = {(r[0], r[1]) for r in rows if r and r[0] and r[1]}
+
+    missing = []
+    for person in loaded.people:
+        lost, kept = recipients.days_by_cost(person)
+        for day in lost + kept:
+            key = (person.name, day.date.strftime("%d.%m.%Y"))
+            if key not in on_sheet:
+                missing.append((key[1], day.problems))
+    assert not missing, f"pencerede var, Günlük Detay'da yok: {missing}"
+
+
+def test_the_daily_sheet_agrees_with_the_window_on_what_counted(result):
+    """The other direction: a day the window calls lost must not show hours on the sheet.
+
+    This is the pair the operator actually hit — `Hem giriş hem çıkış yok` beside a 9:05
+    duration (ADR-076). The note is about a record and the hours about the day, and the
+    two views have to agree on which of those they are showing.
+    """
+    from mesai.mail import recipients
+
+    loaded = snapshot.load(result["snapshot"])
+    book = openpyxl.load_workbook(result["output"], read_only=True)
+    rows = list(book["Günlük Detay"].iter_rows(min_row=5, values_only=True))
+    head = list(book["Günlük Detay"].iter_rows(min_row=4, max_row=4,
+                                               values_only=True))[0]
+    sure = head.index("Çalışma Süresi")
+    hours = {(r[0], r[1]): r[sure] for r in rows if r and r[0] and r[1]}
+
+    for person in loaded.people:
+        lost, kept = recipients.days_by_cost(person)
+        for day in lost:
+            key = (person.name, day.date.strftime("%d.%m.%Y"))
+            assert not hours.get(key) or hours[key] == "0:00", (
+                f"pencere kayıp diyor, Excel {hours[key]} yazmış: {key[1]}")
+        for day in kept:
+            key = (person.name, day.date.strftime("%d.%m.%Y"))
+            assert hours.get(key) and hours[key] != "0:00", (
+                f"pencere sayıldı diyor, Excel süre yazmamış: {key[1]}")

@@ -288,6 +288,7 @@ _DAILY_TAIL_WIDTHS = [24, 26]
 def _daily_rows(
     workdays: list[WorkDay], employees: dict[NameKey, Employee],
     leave: list[LeaveRecord], settings: Settings, period: str,
+    dated_anomalies: tuple[Anomaly, ...] = (),
 ) -> list[tuple[NameKey, date, WorkDay | None, str]]:
     """Every person, every day — `(key, date, workday or None, leave type)`.
 
@@ -296,11 +297,20 @@ def _daily_rows(
     Now it carries, for every person in the report:
 
     * every **expected working day** of the period, whether or not anything was recorded,
-    * plus any weekend or holiday on which the person **did** work.
+    * plus any weekend or holiday on which the person **did** work,
+    * plus any weekend or holiday the person has a **record** on, even a broken one.
 
-    Weekends and holidays with no record are left out: nobody has to account for a day
-    they were not expected. A holiday that was worked appears, shaded, because that is the
-    day somebody will ask about.
+    The third case was missing and it is the one that mattered (ADR-077). The row set was
+    `expected ∪ measured`, and a one-sided punch yields no interval and therefore no
+    `WorkDay` — so somebody who badged in on a Saturday with no exit stamped had **no row
+    at all** on this sheet, while the window listed the day as lost time and offered to
+    ask them about it. Measured over May-July 2026: 15 / 15 / 14 person-days, almost all
+    of them a real stamp on a weekend or a public holiday (Macunköy runs on holidays), so
+    these are lost **weekend** hours — the most expensive kind to leave invisible.
+
+    Weekends and holidays with **no record of any kind** are still left out: nobody has to
+    account for a day they were not expected. A holiday that was worked appears, shaded,
+    because that is the day somebody will ask about.
 
     This is a **display** expansion and nothing else. No `WorkDay` is invented, so the
     reconciliation invariant (Σ per-person == Σ measured person-days) is untouched — the
@@ -322,6 +332,10 @@ def _daily_rows(
     wanted: set[tuple[NameKey, date]] = {(key, day) for key in employees
                                          for day in expected}
     wanted |= set(measured)          # weekend and holiday work keeps its row
+    # ...and so does a weekend or holiday whose record could not be used. Without this
+    # the sheet and the window disagreed about the same day (ADR-077).
+    wanted |= {(a.key, a.date) for a in dated_anomalies
+               if a.key in employees}
 
     rows = []
     for key, day in wanted:
@@ -352,8 +366,8 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
     styles.write_banner(
         sheet, 2,
         "Her kişinin her iş günü burada — çalıştığı, izinli olduğu ve hiç kaydı "
-        "olmayan günler dahil. Hafta sonu ve tatiller yalnızca o gün çalışılmışsa "
-        "görünür. 'Aralık Sayısı' 1'den büyükse gün bölünmüş (ara giriş-çıkış) "
+        "olmayan günler dahil. Hafta sonu ve tatiller yalnızca o gün bir kayıt varsa "
+        "görünür; kullanılamayan bir kayıt da kayıttır. 'Aralık Sayısı' 1'den büyükse gün bölünmüş (ara giriş-çıkış) "
         "demektir. Kaynak 'Macunköy → Teknopark' ise ilk giriş bir tesiste, son çıkış "
         "diğerinde; '+' ise iki tesisin kaydı aynı aralıkta birleşmiştir ve çakışan "
         "süre bir kez sayılmıştır; 'İzin' ya da 'kayıt yok' ise o gün çalışma kaydı "
@@ -373,7 +387,9 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
 
     row = 5
     for key, day, workday, leave_type in _daily_rows(
-            workdays, employees, leave, settings, period):
+            workdays, employees, leave, settings, period,
+            tuple(a for a in anomalies.items
+                  if a.key is not None and a.date is not None)):
         employee = employees.get(key)
         day_label = settings.calendar.label(day)
 

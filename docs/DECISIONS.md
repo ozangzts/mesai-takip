@@ -4912,3 +4912,90 @@ Every input row still ends in a total or the anomaly report (AGENTS §2.2).
   snapshot already carried.
 - Both fixture people the GUI tests used for counted days had to move: a counted day with
   `Çıkış yok` on it is now correctly invisible, which is the rule working.
+
+---
+
+## ADR-077 — The sheet and the window drift because each one decides for itself
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Answers the architecture complaint behind ADR-072, 074, 075 and 076.**
+
+### The complaint
+
+> *"her yere farklı bir kod mu yazıyon anlamadım ki. hepsi aynı kökten gelmiyor mu bütün
+> bilgiler? atom mu parçalıyoz anlamadım ki. excelde bir şey yazıyor, guide başka bir şey
+> yazıyor falan. neden böyle yapıyon?"*
+
+Half of this is wrong and half of it is exactly right, and the right half explains four
+ADRs in one day.
+
+**The data does come from one root.** `pipeline.run()` computes `WorkDay`s and anomalies
+once; the workbook and the snapshot are written from those same objects in the same run,
+which is what `snapshot.py` exists to guarantee. Nothing recomputes hours, and no figure
+has moved through any of ADR-071 to ADR-076: 17 103:58 / 27 166:19 / 26 233:17 throughout.
+The **hours** have never been the thing going wrong.
+
+**But "which days do I show?" was answered separately in each consumer**, and that is
+where every one of this week's bugs lived:
+
+| Consumer | Its own rule | What it got wrong |
+| --- | --- | --- |
+| `Günlük Detay` | `expected working days ∪ measured days` | a Saturday somebody badged on with a broken punch had **no row** |
+| the day panel | `days_for(person, ticked notes)` | followed the checkboxes (ADR-074), then offered days nobody could be asked about (ADR-075, ADR-076) |
+| `İnceleme Listesi` | one row per (person, note) | fine — but ordered by severity while three other sheets order by name (ADR-075) |
+
+Three views of one truth, three independently written answers to the same question. That
+is the defect, and it is mine: ADR-059 through ADR-076 are each a patch to one of those
+three rather than a fix to the fact that there are three.
+
+### What was found
+
+Auditing the workbook against the snapshot day by day, over the real months:
+
+**15 / 15 / 14 person-days the window listed as lost time had no row in `Günlük Detay`.**
+All of them fall on a weekend or a public holiday, and **almost all carry a real stamp**
+(May 15 of 16, June 15 of 15, July 14 of 14) — somebody badged on a Saturday and one punch
+is missing. A one-sided punch yields no interval and therefore no `WorkDay` (ADR-067), and
+the sheet's row set was built from `WorkDay`s, so the day vanished from the sheet while the
+window offered to ask the person about it.
+
+These are lost **weekend** hours, which is the most expensive kind to leave invisible, and
+Macunköy runs on holidays (ADR-057). So the window was right and the sheet was incomplete
+— the opposite direction from the contradiction the operator had just reported.
+
+### Decision
+
+1. **`Günlük Detay` gains a third source of rows:** any day the person has a *dated
+   anomaly* on, even if nothing could be measured. The row set is now
+   `expected ∪ measured ∪ recorded-but-refused`. Its banner says so: *"hafta sonu ve
+   tatiller yalnızca o gün bir kayıt varsa görünür; kullanılamayan bir kayıt da
+   kayıttır."* A weekend with **no record at all** is still absent — nobody accounts for
+   a day they were not expected on.
+
+2. **The cross-check is a test now, not a script.** Two end-to-end tests walk both
+   artifacts of one run and refuse any disagreement: every day the window would put in
+   front of somebody must have a row on the sheet, and the two must agree on whether that
+   day counted. This is the durable answer to the complaint — not "I checked", but "it
+   cannot drift again without a red test".
+
+Verified after the change: all three months report **no disagreement** between the sheet
+and the window, over 2 484 / 3 640 / 3 917 person-day rows.
+
+### What is not being done, and why
+
+Collapsing the three rules into one shared function is the obvious next step and it is
+**not** taken here. `İnceleme Listesi` is about a record's fate, the day panel is about
+what to ask somebody, and `Günlük Detay` is the audit grid — they legitimately show
+different sets, and ADR-055's whole point is that a note is about a record while hours are
+about a day. Forcing one predicate on all three would recreate the confusion those ADRs
+removed. What they must share is not the rule but the **agreement**, and that is now
+enforced where it belongs: in a test that reads both.
+
+### Consequences
+
+- 535 tests, two of them the cross-check.
+- `Günlük Detay` grows by 16 / 15 / 13 rows (2 484 / 3 640 / 3 917). No hour moves, the
+  reconciliation invariant is untouched, and `format_version` stays 11 — the added rows
+  carry no hours because there are none to carry.
+- Reports regenerated, `data/out/` and the Desktop copies.

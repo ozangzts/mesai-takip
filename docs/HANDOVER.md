@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (76 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (77 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **533 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **535 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -244,6 +244,7 @@ gerekiyor.
 | **074** | **`Sorunlu gün` ve gün paneli işaretlerden bağımsız; sayılan günler ayrı başlık altında, işaretsiz** | Kolon 446 diyordu (27'si sayılmış gün), tek not işaretliyken 127; gerçek 419. ADR-072'nin yan etkisi ve ADR-066'nın "kolon = panel satırı" kuralının fazla dar yeri. Sayılmış bir gün için "eksik durum tespit edilmiştir" yazılması an meselesiydi |
 | **075** | **İzinli gün panelden çıktı; mailde giriş-çıkış saatleri; konuda gün sayısı yok; `İnceleme Listesi` alfabetik ve `Açıklama` kolonu legend oldu** | Dördü de kullanırken çıktı. İzinli güne "sayılan ya da izinli" başlığı yazmak yanlış şeye dikkat etmekti — o gün için kimseye soru sorulmuyor. `Açıklama` her satırda aynı 52 karakterlik cümleyi tekrarlıyordu; artık tablonun altında not başına bir kez, yalnızca o ay olan notlar |
 | **076** | **Notu yalnızca "damga eksik" olan sayılan gün panelden çıktı; `day_notes` o notu soru sorulan hiçbir yerde yazmıyor** | *"sorun kısmı var hem giriş hem çıkış yok diye. ama aynı zamanda da sayılmış? wtf"* — Macunköy satırının iki damgası boş, Teknopark aynı günü 9:05 saymış. Not kayıt hakkında, saat gün hakkında (ADR-055) ve panelde ikisini birleştiren bir şey yoktu. 52/97/87 gün. Aynı gün hem o notu hem `Tesis birleştirme` taşıyabildiği için `day_notes` de gerekti |
+| **077** | **`Günlük Detay` kullanılamayan kaydın gününü de gösteriyor; Excel-pencere çapraz kontrolü artık test** | *"excelde bir şey yazıyor, guide başka bir şey yazıyor. hepsi aynı kökten gelmiyor mu?"* Veri tek kökten geliyor, ama "hangi günleri göstereyim" sorusunu üç tüketici ayrı ayrı cevaplıyordu. Cumartesi kart basıp damgası kırık olan 15/15/14 kişi-günü sayfada hiç yoktu, pencere onları soruyordu. Sayfa eksikti, pencere haklıydı |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.
@@ -251,6 +252,12 @@ gerekiyor.
 **071 aynı ailenin devamı** ve tek başına okunmamalı: 060/061 *kaydı olmayan günü*
 görünür yaptı, 071 *kaydı hiç olmayan kişiyi*. İkisinin de gerekçesi aynı — eksik olan
 sessiz kalıyordu.
+
+**077 bu ailenin kapanışı ve tek başına okunması gereken tek şey:** dört ADR'nin (072,
+074, 075, 076) hepsi aynı sebepten çıktı — "hangi günleri göstereyim" sorusu üç yerde
+ayrı ayrı cevaplanıyordu. Saatler hiç yanlış olmadı ve hiç değişmedi (17 103:58 /
+27 166:19 / 26 233:17). Artık iki uçtan uca test Excel ile pencereyi gün gün
+karşılaştırıyor; dördüncü bir yerde aynı soruyu cevaplayacaksan o testleri de genişlet.
 
 **072 ise 059'u daraltıyor ve 069'un yarısını geri alıyor.** Sırayla: 059 filtreyi bekleyen
 güne kısıtladı → 069 bu yüzden hiç kimseyi getirmeyen notları kutudan çıkardı → 072 asıl
