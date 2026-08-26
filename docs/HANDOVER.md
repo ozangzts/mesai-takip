@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (73 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (74 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **519 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **525 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -30,7 +30,8 @@ Faz 1 çalışıyor, **üç ayın üçü de tam**, **519 test geçiyor**.
 | Kişi | 171 | 163 | 176 |
 | Şüpheli kayıt | 365 | 622 | 689 |
 | `Sorunu olanlar` | 83 | 73 | 88 |
-| Mail listesine girecek gün | 238 | 380 | 446 |
+| Mail listesine girecek gün | 216 | 352 | 419 |
+| Panelde teklif edilen, işaretsiz gelen sayılan gün | 40 | 62 | 63 |
 | **Listede olup hiç kaydı olmayan** (ADR-071) | 21 | 27 | 14 |
 
 Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Son satır yeni ve **hiçbir
@@ -48,14 +49,24 @@ veri dosyası **`format_version` 11** ile güncel.
 **Pencerede üç ekran var:** Rapor, Kişiler, Takvim. Akış: klasörü seç → tatilleri
 işaretle → raporu üret → Kişiler'den listeyi çıkar → **kişi kişi mail at**.
 
-> `Sorunu olanlar` 75/73/85'ten 83/73/88'e çıktı, gün sayısı 216/352/419'dan
-> 238/380/446'ya. **Hiçbir saat değişmedi.** Sebebi ADR-072: günü sayılmış notlar
-> (`Gece geçişi` gibi) artık filtrede de kimseyi getirmiyor değil, kendi kişilerini
-> getiriyor. Panel 6 derken filtrenin 0 demesi hataydı.
+> `Sorunu olanlar` 75/73/85'ten **83/73/88**'e çıktı (ADR-072: günü sayılmış notlar artık
+> kendi kişilerini getiriyor; panel 6 derken filtrenin 0 demesi hataydı). **Gün sayısı
+> değişmedi ve değişmemesi gerekiyordu** — ADR-072 bir ara 238/380/446 yapmıştı, içine 27
+> tane *sayılmış* gün karışmıştı. ADR-074 düzeltti: `Sorunlu gün` yalnızca **sayılmamış**
+> günü sayıyor ve **işaretlerden bağımsız**. Hiçbir saat değişmedi.
 
 **Kişiler ekranı iki panelli** (ADR-064): solda kişi listesi, sağda seçilen kişinin
 sorunlu günleri gün gün, her biri seçilebilir. Adın solundaki kareye tıklamak kişiyi
 listeden çıkarır; adın kendisine tıklamak günlerini açar.
+
+**Sağdaki panel işaretlere bağlı değil** (ADR-074). Kişinin bütün sorunlu günlerini
+gösterir: önce sayılmayanlar (işaretli gelir), sonra `SAYILAN YA DA İZİNLİ GÜNLER`
+başlığı ve altında kaybı olmayan günler — **işaretsiz** gelirler, istenirse tek tek
+seçilir. `Sorunlu gün` kolonu yalnızca sayılmayanları sayar. İşaretler **kimin listede
+olduğuna** karar verir, kişinin günlerinin ne olduğuna karar vermez.
+
+Panelin altında **e-posta satırı** var: adres snapshot'tan dolu gelir, düzenlenebilir,
+`E-posta gönder…` önizleme açar. Kişi kişi; toplu gönderme yok (ADR-073).
 
 ---
 
@@ -225,6 +236,7 @@ gerekiyor.
 | **071** | **Q4 kapandı; `Kontrol` §5 personel listesinde olup hiç kaydı olmayanları sayıyor** | Yönetici kararı: kart kaydı yoksa işaretle, elle bakılır. Ölçerken çıktı ki aynı şekilde eksik ama **hiç satırı olmayan** 21/27/14 kişi hiçbir sayıda görünmüyordu (%76'sı Macunköy — Q4'ün deseni). CLI'daki `<- ROADMAP.md Q4` de gitti, kullanıcıya gösterilen yerde depo referansıydı |
 | **072** | **Günü sayılmış notlar da filtrede kişi getiriyor; her not kutu; `Sorunu olanlar` sayısı işaretlere bağlı değil; panel 267→152 px** | `Gece geçişi` panelde 6, filtrede 0 diyordu — ADR-059'un kuralı bu notlarda her günü siliyordu. Kolon 2'den 3'e çıktı ama bloklar kolona dağıtılınca 880×620'de gün paneline **11 px** kalıyordu; etiketler artık kolonlara akıyor, gün paneli 126 px |
 | **073** | **Kişi kişi e-posta: adres alanı, `E-posta gönder…`, düzenlenebilir önizleme, Gmail SMTP** | Toplu gönderme **yok** ve bir kontrol sunmuyor. Ekranda ne varsa o gidiyor; gönderim anında metin kutusu okunuyor, pencereyi açan taslak değil. Hesap `config/gmail.yaml`, git'e girmez |
+| **074** | **`Sorunlu gün` ve gün paneli işaretlerden bağımsız; sayılan günler ayrı başlık altında, işaretsiz** | Kolon 446 diyordu (27'si sayılmış gün), tek not işaretliyken 127; gerçek 419. ADR-072'nin yan etkisi ve ADR-066'nın "kolon = panel satırı" kuralının fazla dar yeri. Sayılmış bir gün için "eksik durum tespit edilmiştir" yazılması an meselesiydi |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.

@@ -502,3 +502,36 @@ def test_somebody_whose_every_day_was_explained_drops_out_of_the_list():
     assert recipients.outstanding(temiz, {"Çıkış yok"}) == frozenset()
     assert recipients.outstanding(kayipli, {"Çıkış yok"}) == {"Çıkış yok"}
     assert recipients.days_for(temiz, {"Çıkış yok"}) == ()
+
+
+def test_days_by_cost_splits_every_problem_day_and_ignores_the_ticks():
+    """The panel's and the column's source, and it takes no label set at all.
+
+    That is the fix: `days_for` answers "which days are the ticked notes about", and it
+    was driving a column that is supposed to say "how many of this person's days were
+    not counted". The second question has no ticks in it.
+    """
+    sayilan = _day(4, minutes=523)
+    izinli = _day(5, covered_by="Yıllık İzin")
+    kayip = _day(6)
+    kisi = Person(**{**person("ESRA DENEME", problems=("Çıkış yok",)).__dict__,
+                     "days": (sayilan, izinli, kayip)})
+
+    lost, kept = recipients.days_by_cost(kisi)
+    assert lost == (kayip,)
+    assert kept == (sayilan, izinli)
+    # every problem day is in exactly one half
+    assert len(lost) + len(kept) == len(kisi.days)
+
+
+def test_days_by_cost_counts_a_leave_covered_day_as_no_loss():
+    """Nothing went missing on a day annual leave covers, so nobody is asked about it.
+
+    It is in `kept` rather than `lost` even though no minutes were counted — the window
+    heading says "sayılan ya da izinli" rather than calling it counted.
+    """
+    izinli = _day(5, covered_by="Doğum İzni (Tam Ödeme)")
+    kisi = Person(**{**person("ESRA DENEME", problems=("Çıkış yok",)).__dict__,
+                     "days": (izinli,)})
+
+    assert recipients.days_by_cost(kisi) == ((), (izinli,))

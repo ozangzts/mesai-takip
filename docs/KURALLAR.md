@@ -359,6 +359,28 @@ değiştirirseniz pencere bunu fark eder ve listede yazar.
   28.07.2026'da alınmış, yani dönemden 2 ay sonra: ayrılanlar listede görünmez,
   sonradan girenler mesai verisinde yoktur.
 
+### Bir kişinin kaç sorunlu günü var
+
+Pencerede kişinin yanındaki `Sorunlu gün` sayısı **o kişinin sayılmamış gün sayısıdır** ve
+hangi notların işaretli olduğuna bağlı değildir. Temmuz'da 419 gün. Bir süre işaretlere
+bağlıydı: tek not işaretliyken 127 gösteriyordu, varsayılanla 446 — ve o 446'nın 27'si
+aslında **sayılmış** günlerdi. Bir kişiye ait bir olgu, bir kutucuğa bağlı olmamalı.
+
+Sağdaki panel kişinin **bütün** sorunlu günlerini gösterir, iki blokta:
+
+| Blok | Ne | İlk hâli |
+| --- | --- | --- |
+| (başlıksız, üstte) | O gün hiçbir yerde sayılmamış — gerçek kayıp | **işaretli** |
+| `SAYILAN YA DA İZİNLİ GÜNLER` | Kaybı yok: süre sayıldı ya da izin kapsıyor | **işaretsiz** |
+
+İkinci blok teklif olarak duruyor: mesela gece vardiyası düzeltilmiş bir gün hakkında da
+soru sorulabilir, ama o gün **sayıldığı için** kendiliğinden mesaja girmez. Girmesini
+istiyorsanız tek tek işaretleyin. Sebebi basit: sayılmış bir gün için kişiye "eksik durum
+tespit edilmiştir" yazmak doğru olmayan bir cümledir.
+
+İşaretlerin işi **kimin listede olacağına** karar vermek; kişinin günlerinin ne olduğuna
+karar vermek değil.
+
 ### Kişiye ne yazılıyor
 
 Pencerede bir kişiyi seçip günlerini işaretledikten sonra o kişiye e-posta

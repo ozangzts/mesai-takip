@@ -196,6 +196,9 @@ class PeopleScreen:
         # the list re-sorts and re-filters underneath — the mistake `excluded` avoids.
         self._person: str | None = None
         self._days_off: set[tuple[str, str]] = set()
+        # The counted days the operator has deliberately ticked ON. They start off
+        # (`_off_for`), so an off-set alone could not express "yes, ask about this one".
+        self._days_on: set[tuple[str, str]] = set()
         self._day_rows: list[tuple[str, str]] = []      # (ISO date, row id)
         # Whose address is currently in the mail field. Tracked so the field is refilled
         # when the person changes and left alone otherwise: a typed address must survive
@@ -407,6 +410,7 @@ class PeopleScreen:
         self._day_scroll = ttk.Scrollbar(day_card, orient="vertical",
                                          command=self.day_tree.yview)
         self.day_tree.configure(yscrollcommand=self._day_scrolled)
+        self.day_tree.tag_configure("baslik", foreground=w.MUTED)
         self.day_tree.bind("<Button-1>", self._day_clicked)
         self.day_tree.bind("<Enter>", self._grab_wheel)
         self.day_tree.bind("<Leave>", self._release_wheel)
@@ -656,21 +660,37 @@ class PeopleScreen:
         return "break"
 
     # --- the selected person's days ----------------------------------------
-    def _person_days(self) -> tuple:
-        """The days on show — the ones the ticked notes are about, for this person.
+    def _off_for(self, person) -> set[tuple[str, str]]:
+        """`_days_off` for this person, with the counted days seeded off.
 
-        `days_for` and nothing else, so this panel lists exactly what the mail step
-        would carry: days where nothing was counted and no leave covers them (ADR-059,
-        ADR-061). A day the other site's record already covered is not here, because it
-        is not a problem.
+        The off-set's rule everywhere else is *a day nobody has decided about is IN*, so
+        a new note cannot quietly drop somebody (ADR-061). It is inverted for the days
+        that cost nothing, and for the same underlying reason: including them by default
+        would tell a person "eksik durum tespit edilmiştir" about a day that was counted
+        in full. Silence is the expensive mistake when a day was LOST; a false statement
+        is the expensive one when it was not.
+
+        Seeded rather than stored, so ticking one on is remembered (it goes into
+        `_days_on`) and nothing has to be written when a person is merely looked at.
         """
-        if self.snapshot is None or self._person is None:
-            return ()
-        person = next((p for p in self.snapshot.people
-                       if p.name == self._person), None)
+        _lost, kept = recipients.days_by_cost(person)
+        off = {(person.name, day.date.isoformat()) for day in kept
+               if (person.name, day.date.isoformat()) not in self._days_on}
+        return off | self._days_off
+
+    def _person_days(self) -> tuple[tuple, tuple]:
+        """`(lost, kept)` for the person on show — every problem day they have.
+
+        **Not the ticked set.** The panel and the count used to be `days_for(person,
+        counted())`, so unticking a note walked them down: a person with 24 uncounted
+        days showed 21 with only `Çıkış yok` ticked. A number that moves with a control
+        is not a fact about the person (ADR-074). The ticks decide who is in the LIST;
+        what a person's days are is not up for selection.
+        """
+        person = self._selected_person()
         if person is None:
-            return ()
-        return recipients.days_for(person, self.counted())
+            return (), ()
+        return recipients.days_by_cost(person)
 
     def day_selection(self) -> tuple[tuple[str, str], ...]:
         """`(name, ISO date)` for every day still selected, across every person.
@@ -681,13 +701,12 @@ class PeopleScreen:
         """
         if self.snapshot is None:
             return ()
-        counted = self.counted()
         return tuple(
             (person.name, day.date.isoformat())
             for person in recipients.selected(self.snapshot, self.filter_key,
-                                              self.excluded, counted)
-            for day in recipients.days_for(person, counted)
-            if (person.name, day.date.isoformat()) not in self._days_off)
+                                              self.excluded, self.counted())
+            for day in sum(recipients.days_by_cost(person), ())
+            if (person.name, day.date.isoformat()) not in self._off_for(person))
 
     def _month_level_notes(self) -> list[str]:
         """This person's notes that are about the month rather than a day.
@@ -717,15 +736,26 @@ class PeopleScreen:
             satirlar.append(f"Dönem: {period_label(self.snapshot.period)}")
         return satirlar
 
-    def _day_headline(self, days: tuple) -> str:
-        chosen = sum(1 for d in days
-                     if (self._person, d.date.isoformat()) not in self._days_off)
-        return f"{self._person} — {len(days)} sorunlu gün, {chosen} seçili"
+    def _day_headline(self, lost: tuple, kept: tuple) -> str:
+        """Two counts, because the panel now holds two kinds of day.
+
+        Lumping them would put the `Sorunlu gün` column and this line in disagreement
+        for a reader who can see both at once — the column counts only what was lost.
+        """
+        person = self._selected_person()
+        off = self._off_for(person) if person is not None else set()
+        chosen = sum(1 for d in lost + kept
+                     if (self._person, d.date.isoformat()) not in off)
+        text = f"{self._person} — {len(lost)} sayılmayan gün"
+        if kept:
+            text += f", {len(kept)} sayılan/izinli"
+        return f"{text}, {chosen} seçili"
 
     def _paint_days(self) -> None:
         self.day_tree.delete(*self.day_tree.get_children())
         self._day_rows = []
-        days = self._person_days()
+        lost, kept = self._person_days()
+        days = lost + kept
 
         if self._person is None or not days:
             self.day_tree.grid_remove()
@@ -764,21 +794,40 @@ class PeopleScreen:
 
         self.day_note.grid_remove()
         self.day_tree.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
-        self.day_title.configure(text=self._day_headline(days), foreground=w.INK)
+        self.day_title.configure(text=self._day_headline(lost, kept),
+                                 foreground=w.INK)
 
-        for day in days:
-            key = (self._person, day.date.isoformat())
-            row = self.day_tree.insert(
-                "", "end",
-                values=("☐" if key in self._days_off else "☑",
-                        day.date.strftime("%d.%m.%Y"),
-                        _GUN_KISA[day.date.weekday()],
-                        day.entry_text or "—", day.exit_text or "—",
-                        day.hours_text or "—",
-                        ", ".join(day.problems)))
-            self._day_rows.append((day.date.isoformat(), row))
+        off = self._off_for(self._selected_person())
+        for day in lost:
+            self._insert_day(day, off)
+        if kept:
+            # A heading row rather than a word on each line. The distinction is about
+            # the whole block, so saying it once is enough, and the `Sorun` column has
+            # the note in it — a second phrase per row competes with the thing the row
+            # is actually about. `izinli` is in the heading because `explained` folds
+            # two things together (July: 158 counted, 2 covered by leave) and calling a
+            # leave day "sayıldı" would be a small false statement.
+            heading = self.day_tree.insert(
+                "", "end", tags=("baslik",),
+                values=("", "SAYILAN YA DA İZİNLİ GÜNLER", "", "", "", "",
+                        "kaybı yok — istenirse tek tek seçilir"))
+            self._day_rows.append((None, heading))
+            for day in kept:
+                self._insert_day(day, off)
         self._day_scrolled(*self.day_tree.yview())
         self._paint_mail_row()
+
+    def _insert_day(self, day, off: set) -> None:
+        key = (self._person, day.date.isoformat())
+        row = self.day_tree.insert(
+            "", "end",
+            values=("☐" if key in off else "☑",
+                    day.date.strftime("%d.%m.%Y"),
+                    _GUN_KISA[day.date.weekday()],
+                    day.entry_text or "—", day.exit_text or "—",
+                    day.hours_text or "—",
+                    ", ".join(day.problems)))
+        self._day_rows.append((day.date.isoformat(), row))
 
     # --- writing to one person ---------------------------------------------
     #
@@ -821,8 +870,13 @@ class PeopleScreen:
         person = self._selected_person()
         if person is None:
             return None
-        chosen = [d for d in self._person_days()
-                  if (person.name, d.date.isoformat()) not in self._days_off]
+        # Whatever is ticked in the panel, of both kinds. A counted day is here only
+        # if somebody ticked it on deliberately (`_off_for` starts them off), so the
+        # message never tells a person "eksik durum tespit edilmiştir" about a day that
+        # was counted in full unless that was asked for.
+        off = self._off_for(person)
+        chosen = [d for d in sum(self._person_days(), ())
+                  if (person.name, d.date.isoformat()) not in off]
         draft = message.compose(person, chosen, self.snapshot.period, self.counted())
         return replace(draft, to=self.mail_var.get().strip())
 
@@ -858,20 +912,29 @@ class PeopleScreen:
         The whole row here, unlike the person list above: a day row does one thing.
         """
         item = self.day_tree.identify_row(event.y)
-        if not item or self._person is None:
+        person = self._selected_person()
+        if not item or person is None:
             return None
         for iso, row in self._day_rows:
-            if row == item:
-                key = (self._person, iso)
-                if key in self._days_off:
-                    self._days_off.discard(key)
-                else:
-                    self._days_off.add(key)
-                self.day_tree.set(row, "tik",
-                                  "☐" if key in self._days_off else "☑")
-                self.day_title.configure(
-                    text=self._day_headline(self._person_days()))
-                break
+            if row != item:
+                continue
+            if iso is None:
+                break               # the `SAYILAN…` heading row does nothing
+            key = (person.name, iso)
+            # Two stores, because the default differs by what the day cost: a lost day
+            # starts in and comes out through `_days_off`, a counted one starts out and
+            # goes in through `_days_on`. One set could not express both.
+            if key in self._off_for(person):
+                self._days_off.discard(key)
+                self._days_on.add(key)
+            else:
+                self._days_on.discard(key)
+                self._days_off.add(key)
+            self.day_tree.set(row, "tik",
+                              "☐" if key in self._off_for(person) else "☑")
+            lost, kept = self._person_days()
+            self.day_title.configure(text=self._day_headline(lost, kept))
+            break
         return "break"
 
     def _day_scrolled(self, first: str, last: str) -> None:
@@ -1041,7 +1104,12 @@ class PeopleScreen:
             # into a wall of text and pushes the address off the edge.
             # No address is a fact about the row, not a reason to hide it. Eleven of
             # May's people are leavers the roster no longer carries an address for.
-            gun = len(recipients.days_for(person, self.counted()))
+            # The person's days that lost time. NOT the ticked set and not the filter:
+            # *"bir insanın kaç günü sayılmamışsa o kadar sorunlu günü görünmeli
+            # filtreden bağımsız"* (ADR-074). It was 446 across July with the default
+            # ticks — 27 of them days that were counted in full — and 127 with one note
+            # ticked. The truth is 419 and it does not move.
+            gun = len(recipients.days_by_cost(person)[0])
             row = self.tree.insert(
                 "", "end", tags=() if person.email else ("adres-yok",),
                 values=(self._glyph(person.name), person.name, person.hours_text,

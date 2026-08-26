@@ -4673,3 +4673,90 @@ by hand (ADR-042) and a credential inside an exe could not be rotated.
 - No `format_version` change; no figure moved.
 - Still open: whether a manual removal is recorded, and whether an incomplete month may
   be written from at all. Both are about a bulk send, which is why neither blocked this.
+
+---
+
+## ADR-074 — A person's problem days are a fact, not a view of the tick panel
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Corrects ADR-072. Narrows ADR-066.**
+
+### The report
+
+> *"filtrelerden günü sayılanları sorunlu günlere dahil etmedin değil mi, orada sadece
+> günü sayılmayanlar var. bir insanın kaç günü sayılmamışsa o kadar sorunlu günü
+> görünmeli filtreden bağımsız. çünkü ben filtreyi seçince sadece o filtredeki sorunlu
+> günler görünüyor mesela girişi olmayanlar sadece gibi."*
+
+Both halves checked out. July 2026, measured:
+
+| | days |
+| --- | --- |
+| Truth: days where nothing was counted | **419** |
+| `Sorunlu gün` column with the default ticks | 446 — **27 of them days that were counted** |
+| ...with only `Çıkış yok` ticked | **127** |
+
+One person with 24 uncounted days showed **21** when a single note was ticked.
+
+### Two defects, one cause
+
+The panel and the column were both `days_for(person, counted())` — the *ticked* set.
+
+1. **The number moved with a control.** ADR-066 made the column "the count of rows the
+   panel will show", which was the right fix for what it replaced (a count of the
+   person's other notes). But it tied a fact about a person to a checkbox panel that is
+   only reachable from inside one filter. A number that changes when you tick a box is
+   not an answer to "how many of this person's days were not counted".
+2. **ADR-072 leaked counted days into it.** Making the `KEPT` notes selectable was right
+   — that fixed `Gece geçişi` saying 6 and filtering to 0. But `days_for` is also what
+   fed the column and the panel, so 27 of July's days that were counted in full started
+   being reported as problem days, and would have gone into a message telling somebody
+   "eksik durum tespit edilmiştir" about a day that was fine.
+
+### Decision
+
+`recipients.days_by_cost(person)` returns `(lost, kept)` — **every** problem day the
+person has, split by whether anything went missing, and it **takes no label set**. The
+ticks decide who is in the list; what a person's days are is not up for selection.
+
+- **`Sorunlu gün` counts `lost` only.** 419 in July, and it does not move. A test unticks
+  every note under `Herkes` and asserts the column is unchanged.
+- **The panel lists both**, `lost` first, then a heading row —
+  `SAYILAN YA DA İZİNLİ GÜNLER · kaybı yok — istenirse tek tek seçilir` — and the counted
+  days below it. 40 / 62 / 63 such days over May–July.
+- **Counted days start unticked** and can be ticked on: *"sadece isteğe bağlı seçilir,
+  ilk başta seçilmemiş gelir."* So a repaired night crossing is still reachable (ADR-072
+  stands) without being asserted as a loss.
+- The mail list is back to **216 / 352 / 419** days, which is the tick-independent truth,
+  plus whatever counted days somebody deliberately ticks.
+
+### The off-set is inverted for these days, deliberately
+
+Everywhere else the rule is *a day nobody has decided about is IN*, so a new note cannot
+quietly drop somebody (ADR-061). For a day that cost nothing it is the other way round,
+and for the same underlying reason rather than in spite of it: **silence is the expensive
+mistake when a day was lost; a false statement is the expensive one when it was not.**
+
+That needs two stores. `_days_off` takes a lost day out; `_days_on` puts a counted day
+in. One set could not express both defaults, and `_off_for(person)` composes them.
+
+### Why the heading says "izinli" too
+
+`ProblemDay.explained` folds two things together: minutes were counted, **or** leave
+covers the day. July is 158 counted and 2 covered by leave (May 87/3, June 172/3). Both
+mean "nothing went missing", which is what the split is about — but calling a leave day
+*sayıldı* would be a small false statement of exactly the kind this project keeps
+removing (ADR-055, ADR-068, ADR-070). The heading says both; the rows say nothing extra,
+because the distinction belongs to the block and the `Sorun` column already carries the
+note.
+
+### Consequences
+
+- 525 tests. The panel is asserted to be unchanged by unticking every note; the counted
+  block is asserted to sit under its heading and start off; ticking one on is asserted to
+  reach the message body; the heading row is asserted to be inert.
+- `_person_days()` now returns a **pair** and is therefore always truthy. Three call
+  sites and two tests used it as a boolean — `any(...)` is the replacement. Anything new
+  reading it must say which half it means.
+- No figure in the report moved. No `format_version` change.

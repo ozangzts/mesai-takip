@@ -301,6 +301,33 @@ def days_for(person: Person, labels: Iterable[str] | None = None,
     return tuple(kept)
 
 
+def days_by_cost(person: Person) -> tuple[tuple[ProblemDay, ...],
+                                          tuple[ProblemDay, ...]]:
+    """Every problem day this person has, split into `(lost, kept)`.
+
+    **Independent of the ticks and of the filter**, unlike `days_for`, and that is the
+    whole point. The panel and the `Sorunlu gün` column used to be built from the ticked
+    set, so untick everything but `Çıkış yok` and a person with 24 uncounted days showed
+    21 — a number that moves with a control is not a fact about the person. The operator
+    put it plainly: *"bir insanın kaç günü sayılmamışsa o kadar sorunlu günü görünmeli
+    filtreden bağımsız."* Measured on July 2026: 419 days lost, against 446 the ticked
+    set was reporting and 127 with one note ticked.
+
+    `lost` is what the column counts and what a message is about by default. `kept` is
+    every problem day where nothing went missing — the time was counted, or leave covers
+    it. Those are offered but never selected for somebody unless it is asked for: telling
+    a person "eksik durum tespit edilmiştir" about a day that was counted in full is a
+    false statement, and 27 of July's days were in that position while the ticked set
+    drove the panel.
+
+    Note `kept` folds two things together, 158 counted days and 2 leave-covered ones in
+    July. The window's heading says both rather than calling a leave day counted.
+    """
+    lost = tuple(day for day in person.days if not day.explained)
+    kept = tuple(day for day in person.days if day.explained)
+    return lost, kept
+
+
 def outstanding(person: Person, labels: Iterable[str],
                 snapshot: Snapshot | None = None,
                 always: Iterable[str] | None = None) -> frozenset[str]:

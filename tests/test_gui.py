@@ -1966,7 +1966,7 @@ def test_the_people_screen_uses_the_window_it_is_given(people_screen, tmp_path,
     if screen._rows:
         _click(screen, screen._rows[0][1], on_tick=False)
         root.update_idletasks()
-        if screen._person_days():
+        if any(screen._person_days()):
             assert screen.day_tree.winfo_width() >= 330, (
                 f"{width}x{height}: gün listesi {screen.day_tree.winfo_width()}px")
             assert screen.day_tree.winfo_height() > 40, "gün listesi çöktü"
@@ -2052,14 +2052,19 @@ def _person_with_days(screen):
     """The first listed person who actually has days to show."""
     for name, row in screen._rows:
         screen._person = name
-        if screen._person_days():
+        if any(screen._person_days()):
             return name, row
     screen._person = None
     return None, None
 
 
-def test_the_day_panel_lists_the_days_the_ticked_notes_are_about(day_screen):
-    """Same rule as the mail step, so the panel and the message cannot disagree."""
+def test_the_day_panel_lists_every_problem_day_whatever_is_ticked(day_screen):
+    """The panel is a fact about the person, not a view of the tick panel (ADR-074).
+
+    It used to be `days_for(person, counted())`, so unticking a note walked it down: a
+    person with 24 uncounted days showed 21 with only `Çıkış yok` ticked. *"bir insanın
+    kaç günü sayılmamışsa o kadar sorunlu günü görünmeli filtreden bağımsız."*
+    """
     from mesai.mail import recipients
 
     screen = day_screen()
@@ -2068,9 +2073,14 @@ def test_the_day_panel_lists_the_days_the_ticked_notes_are_about(day_screen):
     _click(screen, row, on_tick=False)
 
     person = next(p for p in screen.snapshot.people if p.name == name)
-    beklenen = [d.date for d in recipients.days_for(person, screen.counted())]
-    assert [d.date for d in screen._person_days()] == beklenen
-    assert len(screen._day_rows) == len(beklenen)
+    lost, kept = recipients.days_by_cost(person)
+    assert screen._person_days() == (lost, kept)
+
+    # Untick every note: the panel must not move.
+    screen._count_none()
+    screen._person = name
+    screen._paint_days()
+    assert screen._person_days() == (lost, kept), "panel işaretlere bağlı kalmış"
 
 
 def test_every_day_starts_selected(day_screen):
@@ -2169,9 +2179,12 @@ def test_an_explained_day_never_reaches_the_panel(day_screen):
     row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
     _click(screen, row, on_tick=False)
 
-    assert screen._person_days() == ()
-    assert screen._day_rows == []
-    assert "sorunlu gün yok" in screen.day_title.cget("text")
+    # He has a counted day and a leave-covered one, so `kept` is not empty — but
+    # nothing was lost, which is what the headline and the column are about.
+    lost, kept = screen._person_days()
+    assert lost == ()
+    assert kept, "sayılan günleri panelde durmalı"
+    assert "0 sayılmayan gün" in screen.day_title.cget("text"),         screen.day_title.cget("text")
 
 
 def test_the_panel_shows_the_times_and_the_note_for_each_day(day_screen):
@@ -2214,7 +2227,7 @@ def test_the_person_row_counts_the_days_the_panel_will_show(day_screen):
     screen = day_screen()
     for name, row in screen._rows:
         screen._person = name
-        beklenen = len(screen._person_days())
+        beklenen = len(screen._person_days()[0])       # the days that LOST time
         yazan = screen.tree.set(row, "gun")
         assert yazan == (str(beklenen) if beklenen else ""), (
             f"{name}: satır {yazan!r}, panel {beklenen}")
@@ -2262,7 +2275,7 @@ def test_somebody_with_no_card_record_does_not_look_clean(day_screen, tmp_path):
     row = next(r for n, r in screen._rows if n == "KEREM DENEME")
     _click(screen, row, on_tick=False)
 
-    assert screen._person_days() == ()
+    assert screen._person_days() == ((), ())
     baslik = screen.day_title.cget("text")
     metin = screen.day_note.cget("text")
     assert "sorunlu gün yok" not in baslik, baslik
@@ -2481,3 +2494,93 @@ def test_the_note_panel_leaves_the_day_panel_room_at_the_floor(people_screen,
     gun = screen.day_card.winfo_height()
     assert panel <= 190, f"not paneli {panel}px — gün paneline yer kalmıyor"
     assert gun >= 100, f"gün paneli {gun}px; not paneli {panel}px"
+
+
+def test_the_counted_days_sit_under_a_heading_and_start_unticked(day_screen):
+    """*"sayılan günler diye bir başlıktan sonra o günler görünsün ... sadece isteğe
+    bağlı seçilir, ilk başta seçilmemiş gelir."*
+
+    They are offered because a repaired night crossing is a real thing to ask about
+    (ADR-072). They start off because telling somebody "eksik durum tespit edilmiştir"
+    about a day that was counted in full is a false statement — 27 of July's days were in
+    that position while the ticked set drove the panel.
+    """
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+    row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
+    _click(screen, row, on_tick=False)
+
+    lost, kept = screen._person_days()
+    assert not lost and kept, "bu kişi yalnızca sayılan gün taşıyor"
+
+    values = [screen.day_tree.item(r, "values") for _iso, r in screen._day_rows]
+    baslik = [v for v in values if "SAYILAN" in str(v[1])]
+    assert len(baslik) == 1, values
+    # every counted day is below the heading and unticked
+    for v in values[values.index(baslik[0]) + 1:]:
+        assert v[0] == "☐", v
+
+
+def test_a_counted_day_can_be_ticked_on_and_reaches_the_message(day_screen):
+    """Off by default is not off for good — the whole point of offering them."""
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+    row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
+    _click(screen, row, on_tick=False)
+    screen.mail_var.set("cem@example.com")
+
+    assert "·" not in screen._draft().body, "hiçbiri seçili olmamalı"
+
+    screen.frame.update_idletasks()
+    iso, day_row = next((i, r) for i, r in screen._day_rows if i is not None)
+    screen._day_clicked(type("Click", (), {"y": screen.day_tree.bbox(day_row)[1] + 2})())
+
+    from datetime import date
+    assert date.fromisoformat(iso).strftime("%d.%m.%Y") in screen._draft().body
+
+
+def test_clicking_the_heading_row_does_nothing(day_screen):
+    """It is not a day, and a tick appearing on it would mean nothing."""
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+    row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
+    _click(screen, row, on_tick=False)
+
+    screen.frame.update_idletasks()
+    heading = next(r for iso, r in screen._day_rows if iso is None)
+    before = screen.day_tree.item(heading, "values")
+    screen._day_clicked(type("Click", (), {"y": screen.day_tree.bbox(heading)[1] + 2})())
+
+    assert screen.day_tree.item(heading, "values") == before
+    assert not screen._days_on and not screen._days_off
+
+
+def test_the_problem_day_column_does_not_move_with_the_ticks(day_screen):
+    """The number is a fact about the person. It read 446 across July with the default
+    ticks and 127 with one note ticked; the truth is 419 (ADR-074).
+
+    Measured under `Herkes`, because the ticks legitimately decide **who** is in
+    `Sorunu olanlar` — untick everything there and the list is empty, which is the
+    ticks doing their job. What they may not change is a person's own number.
+    """
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    screen.filter_key = recipients.ALL
+    screen._repaint()
+    before = {n: screen.tree.set(r, "gun") for n, r in screen._rows}
+    assert any(before.values()), "ölçülecek bir sayı yok"
+
+    screen._count_none()
+
+    after = {n: screen.tree.set(r, "gun") for n, r in screen._rows}
+    assert after == before, f"{before} -> {after}"

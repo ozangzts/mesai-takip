@@ -218,7 +218,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 519 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 525 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -534,6 +534,16 @@ the program *made*, not a day that went missing. Those notes select whether or n
 was counted. Do not widen this to the rest: the half that keeps `outstanding` is what
 stops a day the union already covered from coming back into the mail list, and a test
 holds each half separately.
+
+**A person's problem days are not a view of the filter** (`days_by_cost`, ADR-074).
+The `Sorunlu gün` column and the day panel take **no label set**: they are every problem
+day the person has, split into what was lost and what was not. They were built from the
+ticked set, so the column read 446 across July (27 of them days that were counted) and
+127 with one note ticked, against a truth of 419. Ticks decide *who is in the list*;
+what a person's days are is not up for selection. Counted days are offered in the panel
+under their own heading and **start unticked** — the off-set is inverted for them on
+purpose, because silence is the expensive mistake when a day was lost and a false
+statement is the expensive one when it was not.
 
 **Mail goes to one person per call and there is no bulk send** (ADR-073). Not an omission
 — 162 e-mails cannot be recalled, and a loop is a decision nobody has taken. A test
