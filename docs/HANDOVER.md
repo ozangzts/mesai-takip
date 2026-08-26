@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (77 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (78 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **536 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **547 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -130,6 +130,24 @@ Adreslerin tamamı `deico.com.tr`. Adresi olmayanlar **düşürülmez, bildirili
 3. Eksik aydan mail atılsın mı? (`is_complete` bunu ayırt edebiliyor) — **açık**
 
 İkisi de toplu gönderme hakkında, o yüzden ikisi de bunu bloke etmedi.
+
+**Mail metni `config/mail-taslagi.yaml`'da, kodda değil** (ADR-078). Exe'ye geçileceği
+için taşındı: koda gömülü metin ancak yeniden derlemeyle değişir. Metni değiştirmek artık
+dosyayı düzenlemek. Tanınmayan bir alan adı ya da boş bir zorunlu alan programı durdurur
+ve **gömülü yedek yoktur** — yedek olsa, düzenleyen kişi değişikliği göremez ve hangi
+kopyanın kullanıldığını anlayamaz.
+
+Taslak **HTML de taşıyor** ve mail `multipart/alternative` gidiyor: düz metin önce, HTML
+sonra. Kişinin açıklama yazacağı **tablo hazır** — `html_gun_satiri`'ndaki son hücre boş
+bırakıldı. Tabloyu değiştirmek dosya düzenlemesi, derleme değil. HTML alanlarını boşaltmak
+düz metne döner.
+
+> **Önizlemede gövdeyi düzenlersen HTML kısmı düşer.** Pencere düz metni gösteriyor;
+> eski metni taşıyan bir HTML parçası, okuyanın senin görmediğin bir şeyi okuması olurdu.
+
+**Hiçbir test soket açamaz** — `conftest.py` bütün pakete `smtplib.SMTP`'yi kapatıyor.
+Tedbir değil: *eksik* `gmail.yaml` raporlanıyor mu diye yazılmış bir test gerçeğini buldu
+ve canlı mail gönderdi (`a@b.c`, bounce etti). Gönderim testleri `transport` kullanıyor.
 
 **Gmail hesabı `config/gmail.yaml`'da**, git'e girmez (`personel.yaml` gibi — içinde giriş
 bilgisi var). Anahtarlar `config/gmail.example.yaml`'da. **Uygulama şifresi** gerekiyor,

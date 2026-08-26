@@ -2450,8 +2450,21 @@ def test_a_failed_send_says_why_and_leaves_the_window_open(day_screen):
 
 def test_the_screen_reports_a_missing_account_file_instead_of_raising(day_screen,
                                                                      tmp_path):
-    """`config/gmail.yaml` is absent on a fresh clone, which is the common case."""
+    """`config/gmail.yaml` is absent on a fresh clone, which is the common case.
+
+    The account directory is overridden here rather than inherited: this test is about a
+    file NOT being there, and the shell hands the screen the repository's own `config/`,
+    where on a working machine it is. The suite-wide SMTP guard in `conftest.py` is the
+    backstop — this fixture is what makes the test test what it says.
+    """
+    import shutil
+
     screen = day_screen()
+    bos = tmp_path / "hesapsiz"
+    bos.mkdir()
+    shutil.copy(Path("config") / "mail-taslagi.yaml", bos)   # template yes, account no
+    screen._config_dir = bos
+
     name, row = _person_with_days(screen)
     _click(screen, row, on_tick=False)
 

@@ -8,6 +8,35 @@ from mesai.config import (
 )
 
 
+@pytest.fixture(autouse=True)
+def no_smtp(monkeypatch):
+    """No test may open an SMTP connection. Autouse, so nothing can opt out.
+
+    **This is here because it happened.** `sender.send` takes a `transport` for the
+    tests, and the suite was clean for exactly as long as no test reached the real path.
+    Then `PeopleScreen` started taking its `config_dir` from the shell — correctly — and
+    the GUI fixture points that at the repository's own `config/`, which on a working
+    machine holds a real `gmail.yaml`. A test written to prove that a MISSING account
+    file is reported instead of raising found a present one, went down the live path, and
+    submitted a message to Gmail addressed to the fixture's `a@b.c`.
+
+    Nobody real was written to, and the message bounced. But the lesson is not "point
+    that test somewhere else": a guard belongs where the evidence is (ADR-044), and the
+    evidence is that any test can reach `smtplib` from three modules away. So the socket
+    is taken away from the whole suite. A test that wants to exercise sending passes a
+    `transport`; a test that reaches the network fails loudly instead of sending.
+    """
+    import smtplib
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError(
+            "Bir test gerçek SMTP bağlantısı açmaya çalıştı. Gönderim testleri "
+            "`sender.send(..., transport=...)` kullanır; hiçbir test posta göndermez.")
+
+    monkeypatch.setattr(smtplib, "SMTP", refuse)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", refuse)
+
+
 @pytest.fixture
 def settings() -> Settings:
     """Defaults mirroring config/settings.yaml, with no aliases or holidays."""

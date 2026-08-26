@@ -5004,3 +5004,106 @@ enforced where it belongs: in a test that reads both.
   reconciliation invariant is untouched, and `format_version` stays 11 — the added rows
   carry no hours because there are none to carry.
 - Reports regenerated, `data/out/` and the Desktop copies.
+
+---
+
+## ADR-078 — The message text leaves the code, because the program is about to be frozen
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Prerequisite for the `.exe` packaging.**
+
+### Why now
+
+> *"mail taslağı değişecek ileride, acaba biz exeyi önden yaptıktan sonra mail taslağını
+> değiştirebilir miyiz yoksa yine mi compile falan etmemiz lazım?"*
+
+With the wording in `message.py`, no: PyInstaller freezes the code as bytecode inside the
+executable, so a one-word change means rebuilding — on a machine with Python, by somebody
+who can. The template is known to be changing (a table for the person to fill in was
+asked for the day the first version shipped), so this had to happen **before** packaging
+or the first edit would buy a rebuild.
+
+It is also the project's own rule applied to a new thing. AGENTS.md §6: *a rule change
+must be a YAML edit, never a code edit.* Thresholds, holidays and facility labels are in
+`config/` for exactly this reason. Message wording is the same kind of thing, and more so:
+it is the only output that leaves the building.
+
+### What moved and what did not
+
+`config/mail-taslagi.yaml` carries the subject, the body, the per-day row, and a separate
+body for the person who has no dated day at all (`Kart bilgisi yok`). Plus optional HTML
+versions of each — see below.
+
+**What stays in the code, and must:** which days are listed, that only the *ticked* note
+is written, that a counted day never carries a missing-punch note (ADR-076), and how a
+reading with a missing half is described (`giriş 07:41, çıkış kaydı yok`, never a dash).
+Those are decisions with a right answer. Wording is a preference; those are not.
+
+### The two things a hand-edited template can break, and what stops them
+
+- **A typo in a placeholder.** `{isim}` instead of `{ad}` would render empty or, worse,
+  literally. The loader checks every placeholder against the set that field is allowed to
+  carry and refuses the file, naming both the offender and the alternatives. A day field
+  in the body (`{tarih}`) is rejected too — the body is about the month.
+- **A missing or empty required field.** Refused, the same way the payroll config keys
+  are required rather than defaulted (AGENTS.md §6). **There is no built-in fallback**: a
+  fallback is invisible, and the operator would edit the file, see no change, and have no
+  way to tell which copy is in use.
+
+Substitution is a plain `str.replace` per allowed name, not `str.format`. The HTML body is
+full of braces in CSS and a stray one in hand-edited text must not raise at send time.
+
+### HTML, now rather than later
+
+The table that is coming is not a wording change — it changes the MIME structure, which is
+code. So the HTML path is built now and the future table is a file edit:
+
+- `sender.build` sends `multipart/alternative` when the template carries an HTML body:
+  plain first, HTML second. Not HTML alone — a client that will not render it shows the
+  plain part, and both parts carry the same information, because a reader must not learn a
+  different thing depending on which one they see. A test asserts both parts hold the
+  name, the date and the note.
+- Both HTML fields empty means plain text only, which is what shipped first and is still a
+  correct message. A test holds that single-part case.
+- **Values substituted into the HTML part are escaped**; the template itself is not. A
+  name comes from a source file and goes into markup — not because a badge export is
+  expected to contain `<`, but because "this value cannot contain markup" is an assumption
+  about somebody else's system, and this project makes no such assumption anywhere else
+  (the container sniffing, the header search, the alias table).
+- **Editing the body in the preview drops the HTML part.** The window shows and edits the
+  plain text; an HTML alternative still carrying the original wording would mean the
+  recipient reads something the operator never saw, and most clients would show them
+  exactly that part. Editing there is a decision to send the plain version; changing the
+  table is an edit to the file.
+
+### Two defects this turned up
+
+**1. The window had two answers to "where is config".** `PeopleScreen` computed
+`base / "config"` itself, quietly ignoring the `config_dir` the shell already owns and
+already lets a caller override. So the window read its rules from one place and would have
+read its mail template from another. Same defect as ADR-077, one layer down. It takes the
+shell's value now.
+
+**2. A test sent a real e-mail.** Fixing (1) pointed the GUI fixture's `config_dir` at the
+repository's own `config/`, where a working machine has a real `gmail.yaml` — and a test
+written to prove that a **missing** account file is reported instead of raising found a
+present one, went down the live path, and submitted a message to Gmail addressed to the
+fixture's `a@b.c`. It bounced; nobody real was written to.
+
+The fix is not "point that test elsewhere". A guard belongs where the evidence is
+(ADR-044), and the evidence is that any test can reach `smtplib` from three modules away.
+`conftest.py` now takes the socket away from the **whole suite**, autouse, so nothing can
+opt out: a test that wants to exercise sending passes a `transport`, and a test that
+reaches the network fails loudly. The earlier claim that "nothing in the suite opens a
+socket" was true when written and had quietly stopped being true.
+
+### Consequences
+
+- 547 tests. Eleven are new and about the template file: the shipped one loads, carries
+  HTML, and names nobody; a typo, an empty required field and an HTML body with no row
+  template are each refused; plain-text-only still works; editing the file really does
+  change the message; and a name reaching the HTML part is escaped.
+- The "names nobody" rule is now tested against the **shipped file** rather than a string
+  in the code, which is the right place for it to be tested from.
+- No figure moved, no report changed, `format_version` stays 11.

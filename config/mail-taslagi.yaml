@@ -1,0 +1,91 @@
+# Kişiye gönderilen e-postanın metni.
+#
+# BU DOSYA PROGRAMIN İÇİNDE DEĞİL, YANINDA. Metni değiştirmek için programı yeniden
+# derlemek gerekmez — burayı düzenleyip kaydetmek yeter. Sebebi settings.yaml ile aynı:
+# değişecek olan şey koda gömülmez.
+#
+# Süslü parantezli yerler program tarafından doldurulur. Tanımadığı bir isim yazarsanız
+# program durup söyler; sessizce "{ad}" yazan bir mail göndermez.
+#
+#   {ad}      kişinin adı soyadı
+#   {donem}   "Temmuz 2026"
+#   {gunler}  aşağıdaki `gun_satiri` her seçili gün için doldurulup buraya konur
+#
+# `gun_satiri` içinde kullanılabilecekler:
+#
+#   {tarih}   14.07.2026
+#   {gun}     Sal
+#   {sorun}   o gün için işaretlenmiş notun adı, örn. "Çıkış yok"
+#   {okuma}   o gün ne okunduğu, örn. "giriş 07:41, çıkış kaydı yok"
+#   {giris}   07:41   (okunmamışsa boş)
+#   {cikis}   18:26   (okunmamışsa boş)
+#   {sure}    9:05    (o gün için süre sayılmamışsa boş)
+
+konu: "{donem} mesai kayıtları"
+
+# Seçili günü olan kişiye giden metin.
+govde: |
+  Sayın {ad},
+
+  {donem} dönemi giriş-çıkış kayıtları incelenmiştir.
+
+  Aşağıdaki günlerde kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir:
+
+  {gunler}
+
+  Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
+
+  İyi çalışmalar.
+
+gun_satiri: "  · {tarih} {gun} — {sorun} ({okuma})"
+
+# Tarihli hiçbir günü olmayan kişiye giden metin — ayın tamamında kart kaydı yoksa
+# listelenecek bir gün yoktur ve boş bir madde listesi göndermek anlamsız olur.
+gunsuz_govde: |
+  Sayın {ad},
+
+  {donem} dönemi giriş-çıkış kayıtları incelenmiştir.
+
+  Söz konusu dönem için tarafınıza ait giriş-çıkış kaydına ulaşılamamıştır.
+
+  Durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
+
+  İyi çalışmalar.
+
+# --- HTML (isteğe bağlı) ----------------------------------------------------
+#
+# Boş bırakılırsa yalnızca yukarıdaki düz metin gönderilir. Doldurulursa mail iki
+# biçimli gider: HTML gösteremeyen bir program düz metni görür. İkisi de aynı bilgiyi
+# taşımalı — biri eksikse okuyan neyi gördüğüne bağlı olarak farklı şey anlar.
+#
+# Kişinin o günler için açıklama yazacağı tablo buraya konacak. `{gunler_html}` yerine
+# `html_gun_satiri` her gün için doldurulup konur.
+
+html_govde: |
+  <p>Sayın {ad},</p>
+  <p>{donem} dönemi giriş-çıkış kayıtları incelenmiştir. Aşağıdaki günlerde
+  kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir.</p>
+  <table cellpadding="6" cellspacing="0" border="1"
+         style="border-collapse:collapse;font-family:sans-serif;font-size:13px">
+    <tr style="background:#f0f0f0">
+      <th align="left">Tarih</th>
+      <th align="left">Gün</th>
+      <th align="left">Durum</th>
+      <th align="left">Kayıt</th>
+      <th align="left">Açıklamanız</th>
+    </tr>
+  {gunler_html}
+  </table>
+  <p>Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi rica
+  ederiz.</p>
+  <p>İyi çalışmalar.</p>
+
+html_gun_satiri: |
+  <tr><td>{tarih}</td><td>{gun}</td><td>{sorun}</td><td>{okuma}</td><td></td></tr>
+
+html_gunsuz_govde: |
+  <p>Sayın {ad},</p>
+  <p>{donem} dönemi giriş-çıkış kayıtları incelenmiştir. Söz konusu dönem için
+  tarafınıza ait giriş-çıkış kaydına ulaşılamamıştır.</p>
+  <p>Durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.</p>
+  <p>İyi çalışmalar.</p>

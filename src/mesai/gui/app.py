@@ -62,7 +62,8 @@ def _report(parent: tk.Misc, app: "App") -> ReportScreen:
 
 
 def _people(parent: tk.Misc, app: "App") -> PeopleScreen:
-    screen = PeopleScreen(parent, root=app.root, base=app.base)
+    screen = PeopleScreen(parent, root=app.root, base=app.base,
+                          config_dir=app.config_dir)
     # Built on first opening, which is usually after a run has already finished — so
     # it picks up that run's data file rather than making the user find it.
     if app.last_snapshot is not None:

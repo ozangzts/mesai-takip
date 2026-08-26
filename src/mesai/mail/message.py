@@ -1,28 +1,35 @@
-"""The text of one person's message. No SMTP, no widget, no clock.
+"""One person's message: which days it lists, and what is said about each.
 
-Separate from `sender.py` on purpose: the wording is the part that gets argued about
-and the part a test can pin, and it must be reviewable without anything being sent.
-`compose()` is pure, so the preview the operator approves and the body that leaves the
-machine are produced by the same call — a preview built by different code than the send
-is a preview of nothing.
+The **wording** is not here any more — it is `config/mail-taslagi.yaml`, loaded by
+`template.py`, because it will change and this program ships frozen (see that module).
+What stays here is everything with a right answer rather than a preference:
 
-Two rules the wording follows, both from AGENTS.md §6:
+* **only the ticked note is written.** The same day can carry more than one — July has
+  two that are both `Çıkış yok` and `Günlük süre çok kısa` — and writing a note nobody
+  selected asks a question nobody meant to ask.
+* **a counted day never carries a missing-punch note** (`recipients.day_notes`, ADR-076).
+  `Hem giriş hem çıkış yok` beside the times the day was counted from is a contradiction,
+  not a fact.
+* **the missing half of a reading is named, not dashed.** A dash beside a time reads as a
+  formatting artefact to somebody reading this once, probably on a phone.
+* **no person and no department is named** beyond the recipient (AGENTS.md §6). A test
+  holds the shipped template to it, because the words are hand-editable now — the rule
+  did not move out of the code just because the wording did.
 
-* **it names nobody and no department.** No "İK talebiyle", no "onay bekliyor", no
-  "IT ile kontrol edin". The message says what the records show and asks the person to
-  say what happened. Who chases it is not the message's business.
-* **only the ticked notes are written.** The same day can carry more than one note —
-  July has two days that are both `Çıkış yok` and `Günlük süre çok kısa` — and writing
-  a note nobody selected asks a question nobody meant to ask (`HANDOVER.md` §1).
+`compose()` stays pure and takes the template as an argument, so the preview the operator
+approves and the body that leaves the machine come from one call. A preview produced by
+different code than the send is a preview of nothing.
 """
 
 from __future__ import annotations
 
+import html as _html
 from collections.abc import Iterable
 from dataclasses import dataclass
 
 from ..snapshot import Person, ProblemDay
 from .recipients import day_notes
+from .template import Template, TemplateError, fill
 
 _MONTHS = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
            "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
@@ -42,23 +49,19 @@ class Draft:
     to: str
     subject: str
     body: str
+    html: str = ""
 
     @property
     def is_sendable(self) -> bool:
         return bool(self.to.strip()) and bool(self.body.strip())
 
 
-def _reading(day: ProblemDay) -> str:
-    """What the badge system actually recorded that day, in parentheses.
+def reading(day: ProblemDay) -> str:
+    """What the badge system actually recorded that day.
 
-    Asked for after the first version shipped without it, and it is the difference
-    between a person being able to answer and having to go and ask somebody. `Çıkış yok`
-    tells them what is wrong; `giriş 07:41, çıkış kaydı yok` tells them which day of
-    their life it was.
-
-    The missing half is named rather than dashed. A dash beside a time reads as a
-    formatting artefact, and this message is read once, probably on a phone, by somebody
-    who does not have the sheet in front of them.
+    It is the difference between the person being able to answer and having to go and ask
+    somebody: `Çıkış yok` tells them what is wrong, `giriş 07:41, çıkış kaydı yok` tells
+    them which day of their life it was.
     """
     entry, exit = day.entry_text, day.exit_text
     if entry and exit:
@@ -70,55 +73,76 @@ def _reading(day: ProblemDay) -> str:
     return "giriş ve çıkış kaydı yok"
 
 
-def _day_line(day: ProblemDay, counted: frozenset[str]) -> str:
-    """The date, the weekday, why it is listed, and what was read that day.
+def _values(day: ProblemDay, counted: frozenset[str]) -> dict[str, str]:
+    """The fields one day's row may refer to.
 
-    The reason is the **ticked** note and only that. Without the reason the reader gets
-    a list of dates and no idea what to answer; with every note on the day, they get
-    asked about something nobody selected.
+    `sorun` is the **ticked** note and only that, falling back to what the day carries
+    when nothing is ticked — a dated line with no reason is a date the reader cannot
+    answer.
     """
-    # `day_notes` first, so a counted day never carries "hem giriş hem çıkış yok" into a
-    # message beside the times it was counted from (ADR-076).
     notes = day_notes(day)
     shown = [label for label in notes if label in counted] or list(notes)
-    stamp = f"{day.date:%d.%m.%Y}"
-    return (f"  · {stamp} {_DAYS[day.date.weekday()]} — {', '.join(shown)}"
-            f" ({_reading(day)})")
+    return {
+        "tarih": f"{day.date:%d.%m.%Y}",
+        "gun": _DAYS[day.date.weekday()],
+        "sorun": ", ".join(shown),
+        "okuma": reading(day),
+        "giris": day.entry_text,
+        "cikis": day.exit_text,
+        "sure": day.hours_text,
+    }
+
+
+def _escaped(values: dict[str, str]) -> dict[str, str]:
+    """Every substituted value, escaped for the HTML part.
+
+    A name comes from a source file and goes into markup, so it is escaped — not because
+    a badge export is expected to contain `<`, but because "this value cannot contain
+    markup" is an assumption about somebody else's system, and this project does not make
+    those anywhere else either (the container sniffing, the header search, the alias
+    table). The template itself is never escaped: its markup is the point.
+    """
+    return {key: _html.escape(value, quote=True) for key, value in values.items()}
 
 
 def compose(person: Person, days: Iterable[ProblemDay], period: str,
-            counted: Iterable[str] = ()) -> Draft:
-    """The message for one person about the days that were selected for them.
-
-    Deliberately short. It states the month, lists the days with their reason, asks for
-    a correction, and stops. Everything a longer version would add — how the figure was
-    computed, what happens next, who decided — is either not the person's question or
-    is something this program does not know.
+            counted: Iterable[str] = (), template: Template | None = None) -> Draft:
+    """The message for one person about the days selected for them.
 
     A person with no listed day still composes: the operator may be writing to somebody
-    whose whole month is missing (`Kart bilgisi yok` carries no date at all), and an
-    empty day list is not a reason to refuse to write. The body says so in words rather
-    than showing an empty bullet list.
+    whose whole month is missing (`Kart bilgisi yok` carries no date at all), and an empty
+    day list is not a reason to refuse to write. The template carries a separate body for
+    that case, so it says so in words rather than showing an empty list.
     """
+    if template is None:
+        raise TemplateError(
+            "Mail taslağı yüklenmedi. Metin config/mail-taslagi.yaml dosyasında "
+            "tutuluyor ve programın içine gömülmemiştir.")
+
     counted = frozenset(counted)
     dated = sorted(days, key=lambda d: d.date)
     ay = period_text(period)
+    common = {"ad": person.name, "donem": ay}
 
-    lines = [f"Sayın {person.name},", "",
-             f"{ay} dönemi giriş-çıkış kayıtları incelenmiştir."]
     if dated:
-        lines += ["", "Aşağıdaki günlerde kayıtlarınızda eksik ya da tutarsız bir "
-                      "durum tespit edilmiştir:", ""]
-        lines += [_day_line(day, counted) for day in dated]
+        rows = [fill("gun_satiri", template.gun_satiri, **_values(day, counted))
+                for day in dated]
+        body = fill("govde", template.govde, gunler="\n".join(rows), **common)
     else:
-        lines += ["", "Söz konusu dönem için tarafınıza ait giriş-çıkış kaydına "
-                      "ulaşılamamıştır."]
-    lines += ["", "Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak "
-                  "bildirmenizi rica ederiz.", "", "İyi çalışmalar."]
+        body = fill("gunsuz_govde", template.gunsuz_govde, **common)
 
-    # The subject is the month and nothing else. It carried the day count, which put a
-    # number in the one line the reader sees before opening anything — and a number in a
-    # subject line invites being read as the point of the message. The point is inside.
+    html = ""
+    if template.has_html:
+        if dated:
+            rows = [fill("html_gun_satiri", template.html_gun_satiri,
+                         **_escaped(_values(day, counted)))
+                    for day in dated]
+            html = fill("html_govde", template.html_govde,
+                        gunler_html="".join(rows), **_escaped(common))
+        elif template.html_gunsuz_govde.strip():
+            html = fill("html_gunsuz_govde", template.html_gunsuz_govde,
+                        **_escaped(common))
+
     return Draft(to=(person.email or "").strip(),
-                 subject=f"{ay} mesai kayıtları",
-                 body="\n".join(lines))
+                 subject=fill("konu", template.konu, **common).strip(),
+                 body=body.strip() + "\n", html=html.strip())

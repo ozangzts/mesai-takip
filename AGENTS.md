@@ -211,14 +211,15 @@ mesai-takip/
 │   ├── readers/               # one per source file; base.py hides the container
 │   ├── mail/                  # who the figures go to, and what they are told
 │   │   ├── recipients.py      # the filters — pure, no widget
-│   │   ├── message.py         # the message text — pure, no SMTP
+│   │   ├── message.py         # which days, which note — pure, no SMTP, no wording
+│   │   ├── template.py        # the wording, from config/mail-taslagi.yaml
 │   │   └── sender.py          # Gmail SMTP. ONE person per call, never a loop
 │   ├── rules/                 # the business math
 │   └── report/                # the workbook
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 536 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 547 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -562,6 +563,19 @@ duration is a contradiction on one row rather than a fact. `recipients.day_notes
 those notes from any day presented as a question, because a day can carry both that and
 `Tesis birleştirme`. Both dropped kinds stay on `Şüpheli Kayıtlar` and `İnceleme Listesi`;
 §2.2 is intact.
+
+**The message wording lives in `config/mail-taslagi.yaml`, not in the code** (ADR-078).
+The program ships frozen, and wording compiled into an `.exe` can only be changed by
+rebuilding it — so this is §6's "a rule change is a YAML edit" applied to the only output
+that leaves the building. What stays in code is which days are listed and which note is
+written beside each; those have right answers. The loader refuses an unknown placeholder
+and an empty required field, and there is **no built-in fallback** — a fallback is
+invisible, so the operator would edit the file and see nothing change.
+
+**No test may open a socket.** `conftest.py` takes `smtplib.SMTP` away from the whole
+suite, autouse. This is not precaution: a test written to check that a *missing*
+`gmail.yaml` is reported found a real one and sent a live message. Sending tests pass a
+`transport`.
 
 **Mail goes to one person per call and there is no bulk send** (ADR-073). Not an omission
 — 162 e-mails cannot be recalled, and a loop is a decision nobody has taken. A test

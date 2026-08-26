@@ -22,7 +22,7 @@ from tkinter import filedialog, ttk
 
 from .. import snapshot as snapshot_module
 from ..anomalies import DESCRIPTIONS
-from ..mail import message, recipients, sender
+from ..mail import message, recipients, sender, template as mail_template
 from . import settings as settings_file
 from . import widgets as w
 from .period import period_label
@@ -133,10 +133,20 @@ class MailPreview:
         return top
 
     def current(self):
-        """The draft as it stands in the window — the thing that will be sent."""
+        """The draft as it stands in the window — the thing that will be sent.
+
+        **The HTML part is dropped once the body is edited.** The window shows and edits
+        the plain text; an HTML alternative that still carried the original wording would
+        mean the recipient reads something the operator never saw, and most mail clients
+        would show them exactly that part. Editing here is therefore a decision to send
+        the plain version. Changing the table itself is an edit to
+        `config/mail-taslagi.yaml`, which is where the HTML lives.
+        """
+        body = self.body.get("1.0", "end-1c")
+        html = self._draft.html if body.strip() == self._draft.body.strip() else ""
         return replace(self._draft, to=self.to_var.get().strip(),
                        subject=self.subject_var.get().strip(),
-                       body=self.body.get("1.0", "end-1c"))
+                       body=body, html=html)
 
     def confirm(self) -> None:
         draft = self.current()
@@ -171,9 +181,16 @@ class MailPreview:
 
 
 class PeopleScreen:
-    def __init__(self, parent: tk.Misc, *, root: tk.Misc, base: Path) -> None:
+    def __init__(self, parent: tk.Misc, *, root: tk.Misc, base: Path,
+                 config_dir: Path | None = None) -> None:
         self.root = root
         self.base = base
+        # Taken from the shell, which already owns it and already allows an override.
+        # This used to be computed here as `base / "config"`, which quietly ignored that
+        # override — so the window read its rules from one place and its mail template
+        # from another. Two answers to "where is config" is the same defect ADR-077 is
+        # about, one layer down.
+        self._config_dir = config_dir or (base / "config")
         self.snapshot: snapshot_module.Snapshot | None = None
         self.source: Path | None = None
         self.filter_key = recipients.ALL
@@ -210,13 +227,14 @@ class PeopleScreen:
 
     @property
     def config_dir(self) -> Path:
-        """Where `gmail.yaml` is looked for — the same `config/` the rules live in.
+        """Where `gmail.yaml` and `mail-taslagi.yaml` are looked for.
 
-        Beside the program rather than inside it: `config/` has to stay writable and
-        editable by hand (`HANDOVER.md` §3), and a credential compiled into an exe
-        could not be rotated.
+        Beside the program, never inside it: `config/` has to stay writable and
+        hand-editable (`HANDOVER.md` §3, ADR-042), a credential compiled into an exe
+        could not be rotated, and the mail wording has to be changeable without a
+        rebuild (ADR-078).
         """
-        return self.base / "config"
+        return self._config_dir
 
     def _remembered_off(self) -> tuple[str, ...]:
         stored = settings_file.load(self.base).get("problem_notes_off")
@@ -880,7 +898,12 @@ class PeopleScreen:
         off = self._off_for(person)
         chosen = [d for d in sum(self._person_days(), ())
                   if (person.name, d.date.isoformat()) not in off]
-        draft = message.compose(person, chosen, self.snapshot.period, self.counted())
+        # The template is read from `config/` on every draft, not cached: the operator
+        # edits that file to change the wording and must see the change without
+        # restarting. It is one small YAML file per preview.
+        tpl = mail_template.load(self.config_dir)
+        draft = message.compose(person, chosen, self.snapshot.period, self.counted(),
+                                template=tpl)
         return replace(draft, to=self.mail_var.get().strip())
 
     def _preview_mail(self) -> None:
@@ -890,7 +913,18 @@ class PeopleScreen:
         the operator approves in this window is byte-for-byte what is sent — the
         editor's contents are read back at send time, not the draft that opened it.
         """
-        draft = self._draft()
+        try:
+            draft = self._draft()
+        except mail_template.TemplateError as exc:
+            # A broken template must not open a preview of nothing. The message names the
+            # file and the field, because whoever edited it is the one who can fix it.
+            self.day_title.configure(text=f"⚠  MAİL TASLAĞI KULLANILAMIYOR",
+                                     foreground=w.BAD)
+            self.day_note.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
+            self.day_tree.grid_remove()
+            self.day_note.configure(text=str(exc), foreground=w.BAD,
+                                    font=(w.FACE, 9, "bold"))
+            return
         if draft is None:
             return
         MailPreview(self.root, draft, self._send).show()

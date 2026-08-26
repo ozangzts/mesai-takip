@@ -92,12 +92,22 @@ def load_account(config_dir: Path) -> Account:
 
 
 def build(draft: Draft, account: Account) -> EmailMessage:
-    """The MIME message. Plain text and UTF-8 — the body is Turkish."""
+    """The MIME message. UTF-8 throughout — the body is Turkish.
+
+    Plain text always, and an HTML alternative when the template carries one
+    (`config/mail-taslagi.yaml`). `multipart/alternative` rather than HTML alone: a mail
+    program that will not render HTML shows the plain part, and the two carry the same
+    information — a reader must not learn a different thing depending on which one they
+    see. The plain part is first, which is what the standard asks for; the client shows
+    the last part it can render.
+    """
     mail = EmailMessage()
     mail["From"] = account.sender
     mail["To"] = draft.to
     mail["Subject"] = draft.subject
     mail.set_content(draft.body, subtype="plain", charset="utf-8")
+    if draft.html.strip():
+        mail.add_alternative(draft.html, subtype="html", charset="utf-8")
     return mail
 
 
