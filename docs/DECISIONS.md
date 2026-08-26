@@ -5129,8 +5129,13 @@ on Outlook.** A table in an e-mail is markup rather than a form, so this depends
 on the client: pressing Reply in Outlook desktop (and in desktop Gmail) quotes the table
 and lets somebody click into the empty cell and type. The company runs Outlook — the Gmail
 account is only the sending side — so that path is the normal one here, and the wording
-says so plainly: *"Yanıtla'ya basıp tablonun Açıklama kolonuna ilgili günün satırında
-açıklamanızı yazmanız yeterlidir."*
+names the column and stops: *"Tablodaki Açıklama kolonunu doldurarak bu e-postayı
+yanıtlamanızı rica ederiz."*
+
+It said which button to press and which row to write in, and that was the wrong register:
+*"çocuğa anlatır gibi olmasın, bunlar normal çalışan."* A person who gets a table with an
+empty column does not need to be told that replying involves Reply. The line is one
+sentence now.
 
 Two details it needs to actually work, both easy to omit:
 
