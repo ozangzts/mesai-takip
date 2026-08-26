@@ -197,3 +197,12 @@ class RunStats:
     # See ADR-057.
     blank_workdays: tuple[date, ...] = ()
     roster_date: date | None = None      # roster export date, from the file itself
+    # People in the roster with no trace of any kind in the period — no badge record
+    # and no leave row — so `_resolve_employees` never builds them an Employee and the
+    # report gives them no row (ADR-011). `(display name, facility as the roster wrote
+    # it)`, in Turkish name order. Counted and listed on the Kontrol sheet because a
+    # manual check cannot reach somebody who appears on no list at all: 21/27/14 people
+    # over May-July 2026, of whom 16/22/13 are Macunköy-based, which is the same shape
+    # as `Kart bilgisi yok`. See ADR-071.
+    roster_only: tuple[tuple[str, str | None], ...] = ()
+    roster_size: int = 0

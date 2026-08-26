@@ -192,21 +192,38 @@ Her notun bir **ağırlığı** var:
 | 🟡 Sarı | Sayıldı, ama kontrol edilmeli |
 | ⚪ Gri | Sayıldı, **beklenen durum** — kimsenin sorunu değil |
 
+**Renk ile "kime sorulacak" ayrı şeyler.** Sarı bir not "gün sayıldı" der, ama o gün
+hakkında sorulacak bir şey olduğu anlamına da gelir — pencerede işaretlendiğinde kişileri
+getirir. Bir süre getirmiyordu: `Gece geçişi` panelde 6 kişi yazarken filtrede kimse
+çıkmıyordu, çünkü filtre yalnızca **saat kaybedilmiş** günleri seçiyordu ve bu notların
+öyle bir günü hiç yok. Düzeltildi. Kırmızı notlarda kural aynı kaldı: `Çıkış yok`
+işaretlendiğinde, girişi bir tesisten çıkışı diğerinden okunup gün zaten tam sayılmışsa o
+gün listeye girmez — sorulacak bir şey yok.
+
 Aşağıdaki liste programın üretebileceği **bütün** notları içerir. Bazıları bugüne kadar
 hiç görülmedi; onlar `—` ile işaretli. Bunlar boşuna durmuyor: her biri programın bir
 şeyi **uydurmak zorunda kalacağı** ya da **okuyamayacağı** durumu karşılıyor, ve o
 durum çıktığında sessizce geçilmesin diye tanımlı.
 
-Sayılar Mayıs, Haziran ve Temmuz 2026'nın toplamıdır (kişi-gün).
+Sayılar Mayıs, Haziran ve Temmuz 2026'nın toplamıdır (kişi-gün) ve **2026-08-26'da
+üç raporun `Şüpheli Kayıtlar` sayfasından ölçüldü.** Bir not birden çok gün için düşebilir,
+o yüzden bu sayılar toplanmaz — aynı gün iki notta birden görünebilir.
 
 ### Eksik kayıt
 
 | Not | Ne demek | Ağırlık | 3 ayda |
 | --- | --- | --- | --- |
-| `Giriş yok` | Çıkış basılmış, giriş kaydı yok | 🔴 | 78 |
-| `Çıkış yok` | Giriş basılmış, çıkış kaydı yok | 🔴 | 526 |
-| `Hem giriş hem çıkış yok` | O gün için ne giriş ne çıkış kaydedilmiş: ya saatleri boş bir satır var, ya o güne ait hiç satır yok. İzin ve uzaktan çalışma da yok. **Koşulsuz** — ay içinde işe girmiş olabilecekler de listeye girer, kararı veren kişi çıkarır | 🔴 | 226 |
-| `Kart bilgisi yok` | **Ayın hiçbir gününde** kart kaydı yok. Kişi dosyalarda yalnızca izin ya da personel kaydıyla görünüyor | 🔴 | 75 |
+| `Giriş yok` | Çıkış basılmış, giriş kaydı yok | 🔴 | 63 |
+| `Çıkış yok` | Giriş basılmış, çıkış kaydı yok | 🔴 | 369 |
+| `Hem giriş hem çıkış yok` | O gün için ne giriş ne çıkış kaydedilmiş: ya saatleri boş bir satır var, ya o güne ait hiç satır yok. İzin ve uzaktan çalışma da yok. **Koşulsuz** — ay içinde işe girmiş olabilecekler de listeye girer, kararı veren kişi çıkarır | 🔴 | 798 |
+| `Kart bilgisi yok` | **Ayın hiçbir gününde** kart kaydı yok. Kişi dosyalarda yalnızca izin ya da personel kaydıyla görünüyor | 🔴 | 66 kişi |
+
+`Kart bilgisi yok` satırındaki sayı **kişidir, kişi-gün değil**: bu not ayın tamamı
+hakkında, tek bir gün hakkında değil, o yüzden bir tarihi yok.
+
+Bu notu alan kişinin **satırı vardır** ve raporda görünür. Satırı hiç açılmayan bir grup
+daha var — personel listesinde olup o ayda ne kart ne izin kaydı bulunanlar; onlar
+`Kontrol` sayfasının `Kapsam` bölümünde sayılıyor (bölüm 8'e bakın).
 
 `Hem giriş hem çıkış yok` notu, o gün için hiçbir yerde kayıt olmaması hâlinde de düşer.
 Böylece tek bir normal 9 saatlik günü ve 21 kayıtsız günü olan biri de görünür — eskiden
@@ -222,8 +239,8 @@ ve bu kişiler hiçbir not almadan sorunsuz listede duruyordu.
 
 | Not | Ne demek | Ağırlık | 3 ayda |
 | --- | --- | --- | --- |
-| `Günlük süre çok kısa (<2 saat)` | Günün toplamı 2 saatin altında | 🟡 | 61 |
-| `Günlük süre çok uzun (>16 saat)` | Günün toplamı 16 saati aşıyor — **süre sayılır**, sadece kontrol için işaretlenir | 🟡 | 7 |
+| `Günlük süre çok kısa (<2 saat)` | Günün toplamı 2 saatin altında | 🟡 | 50 |
+| `Günlük süre çok uzun (>16 saat)` | Günün toplamı 16 saati aşıyor — **süre sayılır**, sadece kontrol için işaretlenir | 🟡 | 9 |
 | `Gece geçişi` | Çıkış girişten önce görünüyor; gece yarısını geçen vardiya düzeltildi | 🟡 | 51 |
 | `Giriş-çıkış tutarsız (>20 saat)` | Çıkış girişten önce ve gece geçişi varsayılınca süre 20 saati aşıyor — kayıt kullanılamaz | 🔴 | 5 |
 | `Süre uyuşmazlığı` | Hesaplanan süre, kaynak dosyanın kendi yazdığı süreyle aynı değil | 🟡 | — |
@@ -250,8 +267,8 @@ Sınır 20 saat — en uzun gerçek vardiyanın 4,5 saat üstünde, en kısa boz
 
 | Not | Ne demek | Ağırlık | 3 ayda |
 | --- | --- | --- | --- |
-| `Uzaktan + sistem kaydı` | Uzaktan çalışma günü; Teknopark'ta kart okuması yok, sistem varsayılan tam gün yazmış. Çakışan süre bir kez sayıldı | ⚪ | 110 |
-| `Uzaktan + kart kaydı` | Uzaktan çalışma beyanı var **ama o gün gerçek kart okuması da var** — kişi binaya girmiş görünüyor | 🟡 | 10 |
+| `Uzaktan + sistem kaydı` | Uzaktan çalışma günü; Teknopark'ta kart okuması yok, sistem varsayılan tam gün yazmış. Çakışan süre bir kez sayıldı | ⚪ | 190 |
+| `Uzaktan + kart kaydı` | Uzaktan çalışma beyanı var **ama o gün gerçek kart okuması da var** — kişi binaya girmiş görünüyor | 🟡 | 12 |
 | `Çok günlü uzaktan` | Tek uzaktan çalışma satırı birden çok güne yayılmış. Kaynak günlük saati yazmadığı için **program normal vardiya saatini varsayar** — bu yüzden işaretlenir | 🟡 | — |
 
 `Çok günlü uzaktan` bugüne kadar hiç görülmedi ama önemli: izin dosyası tek satırda
@@ -267,7 +284,7 @@ durumu içeride nasıl işlediği `Şüpheli Kayıtlar` sayfasındaki açıklama
 
 | Not | Ne demek | Ağırlık | 3 ayda |
 | --- | --- | --- | --- |
-| `Tesis birleştirme` | Eksik kayıt, kişinin aynı gün diğer tesisteki kaydıyla tamamlandı | 🟡 | 52 |
+| `Tesis birleştirme` | Eksik kayıt, kişinin aynı gün diğer tesisteki kaydıyla tamamlandı | 🟡 | 63 |
 | `İsim eşleşmedi` | Personel listesinde bu ismin karşılığı bulunamadı | 🔴 | — |
 | `Satır okunamadı` | Kaynak dosyadaki satır ayrıştırılamadı | 🔴 | — |
 
@@ -327,10 +344,53 @@ değiştirirseniz pencere bunu fark eder ve listede yazar.
 - **Kayıt defteridir, beyaz liste değildir.** Listede olmayıp mesai kaydı olan biri
   yine çalışmıştır, raporda yer alır, saatlerini korur.
 - **Kimin var olduğuna karar vermez.** Listede olup dönemde hiç hareketi olmayan
-  kişiye satır açılmaz.
+  kişiye satır açılmaz. Bu doğru: liste dönemden sonra alındığı için içinde o ay henüz
+  işe başlamamış kişiler de var, ve onlara sıfır saatlik bir satır açmak çalışmadıklarını
+  söylemek olur.
+
+  **Ama kaç kişi olduğu raporda yazar.** `Kontrol` sayfasının `Kapsam` bölümü, personel
+  listesinde olup o ayda **ne kart ne izin** kaydı bulunan kişileri sayar ve adlarını
+  tesise göre gruplayarak yazar — Mayıs 21, Haziran 27, Temmuz 14 kişi. Sebebi şu: bu
+  kişilerin satırı olmadığı için yukarıdaki bütün sayılar onları görmüyor, yani tek
+  başına bırakıldığında bu grup hiçbir listede görünmüyordu. Kimin sonradan işe girdiğini
+  program bilemiyor (listede işe giriş tarihi yok), o yüzden bir iddia değil, **elle
+  bakılacak bir liste** olarak yazılıyor.
 - **Alınma tarihi önemlidir** ve rapora yazılır. Mayıs raporunda kullanılan liste
   28.07.2026'da alınmış, yani dönemden 2 ay sonra: ayrılanlar listede görünmez,
   sonradan girenler mesai verisinde yoktur.
+
+### Kişiye ne yazılıyor
+
+Pencerede bir kişiyi seçip günlerini işaretledikten sonra o kişiye e-posta
+gönderilebiliyor. Mesaj kısa ve içinde **yalnızca işaretlenen not** yazıyor:
+
+```
+Sayın <ad soyad>,
+
+Temmuz 2026 dönemi giriş-çıkış kayıtları incelenmiştir.
+
+Aşağıdaki günlerde kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir:
+
+  · 03.07.2026 Cum — Çıkış yok
+  · 14.07.2026 Sal — Çıkış yok
+
+Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
+
+İyi çalışmalar.
+```
+
+Üç şey bilerek böyle:
+
+- **Aynı gün birden çok not taşıyabiliyor** ve mesajda yalnızca işaretlenen yazılıyor.
+  Yoksa kişiye sorulmayan bir şey sorulmuş olur.
+- **Hiç kimse ve hiçbir birim adlandırılmıyor**, "onay bekleniyor" da denmiyor. Mesaj
+  kayıtların ne gösterdiğini yazıp durumu sorar; kimin takip ettiği mesajın konusu değil.
+- **Toplu gönderim yok.** Kişi kişi, ve gönderilmeden önce mesaj ekranda gösteriliyor.
+  Ekranda görülen metin düzenlenebiliyor ve **giden, ekranda görünenin aynısı.** Geri
+  alınamayan tek işlem bu olduğu için araya bir insan konuldu.
+
+Adresi olmayan kişide alan boş geliyor ve elle yazılabiliyor — her ay 8 kişi böyle.
+Yazılan adres hiçbir yere kaydedilmiyor, yalnızca o gönderim için geçerli.
 
 ---
 

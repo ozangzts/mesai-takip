@@ -209,13 +209,16 @@ mesai-takip/
 │   ├── snapshot.py            # writes gonderim-<ay>.json beside the workbook.
 │   │                          # Read it, never the workbook.
 │   ├── readers/               # one per source file; base.py hides the container
-│   ├── mail/                  # who the figures go to — recipients.py, no widget
+│   ├── mail/                  # who the figures go to, and what they are told
+│   │   ├── recipients.py      # the filters — pure, no widget
+│   │   ├── message.py         # the message text — pure, no SMTP
+│   │   └── sender.py          # Gmail SMTP. ONE person per call, never a loop
 │   ├── rules/                 # the business math
 │   └── report/                # the workbook
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 484 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 519 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -359,6 +362,16 @@ Two rules follow, both load-bearing (ADR-011):
 - It **never decides who existed** in the reporting period. A roster entry with no
   activity in the period gets no row at all.
 
+Both still hold, but the second one has a **counted** consequence since ADR-071. The
+employee index is built from attendance records and leave rows, so somebody with no badge
+record **and** no leave row gets no `Employee` — and therefore no row, no note, and no
+place in any of the coverage counts, which are computed from the rows. That made them the
+one group a manual check could not reach: 21 / 27 / 14 people over May-July 2026, of whom
+16 / 22 / 13 are Macunköy-based, the same signature as `Kart bilgisi yok`. `Kontrol` §5
+now counts them and lists the names by facility. Still no row and still no hours — the
+roster has no hire date, so a late joiner and a lost record are indistinguishable (Q18),
+and the line says that rather than guessing.
+
 **The roster stores only the first given name** (`AHMET SINAMA` for
 `AHMET CAN SINAMA`). Match on the **(first token, last token)** key, and assert the
 key is unique across the roster before using it — a collision must fail the run, not
@@ -399,8 +412,9 @@ Headline defects (all verified, not assumed):
   `DATA-SOURCES.md` D13.
 
 After excluding visitors/temps and unioning both sites: **162 real employees**,
-of whom 24 have no attendance record at all and must be reported as
-"no data" rather than "zero hours".
+of whom 23 have no attendance record at all and must be reported as
+"no data" rather than "zero hours" (it read 24 before ADR-067 changed what "has
+attendance" means — a one-sided punch is a record).
 
 ---
 
@@ -512,6 +526,20 @@ A day is outstanding when nothing was counted for it and no leave covers it
 (`ProblemDay.explained`); a note with no dated day at all (`Kart bilgisi yok`) has nothing
 to explain and always stands. `Sorunu olmayanlar` asks the same question, so the two stay
 a partition of the month.
+
+**Except for the notes under which nothing was ever lost** (`counted_only_labels`,
+ADR-072). For those the restriction removes every day they have and the note selects
+nobody by construction — `Gece geçişi` said 6 people and filtered to 0, which is a repair
+the program *made*, not a day that went missing. Those notes select whether or not the day
+was counted. Do not widen this to the rest: the half that keeps `outstanding` is what
+stops a day the union already covered from coming back into the mail list, and a test
+holds each half separately.
+
+**Mail goes to one person per call and there is no bulk send** (ADR-073). Not an omission
+— 162 e-mails cannot be recalled, and a loop is a decision nobody has taken. A test
+asserts no function in `sender.py` is named for one. The credentials live in
+`config/gmail.yaml`, git-ignored like `personel.yaml`: it holds a login, which §2.3 puts
+in the same class as a name.
 
 Three consequences to know before touching any of this:
 

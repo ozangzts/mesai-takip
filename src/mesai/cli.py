@@ -127,9 +127,15 @@ def _report(result: dict) -> None:
     print(f"  Raporda yer alan kişi        : {result['people']}")
     print(f"    mesai verisi olan          : {result['with_attendance']}")
     print(f"    mesai verisi olmayan       : {result['without_attendance']}"
-          f"   <- ROADMAP.md Q4")
+          f"   <- kart kaydı yok, ayı eksik")
     print(f"    personel listesinde olmayan: {result['not_in_roster']}"
           f"   <- ayrılmış olabilir")
+    # The people the report has no row for at all. Printed beside the counts that are
+    # blind to them, because they are the group a manual check cannot otherwise reach.
+    # ADR-071.
+    if result.get("roster_only"):
+        print(f"  Personel listesinde olup kaydı olmayan: {result['roster_only']}"
+              f"   <- elle bakılmalı, 'Kontrol' sayfasında")
     print(f"  Kişi-gün kaydı               : {result['workdays']}")
     print(f"  Toplam brüt süre             : {hhmm(result['gross'])}")
     for cov in result.get("partial_sources") or []:

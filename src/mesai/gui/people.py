@@ -16,12 +16,13 @@ and a remembered index would quietly come to mean somebody else.
 from __future__ import annotations
 
 import tkinter as tk
+from dataclasses import replace
 from pathlib import Path
 from tkinter import filedialog, ttk
 
 from .. import snapshot as snapshot_module
 from ..anomalies import DESCRIPTIONS
-from ..mail import recipients
+from ..mail import message, recipients, sender
 from . import settings as settings_file
 from . import widgets as w
 from .period import period_label
@@ -35,6 +36,138 @@ _ROW_HEIGHT = 22
 _GUN_KISA = ("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
 # The note panel's header occupies row 0; family blocks start below it.
 _NOTES_TOP = 1
+# Checkbox columns in the note panel. Three since every note became selectable: the
+# panel doubled in entries and its height is the day panel's height.
+_NOTE_COLUMNS = 3
+
+
+class MailPreview:
+    """The message, on screen, before anything leaves — and editable there.
+
+    Why a preview at all: a send is the one action in this program that cannot be
+    undone. Everything else writes a file the operator can look at and regenerate. So
+    the last thing between the composed text and somebody's inbox is a person reading
+    it.
+
+    Why editable: the composed body is a starting point. The operator knows things the
+    snapshot does not, and a preview that can only be accepted or cancelled makes them
+    choose between sending the wrong words and not writing at all.
+
+    **What is on screen is what is sent.** The text widget is read back at send time,
+    not the draft that opened the window. A preview showing one thing while another
+    goes out would be worse than no preview.
+    """
+
+    def __init__(self, parent: tk.Misc, draft, send) -> None:
+        self._parent = parent
+        self._draft = draft
+        self._send = send
+        self.window: tk.Toplevel | None = None
+        self.status: tk.Label | None = None
+        self.sent = False
+
+    def show(self) -> tk.Toplevel:
+        top = self.window = tk.Toplevel(self._parent)
+        top.title("E-posta önizleme")
+        top.configure(background=w.BG)
+        top.transient(self._parent)
+        top.geometry("640x560")
+        top.minsize(520, 420)
+        top.columnconfigure(0, weight=1)
+        top.rowconfigure(3, weight=1)
+
+        head = tk.Frame(top, background=w.BG)
+        head.grid(row=0, column=0, sticky="ew", padx=14, pady=(14, 0))
+        head.columnconfigure(1, weight=1)
+        tk.Label(head, text="Kime", background=w.BG, foreground=w.MUTED,
+                 font=(w.FACE, 9)).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.to_var = tk.StringVar(value=self._draft.to)
+        tk.Entry(head, textvariable=self.to_var, font=(w.FACE, 9), relief="flat",
+                 background=w.CARD, foreground=w.INK, highlightthickness=1,
+                 highlightbackground=w.LINE, highlightcolor=w.ACCENT).grid(
+            row=0, column=1, sticky="ew", ipady=4)
+
+        tk.Label(head, text="Konu", background=w.BG, foreground=w.MUTED,
+                 font=(w.FACE, 9)).grid(row=1, column=0, sticky="w", padx=(0, 8),
+                                        pady=(8, 0))
+        self.subject_var = tk.StringVar(value=self._draft.subject)
+        tk.Entry(head, textvariable=self.subject_var, font=(w.FACE, 9), relief="flat",
+                 background=w.CARD, foreground=w.INK, highlightthickness=1,
+                 highlightbackground=w.LINE, highlightcolor=w.ACCENT).grid(
+            row=1, column=1, sticky="ew", ipady=4, pady=(8, 0))
+
+        tk.Label(top, background=w.BG, foreground=w.MUTED, font=(w.FACE, 8),
+                 anchor="w", justify="left", wraplength=600,
+                 text="Aşağıdaki metin düzenlenebilir. Gönderilecek olan, bu "
+                      "pencerede gördüğünüzün aynısıdır.").grid(
+            row=1, column=0, sticky="ew", padx=14, pady=(10, 4))
+
+        body_card = tk.Frame(top, background=w.LINE)
+        body_card.grid(row=3, column=0, sticky="nsew", padx=14)
+        body_card.columnconfigure(0, weight=1)
+        body_card.rowconfigure(0, weight=1)
+        self.body = tk.Text(body_card, font=(w.FACE, 10), wrap="word", relief="flat",
+                            background=w.CARD, foreground=w.INK, padx=12, pady=10,
+                            undo=True)
+        self.body.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
+        self.body.insert("1.0", self._draft.body)
+        scroll = ttk.Scrollbar(body_card, orient="vertical",
+                               command=self.body.yview)
+        self.body.configure(yscrollcommand=scroll.set)
+        scroll.grid(row=0, column=1, sticky="ns", pady=1)
+
+        self.status = tk.Label(top, background=w.BG, foreground=w.MUTED,
+                               font=(w.FACE, 9), anchor="w", justify="left",
+                               wraplength=600)
+        self.status.grid(row=4, column=0, sticky="ew", padx=14, pady=(8, 0))
+
+        actions = tk.Frame(top, background=w.BG)
+        actions.grid(row=5, column=0, sticky="ew", padx=14, pady=14)
+        actions.columnconfigure(0, weight=1)
+        w.button(actions, "Vazgeç", self.close, primary=False).grid(
+            row=0, column=1, padx=(0, 8))
+        self.send_button = w.button(actions, "Gönder", self.confirm, primary=True)
+        self.send_button.grid(row=0, column=2)
+
+        top.bind("<Escape>", lambda _e: self.close())
+        return top
+
+    def current(self):
+        """The draft as it stands in the window — the thing that will be sent."""
+        return replace(self._draft, to=self.to_var.get().strip(),
+                       subject=self.subject_var.get().strip(),
+                       body=self.body.get("1.0", "end-1c"))
+
+    def confirm(self) -> None:
+        draft = self.current()
+        if not draft.is_sendable:
+            self._say("Alıcı adresi ya da mesaj gövdesi boş.", w.BAD)
+            return
+        w.set_enabled(self.send_button, False)
+        self._say("Gönderiliyor…", w.MUTED)
+        if self.window is not None:
+            self.window.update_idletasks()
+        ok, note = self._send(draft)
+        self.sent = ok
+        if ok:
+            self._say(note, w.OK)
+            # Left open for a moment rather than vanishing: the one thing the operator
+            # wants to see after an irreversible action is confirmation that it
+            # happened, and a window that disappears looks the same as one that crashed.
+            if self.window is not None:
+                self.window.after(1200, self.close)
+        else:
+            self._say(note, w.BAD)
+            w.set_enabled(self.send_button, True)
+
+    def _say(self, text: str, colour: str) -> None:
+        if self.status is not None:
+            self.status.configure(text=text, foreground=colour)
+
+    def close(self) -> None:
+        if self.window is not None:
+            self.window.destroy()
+            self.window = None
 
 
 class PeopleScreen:
@@ -64,9 +197,23 @@ class PeopleScreen:
         self._person: str | None = None
         self._days_off: set[tuple[str, str]] = set()
         self._day_rows: list[tuple[str, str]] = []      # (ISO date, row id)
+        # Whose address is currently in the mail field. Tracked so the field is refilled
+        # when the person changes and left alone otherwise: a typed address must survive
+        # ticking a day, and must NOT follow the operator onto the next person.
+        self._mail_filled_for: str | None = None
 
         self._build(parent)
         self._repaint()
+
+    @property
+    def config_dir(self) -> Path:
+        """Where `gmail.yaml` is looked for — the same `config/` the rules live in.
+
+        Beside the program rather than inside it: `config/` has to stay writable and
+        editable by hand (`HANDOVER.md` §3), and a credential compiled into an exe
+        could not be rotated.
+        """
+        return self.base / "config"
 
     def _remembered_off(self) -> tuple[str, ...]:
         stored = settings_file.load(self.base).get("problem_notes_off")
@@ -182,7 +329,10 @@ class PeopleScreen:
                 # person's OTHER notes, which answered "how many filters is this person
                 # in" — a question nobody asks, and one more number in a screen that had
                 # four of them for the same person. ADR-066.
-                ("gun", "Gün", 44, "e", False),
+                # "Gün" alone read as a plain day count next to a duration. It is the
+                # count of the person's problem days — the rows the panel on the right
+                # will show — so the heading says that.
+                ("gun", "Sorunlu gün", 86, "e", False),
                 ("eposta", "E-posta", 240, "w", True)):
             self.tree.column(column, width=width, anchor=anchor, stretch=stretch)
             self.tree.heading(column, text=title, anchor=anchor)
@@ -261,6 +411,31 @@ class PeopleScreen:
         self.day_tree.bind("<Enter>", self._grab_wheel)
         self.day_tree.bind("<Leave>", self._release_wheel)
         self.day_tree.bind("<MouseWheel>", self._day_wheel)
+
+        # --- the mail row, under the day list ---------------------------
+        #
+        # One person at a time, deliberately: no bulk send exists and none is offered
+        # (`mail/sender.py`). The address is prefilled from the snapshot and stays
+        # editable, because the eight people a month who have none are exactly the ones
+        # somebody has to type in by hand, and a read-only field would send them
+        # nowhere. Editing it does not write anything back — the snapshot is the record
+        # of what the report said, and a typed address is this send only.
+        mail_row = self.mail_row = tk.Frame(day_card, background=w.CARD)
+        mail_row.grid(row=2, column=0, columnspan=2, sticky="ew", padx=1, pady=(0, 1))
+        mail_row.columnconfigure(1, weight=1)
+        tk.Label(mail_row, text="E-posta", background=w.CARD, foreground=w.MUTED,
+                 font=(w.FACE, 9)).grid(row=0, column=0, sticky="w", padx=(10, 6),
+                                        pady=8)
+        self.mail_var = tk.StringVar(value="")
+        self.mail_entry = tk.Entry(
+            mail_row, textvariable=self.mail_var, font=(w.FACE, 9), relief="flat",
+            background=w.CARD, foreground=w.INK, highlightthickness=1,
+            highlightbackground=w.LINE, highlightcolor=w.ACCENT)
+        self.mail_entry.grid(row=0, column=1, sticky="ew", ipady=4)
+        self.mail_button = w.button(mail_row, "E-posta gönder…", self._preview_mail,
+                                   primary=True)
+        self.mail_button.grid(row=0, column=2, sticky="e", padx=(8, 10))
+        self.mail_row.grid_remove()
 
         # Shown in the day list's place until somebody picks a person. A Treeview
         # cannot hold a paragraph and a row saying "pick someone" is still a row.
@@ -559,6 +734,7 @@ class PeopleScreen:
             if self._person is None:
                 self.day_title.configure(text="GÜNLER", foreground=w.INK)
                 self.day_note.configure(foreground=w.MUTED, font=(w.FACE, 9))
+                self._paint_mail_row()
                 return
             # A person can have nothing to list for two very different reasons, and
             # saying "sorunlu gün yok" to both made somebody with no card record at all
@@ -581,6 +757,9 @@ class PeopleScreen:
                          "sayılmamış bir günü yok." + chr(10) * 2 +
                          "Notlardan seçimi değiştirirseniz bu liste de değişir.",
                     foreground=w.MUTED, font=(w.FACE, 9))
+            # Still offered: a month-level note (`Kart bilgisi yok`) is a real thing to
+            # write to somebody about, and it is the note with no day to tick.
+            self._paint_mail_row()
             return
 
         self.day_note.grid_remove()
@@ -599,6 +778,79 @@ class PeopleScreen:
                         ", ".join(day.problems)))
             self._day_rows.append((day.date.isoformat(), row))
         self._day_scrolled(*self.day_tree.yview())
+        self._paint_mail_row()
+
+    # --- writing to one person ---------------------------------------------
+    #
+    # Person by person, and never a loop. `mail/sender.py` says why at length: 162
+    # e-mails cannot be recalled, and a bulk send is a decision nobody has taken yet.
+    # The window offers no control that would send more than one.
+
+    def _selected_person(self):
+        if self.snapshot is None or self._person is None:
+            return None
+        return next((p for p in self.snapshot.people
+                     if p.name == self._person), None)
+
+    def _paint_mail_row(self) -> None:
+        """Show the address and the button for whoever is on the right, or hide both.
+
+        The field is refilled from the snapshot whenever the person changes and left
+        alone otherwise, so a typed address survives ticking a day off — but does not
+        silently follow the operator onto the next person, which would send one
+        person's mail to another's address.
+        """
+        person = self._selected_person()
+        if person is None:
+            self.mail_row.grid_remove()
+            self._mail_filled_for = None
+            return
+        self.mail_row.grid()
+        if self._mail_filled_for != person.name:
+            self.mail_var.set(person.email or "")
+            self._mail_filled_for = person.name
+        w.set_enabled(self.mail_button, True)
+
+    def _draft(self):
+        """The draft for the person on show, with the address as it stands in the field.
+
+        Composed by `mail.message.compose` and nowhere else, so the preview and the
+        send cannot differ — a preview produced by different code is a preview of
+        nothing.
+        """
+        person = self._selected_person()
+        if person is None:
+            return None
+        chosen = [d for d in self._person_days()
+                  if (person.name, d.date.isoformat()) not in self._days_off]
+        draft = message.compose(person, chosen, self.snapshot.period, self.counted())
+        return replace(draft, to=self.mail_var.get().strip())
+
+    def _preview_mail(self) -> None:
+        """Show the message before anything leaves, and let it be edited.
+
+        Editable on purpose: the composed text is a starting point, not a rule. What
+        the operator approves in this window is byte-for-byte what is sent — the
+        editor's contents are read back at send time, not the draft that opened it.
+        """
+        draft = self._draft()
+        if draft is None:
+            return
+        MailPreview(self.root, draft, self._send).show()
+
+    def _send(self, draft) -> tuple[bool, str]:
+        """Send one message. Returns `(ok, what to tell the operator)`.
+
+        Every failure is reported in words rather than raised into the window: a missing
+        `config/gmail.yaml` and a rejected app password are both fixed by a person, and
+        a traceback tells them nothing about which it was.
+        """
+        try:
+            account = sender.load_account(self.config_dir)
+            sender.send(draft, account)
+        except sender.MailError as exc:
+            return False, str(exc)
+        return True, f"Gönderildi: {draft.to}"
 
     def _day_clicked(self, event: tk.Event) -> str | None:
         """A click anywhere on a day row takes that day in or out.
@@ -677,37 +929,39 @@ class PeopleScreen:
         self.notes_frame.grid()
 
         header = tk.Frame(self.notes_frame, background=w.CARD)
-        header.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(8, 2))
+        header.grid(row=0, column=0, columnspan=_NOTE_COLUMNS, sticky="ew",
+                    padx=10, pady=(8, 2))
         header.columnconfigure(0, weight=1)
         w.button(header, "Hepsi", self._count_all, primary=False).grid(
             row=0, column=1, padx=(8, 0))
         w.button(header, "Temizle", self._count_none, primary=False).grid(
             row=0, column=2, padx=(6, 0))
 
-        # Only the notes with something outstanding get a checkbox. Ticking one of the
-        # others selects nobody, so the panel was offering `Tesis birleştirme (0)` and
-        # the reader fairly asked whether it had happened at all — it had, to 13 people
-        # in July. They are a line of text below instead, counting occurrences, which is
-        # a different number and does not belong on a control. ADR-069.
-        families = {recipients.LOST: [(label, count) for group, label, count in offered
-                                      if group == recipients.LOST]}
+        # EVERY note gets a checkbox. The `KEPT` ones were text-only because ticking
+        # them selected nobody (ADR-069) — that was the filter's bug, not a property of
+        # the notes, and `counted_only_labels` fixed it: `Gece geçişi (6)` now returns
+        # its 6 people. A note that can be acted on belongs on a control.
+        families = {group: [(label, count) for g, label, count in offered
+                            if g == group]
+                    for group in (recipients.LOST, recipients.KEPT)}
         families = {k: v for k, v in families.items() if v}
 
-        # Two columns, not one per family. Four columns of Turkish labels do not fit
-        # the width — `Günlük süre çok uzun (>16 saat)  (4)` was clipped mid-count, and
-        # a checkbox whose text is cut off is worse than a taller panel. Blocks are
-        # dealt into whichever column is shorter, so the two sides stay even.
-        heights = [0, 0]
-        rows = [_NOTES_TOP, _NOTES_TOP]
+        # Three columns, and the labels FLOW across them under a heading that spans the
+        # full width. Dealing whole families to columns instead — one family per column
+        # — left the third column empty and let the taller family set the height on its
+        # own: measured at the 880x620 floor, the panel took 267 px and the day panel
+        # was left with 11. The day panel is where the mail step lives, so that height
+        # is not the note panel's to take. Flowing is 6 rows instead of 11.
+        row = _NOTES_TOP
         for family, labels in families.items():
-            side = 0 if heights[0] <= heights[1] else 1
-            heights[side] += len(labels) + 1
             tk.Label(self.notes_frame, text=family, background=w.CARD,
                      foreground=w.INK, font=(w.FACE, 9, "bold"), anchor="w").grid(
-                row=rows[side], column=side, sticky="w", padx=(10, 24),
-                pady=(6 if rows[side] > _NOTES_TOP else 2, 2))
-            rows[side] += 1
-            for label, count in labels:
+                row=row, column=0, columnspan=_NOTE_COLUMNS, sticky="w",
+                padx=(10, 24), pady=(6 if row > _NOTES_TOP else 2, 1))
+            row += 1
+            for index, (label, count) in enumerate(labels):
+                if index and index % _NOTE_COLUMNS == 0:
+                    row += 1
                 var = tk.BooleanVar(value=label not in self._off)
                 self._note_vars[label] = var
                 tk.Checkbutton(
@@ -715,28 +969,17 @@ class PeopleScreen:
                     background=w.CARD, activebackground=w.CARD, foreground=w.INK,
                     font=(w.FACE, 9), highlightthickness=0, borderwidth=0, anchor="w",
                     command=lambda lbl=label: self._toggle_note(lbl)).grid(
-                    row=rows[side], column=side, sticky="w", padx=(8, 24))
-                rows[side] += 1
+                    row=row, column=index % _NOTE_COLUMNS, sticky="w", padx=(8, 16))
+            row += 1
+        rows = [row]
 
-        for column in (0, 1):
+        for column in range(_NOTE_COLUMNS):
             self.notes_frame.columnconfigure(column, weight=1)
 
-        # What else the month contains. Not selectable, so not a control — but saying
-        # nothing about it made the month look cleaner than it is.
-        oldu = recipients.also_happened(self.snapshot)
-        son = max(rows)
-        if oldu:
-            tk.Label(
-                self.notes_frame, background=w.CARD, foreground=w.MUTED,
-                font=(w.FACE, 8), anchor="w", justify="left", wraplength=760,
-                text="Bu ay ayrıca: "
-                     + ", ".join(f"{ad} ({n} kişi)" for ad, n in oldu)
-                     + ". Günleri sayıldı, kimsenin bekleyen bir sorunu yok — "
-                       "bu yüzden seçime girmiyorlar.").grid(
-                row=son, column=0, columnspan=2, sticky="ew", padx=10, pady=(6, 0))
-            son += 1
+        # The `Bu ay ayrıca: …` line that used to sit here is gone: every note it named
+        # is now a checkbox above it, so it would be describing the panel it is in.
         tk.Frame(self.notes_frame, background=w.CARD, height=8).grid(
-            row=son, column=0, columnspan=2, sticky="ew")
+            row=max(rows), column=0, columnspan=_NOTE_COLUMNS, sticky="ew")
 
     def _toggle_note(self, label: str) -> None:
         if self._note_vars[label].get():

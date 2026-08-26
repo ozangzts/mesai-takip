@@ -14,6 +14,7 @@ from pathlib import Path
 from .anomalies import Anomaly, AnomalyKind, Collector
 from .config import Settings
 from .merge import build_workdays
+from .normalize import sort_key
 from .models import (
     Employee, LeaveRecord, MonthSummary, NameKey, PunchRecord, RunStats,
     SourceCoverage, WorkDay,
@@ -111,6 +112,8 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
 
     # --- stage 3: normalize / resolve identity -----------------------------
     employees = _resolve_employees(records, leave, roster_entries)
+    stats.roster_size = len(roster_entries)
+    stats.roster_only = _roster_only(roster_entries, employees)
 
     # --- stage 4 + 5: merge and compute ------------------------------------
     workdays, merge_anomalies, accepted, union_total, measured_total = build_workdays(
@@ -145,6 +148,7 @@ def run(input_dir: Path, output_path: Path, period: str, settings: Settings,
         "with_attendance": sum(1 for s in summaries if s.has_attendance),
         "without_attendance": sum(1 for s in summaries if not s.has_attendance),
         "not_in_roster": sum(1 for s in summaries if not s.employee.in_roster),
+        "roster_only": len(stats.roster_only),
         "workdays": len(workdays),
         "anomalies": len(anomalies),
         "excluded_anomalies": sum(
@@ -168,8 +172,10 @@ def _unrecorded_days(
     No row at either site — not a row that could not be used, which is what `Giriş yok`
     and `Çıkış yok` are for — and no leave, no remote declaration. `EMPTY_RECORD`,
     the same note as a row whose times are blank, because the fact is the same: nothing
-    was recorded for that day. It therefore also selects under `Giriş yok` and
-    `Çıkış yok` (ADR-053).
+    was recorded for that day. It selects under that note and **no other** — ADR-053 had
+    it also selecting under `Giriş yok` and `Çıkış yok`, and **ADR-065 reversed that**:
+    the three are three separate questions to ask somebody, and "were you here at all"
+    is not a case of the other two.
 
     The gap this closed. `Hem giriş hem çıkış yok` needed a **row** with both times
     blank, so a day with no row at all raised nothing; `Ay büyük ölçüde boş` needs under
@@ -478,6 +484,35 @@ def _resolve_employees(
             sources=frozenset(sources.get(key, set())),
         )
     return employees
+
+
+def _roster_only(
+    roster_entries: dict[NameKey, object], employees: dict[NameKey, Employee],
+) -> tuple[tuple[str, str | None], ...]:
+    """Roster people the period left no trace of at all.
+
+    The other side of `_resolve_employees`. The roster never decides who existed
+    (ADR-011), so somebody with no badge record **and** no leave row gets no row here —
+    correctly, because there is nothing to report about them. What was missing is that
+    nothing said how many such people there were, so they were the one group a manual
+    check could not reach: `Kart bilgisi yok` puts a person on the list with a red note,
+    but this group appears on no list, in no count, and in no note. `Kontrol` §5 counted
+    only the people who made it into the report.
+
+    That matters because the two groups have the same shape. Measured over May-July
+    2026: 21 / 27 / 14 people, of whom 16 / 22 / 13 are Macunköy-based — the same site
+    that produces almost every `Kart bilgisi yok`. Some of them genuinely have nothing
+    to report (a July hire has no May trace, and the roster is a 28.07.2026 snapshot),
+    and the roster carries no hire date to tell the two apart (ROADMAP Q18). So this
+    is reported as a number to check by hand, never as an absence of work: no row, no
+    hours, no exit code. ADR-071.
+    """
+    missing = [entry for key, entry in roster_entries.items() if key not in employees]
+    return tuple(
+        (getattr(entry, "display_name", ""), getattr(entry, "facility", None))
+        for entry in sorted(
+            missing, key=lambda e: sort_key(getattr(e, "display_name", "")))
+    )
 
 
 def _summarise(

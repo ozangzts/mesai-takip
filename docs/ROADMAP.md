@@ -26,9 +26,9 @@ is narrower than what it computes.
 | "This is the working time the badge systems recorded in May 2026" | **Yes** |
 | "These records are internally consistent and correctly merged across sites" | **Yes** — verified algorithm, tested |
 | "Here are all the records that are missing or suspect" | **Yes** — that is the anomaly sheet's job |
-| "This is how many hours person X actually worked in May" | **No** — Q4, ~426 unaccounted days |
-| "This is ready for payroll" | **No** — Q4 |
-| "This can be e-mailed to employees" | **No** — Q4, Q18 |
+| "This is how many hours person X actually worked in May" | **No** — ~426 days are unaccounted for, and the report marks every one of them |
+| "This is ready for payroll" | **Only after the marked days are checked by hand** — see ADR-071 |
+| "This can be e-mailed to employees" | **No** — Q18, plus the three delivery decisions in `HANDOVER.md §1` |
 
 The May run is therefore a **validation run**: it proves the pipeline, produces the
 worklist HR needs to fix the source data, and is not circulated as final.
@@ -77,26 +77,36 @@ Completed 2026-08-03.
 Input files are located by glob pattern rather than fixed name, so a Drive-synced
 folder can be pointed at directly — the Phase 4 automation needs no renaming step.
 
-### Two months generated
+### Three months generated
 
-| | May 2026 | June 2026 |
-| --- | --- | --- |
-| People in the report | 171 | 163 |
-| with attendance data | 145 | 145 |
-| without attendance data (Q4) | 26 | 18 |
-| not in the roster (probable leavers) | 11 | 9 |
-| Person-days | 1 823 | 2 822 |
-| Presence (Σ intervals) | 16 931:16 | 26 834:48 |
-| In-day gaps, paid (ADR-015) | 172:41 | 284:35 |
-| **Total reported** | **17 103:58** | **27 166:19** |
-| Anomalies | 257 (175 excluded) | 441 (269 excluded) |
-| Reconciliation | TAMAM | TAMAM |
-| Teknopark block totals matching | 110 / 110 | 110 / 110 |
+Measured from the three workbooks on 2026-08-26, not carried over from an earlier
+version of this table. Several rows had drifted: the without-attendance counts moved
+when ADR-067 redefined what "has attendance" means, June's presence figure was 47
+minutes stale, and the anomaly counts predate ADR-060/061.
 
-**July 2026 is NOT in this table on purpose.** Its Teknopark export covers only
-1–19 July (13 of 23 working days), so its `16 078:44` is not comparable and must not
-reach payroll. The run now says so: red banner on `Aylık Özet`, `3. Dönem kapsamı` on
-`Kontrol`, and exit code 5. See ADR-020 and Q23.
+| | May 2026 | June 2026 | July 2026 |
+| --- | --- | --- | --- |
+| People in the report | 171 | 163 | 176 |
+| with attendance data | 148 | 146 | 150 |
+| without attendance data (`Kart bilgisi yok`) | 23 | 17 | 26 |
+| not in the roster (probable leavers) | 11 | 9 | 9 |
+| **roster entry, no trace at all** (ADR-071) | **21** | **27** | **14** |
+| Person-days | 1 823 | 2 822 | 2 731 |
+| Presence (Σ intervals) | 16 931:16 | 26 881:43 | 26 014:34 |
+| In-day gaps, paid (ADR-015) | 172:41 | 284:35 | 218:43 |
+| **Total reported** | **17 103:58** | **27 166:19** | **26 233:17** |
+| Anomalies | 365 (295 excluded) | 622 (469 excluded) | 689 (537 excluded) |
+| Reconciliation | TAMAM | TAMAM | TAMAM |
+| Teknopark blocks disagreeing with their own total | 0 / 110 | 0 / 110 | 0 / 112 |
+
+**July is in this table now.** It was excluded while its Teknopark export covered only
+1–19 July (13 of 23 working days) and its `16 078:44` was not comparable; the full-month
+file arrived on 2026-08-20 and the run exits `0`. The guard that caught the partial file
+is unchanged — red banner on `Aylık Özet`, `3. Dönem kapsamı` on `Kontrol`, exit code 5.
+See ADR-020 and Q23.
+
+The anomaly counts rose from 257/441 without a single hour moving: ADR-060 and ADR-061
+flag days that have no record at all, which had been invisible rather than accounted for.
 
 Three rule changes landed on 2026-08-17. For May, starting from the previous
 `15 717:08` net / `17 009:01` gross:
@@ -146,7 +156,9 @@ source system's own totals. The export format is stable month to month.
   script that did not apply alias resolution.
 - **The real gap is on the Macunköy side, not Teknopark.** 20 employees whose home
   facility is `MACUNKÖY TESİSİ` have leave records and zero badge records. Same shape
-  in June: 13 people, all Macunköy-based. That is Q4.
+  in June: 13 people, all Macunköy-based. That was Q4, closed as a manual step by
+  ADR-071 — along with the second group the same paragraph had missed: people with a
+  roster entry and **no leave record either**, who got no row at all.
 - **Most remote-work days also carry a Teknopark record** — 37 of 56 in May, 83 of
   106 in June. Nearly all of those are the nominal `09:00–18:00` placeholder rather
   than a real punch (`DATA-SOURCES.md` D11), so since ADR-018 the declared remote hours
@@ -257,28 +269,40 @@ Design notes worth keeping:
   instead, so the dialog opens on the right share while the selection stays
   deliberate.
 - The work runs off the UI thread, or Windows labels the window "not responding".
-- **No e-mail tab yet.** Modularity belongs in module boundaries, not in a visible
-  placeholder the user has to ignore.
+- **No e-mail tab.** There is still none, and there does not need to be: sending is one
+  button on the person already selected (ADR-073), not a screen of its own. Modularity
+  belongs in module boundaries, not in a placeholder the user has to ignore.
 
 Still to do for a machine without Python: package as a single `.exe` (PyInstaller). The
 real work there is testing it where Python is absent, not the packaging itself. `config/`
 must stay outside the executable — rule changes are YAML edits and `personel.yaml` holds
 real spellings.
 
-### 4b — Automated per-employee e-mail
+### 4b — Per-employee e-mail — **one at a time: BUILT** ✅ (ADR-073)
 
-Per-employee monthly summary by e-mail — this is where the MEYER single-person
-dashboard layout actually belongs.
+The window sends one person one message about the days ticked for them: an address
+field prefilled from the snapshot and editable, an `E-posta gönder…` button, and an
+editable preview whose contents are what actually leaves. Gmail SMTP,
+`config/gmail.yaml` (git-ignored).
 
-Hard requirements:
+How the hard requirements below came out:
 
-- `--dry-run` is the **default**; sending requires an explicit flag
-- rendered output reviewable before any send
-- SMTP credentials from environment variables, never committed
-- an employee's mail contains only their own data
-- a send log recording who was mailed, when, with which figures
-- verified recipient addresses — a payroll figure sent to the wrong person is a
-  personal-data breach, not a bug
+| Requirement | How it stands |
+| --- | --- |
+| `--dry-run` the default, sending explicit | **Stronger than asked.** There is no send-everybody path at all, so there is nothing to default. One person, chosen by hand, previewed. A test asserts `sender.py` has no function named for a loop |
+| rendered output reviewable before any send | **Done** — the preview, and it is editable; what is on screen is read back at send time |
+| credentials never committed | **Done** — `config/gmail.yaml`, git-ignored beside `personel.yaml`; an app password, not the account password. Not environment variables: `config/` is where a rule change already lives and is the one place guaranteed writable (ADR-042) |
+| only their own data | **Done** — `compose(person, days, …)` takes one person and the days ticked for them, and only the **ticked** note is written |
+| verified recipient addresses | **Not done, and this is the open risk.** The address comes from the roster or is typed by hand; nothing checks it belongs to the person. A payroll figure sent to the wrong person is a personal-data breach, not a bug |
+
+Still open, both about a bulk send rather than this one (`HANDOVER.md` §1): whether a
+manual removal is recorded ("who did not get one, and why"), and whether an incomplete
+month may be written from at all. A send log belongs with those — logging one hand-sent
+message the operator just watched go out buys little; logging 162 buys a lot.
+
+Not built and deliberately not: a monthly summary of somebody's own hours. This message
+asks about problem days. Telling people their figures is a different message with a
+different risk, and the address is not verified yet.
 
 ## Phase 5 — Annual roll-up
 
@@ -308,9 +332,9 @@ Nasıl okunur:
   `DECISIONS.md` içine bir ADR olarak geçer. Sonradan gelen birinin o sorunun
   sorulduğunu bilmesi gerekiyor.
 
-**Önce kovalanması gereken dördü:** **Q4** (bir tesisin mesai verisi tamamen eksik
-mi), **Q18** (işe giriş/çıkış tarihleri),
-**Q5/Q6** (Faz 2'nin başlayamadığı fazla mesai kuralları).
+**Önce kovalanması gereken üçü:** **Q18** (işe giriş/çıkış tarihleri),
+**Q5/Q6** (Faz 2'nin başlayamadığı fazla mesai kuralları). Q4 kapandı — cevabı
+beklenmiyor artık, işaretlenip elle bakılıyor (ADR-071).
 
 ### Cevaplananlar
 
@@ -333,8 +357,9 @@ mi), **Q18** (işe giriş/çıkış tarihleri),
 | Q16 | Resmi tatil takvimini İK onaylasın mı? | **Hayır, İK'ya sorulacak bir şey değil.** Tatilleri programı kullanan kişi pencerede işaretliyor; takvimde tarihten başka bir şey tutulmuyor. ADR-045 |
 | Q14 | Teknopark dosyası kesilmiş mi (31 günün sadece 21'i var)? | **Hayır.** Eksik günler hafta sonları artı 27–31 Mayıs tatil bloğu; ofis kapalıyken Macunköy üretimi çalışıyordu. `DATA-SOURCES.md §6.2` |
 | Q15 | Sıralama ve eşleştirme isimle mi sicil numarasıyla mı? | **İsim anahtar ve sıralama ölçütü**; sicil numarası bilgi amaçlı ve sadece izin dosyasından. ADR-009 |
-| Q17 | Faz 4 için personel e-posta adresleri nereden gelecek? | Personel listesinden — 181 kişinin hepsinde dolu. Mesai kaydı olanların %97'si kapsanıyor; kalanlar Q4 kapsamında |
+| Q17 | Faz 4 için personel e-posta adresleri nereden gelecek? | Personel listesinden — 181 kişinin hepsinde dolu. Mesai kaydı olanların %97'si kapsanıyor; kalanlar kart kaydı hiç olmayanlar |
 | Q19 | İK doğrulama için ikinci bir ay verebilir mi? | **Tamamlandı** — Haziran 2026 elimizdeydi ve sorunsuz çalıştı. Okuyucuların genellendiğini kanıtlamak için üçüncü aya gerek yok |
+| **Q4** | **Macunköy dosyası o tesisin bütün turnikelerini ve bütün personelini kapsıyor mu?** (Mayıs 18, Haziran 10 kişinin personel ve izin kaydı var, tek kart kaydı yok, neredeyse hepsi `MACUNKÖY TESİSİ`) | **Cevap beklenmiyor — soru kapandı** (2026-08-26, ADR-071). Cevap programın yaptığı hiçbir şeyi değiştirmezdi: kart kaydı yoksa saat uydurulamaz, yapılacak tek doğru şey ayı eksik diye işaretlemek ve birinin gidip bakması. `Kart bilgisi yok` notu bunu zaten yapıyor (Mayıs 23, Haziran 17, Temmuz 26 kişi) ve kişi her zaman listeye giriyor. Kapatırken çıkan gerçek boşluk ayrıydı ve kapatıldı: personel listesinde olup **ne kart ne izin** kaydı olan 21/27/14 kişi hiçbir yerde görünmüyordu, artık `Kontrol` §5'te adlarıyla duruyor |
 | Q4b | 27 kişinin mesai kaydı var ama personel listesinde yok | **Ayrılmışlar.** Personel listesi Ağustos'ta alındı; bu kişiler Mayıs'ta çalışıp Ağustos'a kadar ayrılmış. Tam satır ve tam saatlerini alıyorlar. ADR-011 |
 | Q4d | Personel listesindeki 20 kişi hiçbir Mayıs dosyasında yok | **Mayıs'tan sonra işe girmişler.** Mayıs raporunda satır almıyorlar. ADR-011 |
 
@@ -342,7 +367,6 @@ mi), **Q18** (işe giriş/çıkış tarihleri),
 
 | # | Soru | Bloke ettiği | Neden önemli |
 | --- | --- | --- | --- |
-| **Q4** | **18 kişinin personel listesinde kaydı ve izin kaydı var ama tek bir kart kaydı yok** (Haziran'da 10, aynı desen, neredeyse hepsi `MACUNKÖY TESİSİ`). Önce tam ay süren 2–3 doğum/rapor iznini ayırın — onların kaydı olmaması doğru. Geri kalanlar 1–2 gün izin almış ve 14–22 iş gününün hiçbirinde kart kaydı yok. **IT'ye sorulacak: Macunköy dosyası o tesisin bütün turnikelerini ve bütün personelini kapsıyor mu?** | Faz 1 onayı | **En önemli açık soru.** Bu kişilerin bütün ayı eksik. Cevap gelmeden hiçbir Macunköy toplamı nihai değil. `DATA-SOURCES.md §6.1 C` |
 | Q4a | `DATA-SOURCES.md §6.1`'deki dokuz isim varyantı çiftinin aynı kişiler olduğunu onaylayın, alias tablosuna sabitlenebilsin | Faz 1 | Yanlış bir eşleştirme iki kişinin bordro saatlerini birleştirir |
 | Q4c | Sicil `9001` — izin dosyasında olup personel listesinde olmayan tek kişi. `9xxx` aralığı stajyer mi, taşeron mu? | Faz 1 | Personel listesinin tamamen atladığı bir çalışan kategorisi olabilir |
 | **Q18** | **Personel listesi `İşe Giriş Tarihi` ve `İşten Çıkış Tarihi` kolonlarıyla yeniden alınabilir mi?** | Faz 1 doğruluğu, Faz 4 güvenliği | "Sonradan girdi / önceden ayrıldı / verisi eksik" ayrımını çıkarımdan olguya çevirir. Ayrıca Faz 4'te ayrılmış birine mail gitmesini engeller. ADR-011. **ADR-061'den sonra daha somut:** `Hem giriş hem çıkış yok` artık ay içinde işe girmiş olabilecekleri de listeliyor, çünkü program ikisini ayırt edemiyor — Temmuz'da 5 kişi 18–21 günle listede. Tarih gelirse çıpa `max(işe giriş, ayın 1'i)` olur ve o satırlar kendiliğinden düşer |

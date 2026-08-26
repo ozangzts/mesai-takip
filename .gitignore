@@ -36,6 +36,11 @@ gonderim-*.json
 # cannot be pseudonymised. Committed as personel.example.yaml instead.
 config/personel.yaml
 
+# --- Credentials ------------------------------------------------------------
+# The Gmail account and its app password. A login, so the same class as a name
+# (AGENTS 2.3). Committed as gmail.example.yaml instead.
+config/gmail.yaml
+
 # Pseudonym -> real name mapping for the docs. Internal only.
 *.local.md
 

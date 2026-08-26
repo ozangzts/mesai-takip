@@ -45,6 +45,12 @@ def month(tmp_path):
         roster_row("vornek", "1002", "VELİ", "ÖRNEK", "veli@example.com",
                    facility="MACUNKÖY TESİSİ"),
         roster_row("ztaslak", "1003", "ZEYNEP", "TASLAK", "zeynep@example.com"),
+        # On the roster and nowhere else: no badge record, no leave row. Gets no row
+        # in the report and never could (ADR-011) — the point is that `Kontrol` says
+        # so out loud, because a manual check cannot reach somebody nothing mentions.
+        # ADR-071.
+        roster_row("kmisal", "1004", "KEREM", "MİSAL", "kerem@example.com",
+                   facility="MACUNKÖY TESİSİ"),
     ])
 
     # AYŞE: a clean Teknopark day, plus a Macunköy site visit inside it (ADR-001).
@@ -421,3 +427,45 @@ def test_every_tag_the_program_can_set_has_wording():
 
     assert set_in_merge, "merge.py'de tag bulunamadı — desen mi değişti?"
     assert set_in_merge <= set(TAG_TEXT), sorted(set_in_merge - set(TAG_TEXT))
+
+
+# --- the roster people the period never mentions ---------------------------
+
+def _control_text(book) -> str:
+    return "\n".join(" ".join(str(c) for c in r if c is not None)
+                     for r in book["Kontrol"].iter_rows(values_only=True))
+
+
+def test_a_roster_person_with_no_trace_gets_no_row_but_is_counted(result):
+    """Both halves of ADR-071, which are easy to get backwards.
+
+    No row: the roster does not decide who existed, so inventing one would be a person
+    with zero hours who may simply have started next month (ADR-011). Counted anyway:
+    otherwise the only trace of them is their absence, and nobody can act on that.
+    """
+    book = openpyxl.load_workbook(result["output"], read_only=True)
+
+    names = [r[1] for r in book["Aylık Özet"].iter_rows(min_row=5, values_only=True)
+             if r and r[1]]
+    assert "KEREM MİSAL" not in names, "a roster entry must not create a row"
+
+    control = _control_text(book)
+    assert "Personel listesinde olup bu ayda hiç kaydı olmayan 1" in control
+    assert "KEREM MİSAL" in control, "the name is the whole use of the line"
+    assert result["roster_only"] == 1
+
+
+def test_the_two_missing_data_groups_never_overlap(result):
+    """`Kart bilgisi yok` is a row with a red note; this is the absence of a row.
+
+    A person in both would be chased twice under two headings, and the counts on the
+    coverage section would stop being addable.
+    """
+    book = openpyxl.load_workbook(result["output"], read_only=True)
+    rows = list(book["Aylık Özet"].iter_rows(min_row=5, values_only=True))
+    carded = {r[1] for r in rows if r and r[1]}
+
+    control = _control_text(book)
+    section = control.split("5. Kapsam")[1].split("6.")[0]
+    listed = {name for name in carded if name in section}
+    assert not listed, f"already has a row: {listed}"

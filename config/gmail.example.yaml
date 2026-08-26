@@ -1,0 +1,15 @@
+# Mail gönderimi için Gmail hesabı.
+#
+# Bu dosyayı `gmail.yaml` adıyla kopyalayın ve doldurun. `gmail.yaml` git'e GİRMEZ —
+# içinde bir giriş bilgisi var ve o, gerçek bir isim kadar korunur (AGENTS 2.3).
+#
+# `uygulama_sifresi` hesabın kendi şifresi DEĞİLDİR. Google hesabında iki adımlı
+# doğrulama açıkken "uygulama şifreleri" bölümünden 16 haneli bir şifre üretiliyor.
+# Ayrı ayrı iptal edilebiliyor, yani sızarsa hesabın tamamı gitmiyor.
+
+adres: hesap@gmail.com
+uygulama_sifresi: xxxxxxxxxxxxxxxx
+
+# Alıcının "Kimden" satırında gördüğü ad. Boş bırakılırsa adres görünür.
+# Bir kişiyi ya da departmanı adlandırmaz — programın yazdığı hiçbir yer adlandırmaz.
+gorunen_ad: Mesai Takip

@@ -882,3 +882,65 @@ def test_a_note_about_a_day_that_counted_nothing_stays(settings):
                            collector, settings, kayitlar)
 
     assert "Çıkış yok" in summaries[0].notes, summaries[0].notes
+
+
+# --- roster people the period left no trace of ------------------------------
+
+def _roster_entry(first: str, last: str, facility: str | None = "MACUNKÖY TESİSİ"):
+    from mesai.models import RosterEntry
+    return RosterEntry(key=(first, last), display_name=f"{first} {last}",
+                       email=None, facility=facility, department=None,
+                       job_title=None, row=2)
+
+
+def test_roster_people_with_no_trace_at_all_are_counted():
+    """The one group nothing used to mention, and the reason ADR-071 exists.
+
+    A person with no badge record and no leave row gets no `Employee`, so every count
+    on the coverage section is blind to them — `Kart bilgisi yok` puts a person on the
+    list with a red note, but this group appeared on no list, in no count, in no note.
+    A manual check cannot reach somebody who is not written down anywhere.
+    """
+    from mesai.pipeline import _roster_only
+
+    roster_entries = {
+        ("AYSE", "DENEME"): _roster_entry("AYŞE", "DENEME"),
+        ("KEREM", "ORNEK"): _roster_entry("KEREM", "ÖRNEK"),
+    }
+    # only the first one has activity in the period
+    employees = {("AYSE", "DENEME"): _employee(("AYSE", "DENEME"))}
+
+    assert _roster_only(roster_entries, employees) == \
+        (("KEREM ÖRNEK", "MACUNKÖY TESİSİ"),)
+
+
+def test_a_person_with_only_a_leave_row_is_not_in_the_list():
+    """They already have a row and `Kart bilgisi yok` beside it — a louder signal.
+
+    The two groups must not overlap, or the same person is chased twice under two
+    different headings and the numbers stop adding up.
+    """
+    from mesai.pipeline import _resolve_employees, _roster_only
+
+    entries = {("KEREM", "ORNEK"): _roster_entry("KEREM", "ÖRNEK")}
+    leave = [LeaveRecord(
+        key=("KEREM", "ORNEK"), raw_name="KEREM ÖRNEK", personnel_no="9001",
+        leave_type="Yıllık İzin", status="Kullanıldı",
+        start=datetime(2026, 6, 3, 7, 30), end=datetime(2026, 6, 3, 16, 30),
+        days=1.0, department=None, source_row=2)]
+
+    employees = _resolve_employees([], leave, entries)
+    assert ("KEREM", "ORNEK") in employees      # the leave row alone earns a row
+    assert _roster_only(entries, employees) == ()
+
+
+def test_the_list_is_in_turkish_name_order():
+    """Ç Ğ İ Ö Ş Ü sort after Z by codepoint, so the plain sort puts them last."""
+    from mesai.pipeline import _roster_only
+
+    entries = {("ZEYNEP", "DENEME"): _roster_entry("ZEYNEP", "DENEME"),
+               ("SUKRU", "ORNEK"): _roster_entry("ŞÜKRÜ", "ÖRNEK"),
+               ("IBRAHIM", "NUMUNE"): _roster_entry("İBRAHİM", "NUMUNE")}
+
+    assert [name for name, _ in _roster_only(entries, {})] == \
+        ["İBRAHİM NUMUNE", "ŞÜKRÜ ÖRNEK", "ZEYNEP DENEME"]

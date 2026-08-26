@@ -105,6 +105,27 @@ def day_counts(snapshot: Snapshot | None) -> dict[str, tuple[int, int]]:
     return {label: (total, lost) for label, (total, lost) in found.items()}
 
 
+def counted_only_labels(snapshot: Snapshot | None) -> frozenset[str]:
+    """Notes under which nothing was ever lost — every day carrying them was counted.
+
+    These are the `KEPT` notes, and until now ticking one selected **nobody**: the filter
+    only ever returned days that lost time, and by definition none of these has one. The
+    panel said `Gece geçişi  (6)` and the list came back empty, which read as a bug and
+    was one — the operator asked *"gece geçişi 6 kişi diyor ama filtrede 0 görünüyor
+    kimse çıkmıyor"*. It is a real question to ask somebody (a night crossing is a punch
+    the program **repaired** by assuming midnight was crossed), it just is not a lost day.
+
+    So for these notes the day is selected whether or not it was counted. The
+    `outstanding` restriction (ADR-059, ADR-061) still governs every note that CAN lose
+    time: ticking `Çıkış yok` still does not return a day the other site's record closed.
+
+    A note with no dated day at all (`Kart bilgisi yok`) is not here — it has no day to
+    include, and `outstanding` already always keeps it.
+    """
+    return frozenset(label for label, (total, lost) in day_counts(snapshot).items()
+                     if total and not lost)
+
+
 def problem_labels(
     snapshot: Snapshot | None,
 ) -> tuple[tuple[str, str, int], ...]:
@@ -169,13 +190,18 @@ def choices(snapshot: Snapshot | None,
     if snapshot is None:
         return ()
     clean = len(matching(snapshot, NO_PROBLEM))
+    # `Sorunu olanlar` counts everybody with something outstanding under ANY note, not
+    # against the ticked set. It used to follow the ticks, so untick everything but
+    # `Giriş yok` and the entry read `Sorunu olanlar (15)` — the operator's words:
+    # *"o sayı değişmesin total sayı kalsın"*. Two reasons it was wrong beyond being
+    # confusing: the tick panel is only reachable once you are already inside this
+    # filter, so the number was describing a state you had to enter it to reach; and it
+    # broke the partition with `Sorunu olmayanlar`, whose count never followed the ticks.
+    # The two now add up to the month, every time.
     entries = [
         Choice(ALL, ALL_LABEL, len(snapshot.people)),
         Choice(NO_PROBLEM, NO_PROBLEM_LABEL, clean),
-        # Counted against the ticked labels, not against "has any note at all", so the
-        # number in the list is the number of rows the list will show.
-        Choice(PROBLEM, PROBLEM_LABEL, len(matching(snapshot, PROBLEM, labels)),
-               is_problem=True),
+        Choice(PROBLEM, PROBLEM_LABEL, len(snapshot.people) - clean, is_problem=True),
     ]
     entries += [Choice(label, label, len(matching(snapshot, label)), is_problem)
                 for label, _count, is_problem in snapshot.label_counts()]
@@ -192,6 +218,7 @@ def matching(snapshot: Snapshot | None, filter_key: str,
     """
     if snapshot is None:
         return ()
+    always = counted_only_labels(snapshot)
     if filter_key == ALL:
         people = snapshot.people
     elif filter_key == NO_PROBLEM:
@@ -199,14 +226,15 @@ def matching(snapshot: Snapshot | None, filter_key: str,
     elif filter_key == PROBLEM:
         counted = (default_labels(snapshot) if labels is None
                    else frozenset(labels))
-        people = tuple(p for p in snapshot.people if outstanding(p, counted))
+        people = tuple(p for p in snapshot.people
+                       if outstanding(p, counted, always=always))
     else:
         # A single note. `outstanding` rather than "carries the label", so ticking
         # `Giriş yok` brings the people whose entry is missing EVERYWHERE and nobody
         # else. Expected-behaviour notes have no dated problem days and fall through to
         # the month-level branch, so they still list their people.
         people = tuple(p for p in snapshot.people
-                       if outstanding(p, {filter_key})
+                       if outstanding(p, {filter_key}, always=always)
                        or filter_key in p.expected)
     return tuple(sorted(people, key=lambda p: sort_key(p.name)))
 
@@ -221,7 +249,8 @@ def _has_problem(person: Person, snapshot: Snapshot) -> bool:
     nothing outstanding — they belong with the clean.
     """
     return bool(outstanding(person, {label for _g, label, _c in
-                                     problem_labels(snapshot)}))
+                                     problem_labels(snapshot)},
+                            always=counted_only_labels(snapshot)))
 
 
 def selected(snapshot: Snapshot | None, filter_key: str, excluded: Iterable[str],
@@ -233,7 +262,8 @@ def selected(snapshot: Snapshot | None, filter_key: str, excluded: Iterable[str]
 
 
 def days_for(person: Person, labels: Iterable[str] | None = None,
-             snapshot: Snapshot | None = None) -> tuple[ProblemDay, ...]:
+             snapshot: Snapshot | None = None,
+             always: Iterable[str] | None = None) -> tuple[ProblemDay, ...]:
     """The person's days the ticked notes are about — and only the days that cost them.
 
     The rule, in the operator's words: *"bir adamın girişi yoksa hiçbir yerde ve uzaktan
@@ -260,12 +290,20 @@ def days_for(person: Person, labels: Iterable[str] | None = None,
             return tuple(d for d in person.days if not d.explained)
         labels = default_labels(snapshot)
     counted = frozenset(labels)
-    return tuple(day for day in person.days
-                 if not day.explained
-                 and counted.intersection(day.problems))
+    if always is None:
+        always = counted_only_labels(snapshot) if snapshot is not None else frozenset()
+    always = frozenset(always)
+    kept: list[ProblemDay] = []
+    for day in person.days:
+        hit = counted.intersection(day.problems)
+        if hit and (not day.explained or hit & always):
+            kept.append(day)
+    return tuple(kept)
 
 
-def outstanding(person: Person, labels: Iterable[str]) -> frozenset[str]:
+def outstanding(person: Person, labels: Iterable[str],
+                snapshot: Snapshot | None = None,
+                always: Iterable[str] | None = None) -> frozenset[str]:
     """Which of `labels` this person actually has something outstanding under.
 
     A note reaches somebody one of two ways, and only one of them can be explained away:
@@ -281,8 +319,11 @@ def outstanding(person: Person, labels: Iterable[str]) -> frozenset[str]:
     carried = counted.intersection(person.problems)
     if not carried:
         return frozenset()
+    if always is None:
+        always = counted_only_labels(snapshot) if snapshot is not None else frozenset()
+    always = frozenset(always)
     dated = {label for day in person.days for label in day.problems}
-    from_days = {label for day in days_for(person, carried)
+    from_days = {label for day in days_for(person, carried, always=always)
                  for label in day.problems}
     return frozenset(label for label in carried
                      if label in from_days or label not in dated)

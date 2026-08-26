@@ -1691,7 +1691,11 @@ def test_the_problem_filter_is_offered_next_to_the_clean_one(problem_screen):
     shown = list(screen.filter_box.cget("values"))
 
     assert any(s.startswith("Sorunu olmayanlar  (1)") for s in shown)
-    assert any(s.startswith("Sorunu olanlar  (3)") for s in shown), shown
+    # 4, not 3: the count is everybody with something outstanding under any note, and
+    # it no longer follows the tick panel. `Tesis birleştirme` is unticked by default,
+    # so the LIST still shows three — the number answers "how big is this group", the
+    # rows answer "who is selected right now", and they are different questions.
+    assert any(s.startswith("Sorunu olanlar  (4)") for s in shown), shown
 
 
 def test_the_two_defaults_off_are_unticked_and_their_people_absent(problem_screen):
@@ -1742,16 +1746,24 @@ def test_hepsi_counts_every_note_including_the_two(problem_screen):
     assert len(screen._rows) == 4, "everyone with any note at all"
 
 
-def test_the_filter_count_matches_the_number_of_rows(problem_screen):
-    """A filter list that says 12 and then shows 40 is worse than no number."""
+def test_the_filter_count_does_not_move_with_the_ticks(problem_screen):
+    """*"o sayı değişmesin total sayı kalsın."*
+
+    It used to be the row count, which meant unticking notes walked it down towards
+    zero — and the panel that does the unticking is only reachable from inside this
+    filter, so the number described a state you had to enter it to see. The row count
+    is on the screen anyway, under the list.
+    """
     screen = problem_screen()
+    seen = set()
 
     for action in (lambda: _boxes(screen)["Çıkış yok"].invoke(),
                    screen._count_all,
                    screen._count_none):
         action()
         entry = next(c for c in screen._choices if c.key == recipients.PROBLEM)
-        assert entry.count == len(screen._rows), entry.display
+        seen.add(entry.count)
+    assert len(seen) == 1, f"the count moved with the ticks: {seen}"
 
 
 def test_the_selection_is_remembered_between_runs(problem_screen, people_screen,
@@ -1883,10 +1895,15 @@ def test_the_note_panel_fits_with_every_note_present(people_screen, tmp_path):
 
     available = screen.notes_frame.winfo_width()
     assert available > 1, "frame not mapped; the measurement would be meaningless"
-    # Two columns share the width, so one label may not exceed half of it.
+    # Three columns share the width now — every note became a checkbox, so the panel
+    # carries twice the entries and its height is the day panel's height. Measured
+    # against `_NOTE_COLUMNS` rather than a literal, so changing the column count
+    # cannot leave this test asserting the old layout.
+    from mesai.gui.people import _NOTE_COLUMNS
+    kolon = available / _NOTE_COLUMNS
     en_genis = max(k.winfo_reqwidth() for k in kutular)
-    assert en_genis <= available / 2, (
-        f"kutu {en_genis}px, kolon {available / 2:.0f}px — kırpılır")
+    assert en_genis <= kolon, (
+        f"kutu {en_genis}px, kolon {kolon:.0f}px — kırpılır")
 
 
 # --- different window sizes (asked for directly) -----------------------------
@@ -2177,9 +2194,12 @@ def test_both_lists_name_their_columns(day_screen):
     name, row = _person_with_days(screen)
     _click(screen, row, on_tick=False)
 
+    # `Sorunlu gün`, not `Gün`: on the person list the number is a count of problem
+    # days, and beside a duration a bare "Gün" read as days worked. The day panel's own
+    # `Gün` column really is the day of the week and keeps the short name.
     assert [screen.tree.heading(c, "text")
             for c in ("ad", "saat", "gun", "eposta")] == [
-        "Ad Soyad", "Süre", "Gün", "E-posta"]
+        "Ad Soyad", "Süre", "Sorunlu gün", "E-posta"]
     assert [screen.day_tree.heading(c, "text")
             for c in ("tarih", "gun", "giris", "cikis", "sure", "not")] == [
         "Tarih", "Gün", "Giriş", "Çıkış", "Süre", "Sorun"]
@@ -2200,25 +2220,29 @@ def test_the_person_row_counts_the_days_the_panel_will_show(day_screen):
             f"{name}: satır {yazan!r}, panel {beklenen}")
 
 
-def test_a_note_with_nothing_outstanding_is_not_a_checkbox(day_screen):
-    """`Tesis birleştirme (0)` on a control read as "did not happen". It did — to 13
-    people and 26 days in July. It is a line of text now, counting occurrences (ADR-069).
+def test_every_note_that_selects_somebody_is_a_checkbox(day_screen):
+    """The reverse of what ADR-069 held, and for the reason ADR-069 gave.
+
+    Those notes were text because ticking them selected nobody. That was the filter's
+    bug — `counted_only_labels` — not a property of the notes: `Gece geçişi (6)` now
+    returns its six people, and a note that can be acted on belongs on a control.
+    The `Bu ay ayrıca: …` line is gone; it would be describing the panel it sits in.
     """
     import tkinter as tk
 
     from mesai.mail import recipients
 
     screen = day_screen()
-    oldu = dict(recipients.also_happened(screen.snapshot))
-    assert oldu, "sentetik ayda hiç 'günü sayılan' not yok — test bir şey ölçmüyor"
+    offered = recipients.problem_labels(screen.snapshot)
+    assert offered, "sentetik ayda hiç not yok — test bir şey ölçmüyor"
 
-    for label in oldu:
-        assert label not in screen._note_vars, f"{label} hâlâ kutu"
+    for _group, label, count in offered:
+        assert label in screen._note_vars, f"{label} kutu değil"
+        assert count == len(recipients.matching(screen.snapshot, label)), label
     metin = " ".join(
         c.cget("text") for c in screen.notes_frame.winfo_children()
         if isinstance(c, tk.Label))
-    for label, sayi in oldu.items():
-        assert label in metin and f"({sayi} kişi)" in metin, (label, sayi, metin)
+    assert "Bu ay ayrıca" not in metin, metin
 
 
 def test_somebody_with_no_card_record_does_not_look_clean(day_screen, tmp_path):
@@ -2282,3 +2306,178 @@ def test_the_no_card_record_message_is_loud_and_fits(day_screen, tmp_path):
         pay = screen.day_card.winfo_width() - screen.day_note.winfo_width()
         assert pay >= 0, (f"{width}x{height}: yazı {screen.day_note.winfo_width()}px, "
                           f"panel {screen.day_card.winfo_width()}px")
+
+
+# --- writing to one person -------------------------------------------------
+
+def test_the_mail_row_appears_only_with_a_person_selected(day_screen):
+    """It belongs to the person on the right, and there is no bulk send to belong to."""
+    screen = day_screen()
+    assert not screen.mail_row.winfo_ismapped() or screen._person is None
+
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    screen.frame.update_idletasks()
+
+    assert screen._person == name
+    assert screen.mail_row.winfo_ismapped()
+    assert screen.mail_var.get(), "adres snapshot'tan doldurulmalı"
+
+
+def test_the_address_is_editable_and_survives_ticking_a_day(day_screen):
+    """The eight people a month with no address are typed in by hand.
+
+    A field that reset on every repaint would lose what was typed the moment a day was
+    ticked off, which is the same click the operator makes next.
+    """
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    screen.mail_var.set("elle@yazildi.com")
+    iso, day_row = screen._day_rows[0]
+    screen._day_clicked(type("Click", (), {"y": screen.day_tree.bbox(day_row)[1] + 2})())
+
+    assert screen.mail_var.get() == "elle@yazildi.com"
+
+
+def test_switching_person_refills_the_address(day_screen):
+    """A typed address must NOT follow the operator onto the next person: that would
+    send one person's mail to another's address."""
+    screen = day_screen()
+    first, first_row = _person_with_days(screen)
+    _click(screen, first_row, on_tick=False)
+    screen.mail_var.set("elle@yazildi.com")
+
+    other = next(r for n, r in screen._rows if n != first)
+    _click(screen, other, on_tick=False)
+
+    assert screen.mail_var.get() != "elle@yazildi.com"
+
+
+def test_the_draft_carries_only_the_days_still_ticked(day_screen):
+    """The panel's ticks are the message's day list — that is what they are for."""
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    before = screen._draft()
+    assert before is not None
+
+    iso, day_row = screen._day_rows[0]
+    screen._day_clicked(type("Click", (), {"y": screen.day_tree.bbox(day_row)[1] + 2})())
+    after = screen._draft()
+
+    from datetime import date
+    dropped = date.fromisoformat(iso).strftime("%d.%m.%Y")
+    assert dropped in before.body
+    assert dropped not in after.body
+
+
+def test_the_preview_sends_what_is_on_screen_not_what_was_composed(day_screen):
+    """A preview showing one thing while another goes out is worse than no preview."""
+    from mesai.gui.people import MailPreview
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    sent = []
+    preview = MailPreview(screen.root, screen._draft(),
+                          lambda d: (sent.append(d), (True, "Gönderildi"))[1])
+    preview.show()
+    preview.body.insert("end", "\n\nElle eklenen satır.")
+    preview.to_var.set("baska@adres.com")
+    preview.confirm()
+
+    assert len(sent) == 1
+    assert sent[0].to == "baska@adres.com"
+    assert sent[0].body.endswith("Elle eklenen satır.")
+    assert preview.sent
+    preview.close()
+
+
+def test_the_preview_refuses_to_send_with_an_empty_address(day_screen):
+    from mesai.gui.people import MailPreview
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    sent = []
+    preview = MailPreview(screen.root, screen._draft(),
+                          lambda d: (sent.append(d), (True, ""))[1])
+    preview.show()
+    preview.to_var.set("   ")
+    preview.confirm()
+
+    assert not sent
+    assert not preview.sent
+    assert "boş" in preview.status.cget("text")
+    preview.close()
+
+
+def test_a_failed_send_says_why_and_leaves_the_window_open(day_screen):
+    """The two failures this will actually produce — a wrong app password and a missing
+    account file — are both fixed by a person. Closing the window loses the message."""
+    from mesai.gui.people import MailPreview
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    preview = MailPreview(screen.root, screen._draft(),
+                          lambda d: (False, "Gmail girişi reddedildi."))
+    preview.show()
+    preview.confirm()
+
+    assert not preview.sent
+    assert "reddedildi" in preview.status.cget("text")
+    assert preview.window is not None, "pencere kapanmamalı"
+    preview.close()
+
+
+def test_the_screen_reports_a_missing_account_file_instead_of_raising(day_screen,
+                                                                     tmp_path):
+    """`config/gmail.yaml` is absent on a fresh clone, which is the common case."""
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    ok, note = screen._send(screen._draft())
+
+    assert not ok
+    assert "gmail.yaml" in note
+
+
+def test_the_note_panel_leaves_the_day_panel_room_at_the_floor(people_screen,
+                                                               tmp_path):
+    """The panel's height is height the day panel does not get, and the mail step is
+    down there.
+
+    Measured when every note became a checkbox: dealing whole families to columns left
+    the third column empty and the taller family set the height alone — 267 px of panel
+    and **11 px** of day panel at the 880x620 floor. Flowing the labels across the
+    columns instead gives 152 and 126. This holds the ratio at the floor, which is the
+    size that has bitten twice (ADR-038).
+    """
+    from mesai.mail import recipients
+
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person(f"KİŞİ{n} DENEME",
+                ["Çıkış yok", "Giriş yok", "Hem giriş hem çıkış yok",
+                 "Günlük süre çok kısa (<2 saat)", "Günlük süre çok uzun (>16 saat)",
+                 "Gece geçişi", "Tesis birleştirme", "Uzaktan + kart kaydı",
+                 "Giriş-çıkış tutarsız (>20 saat)", "Kart bilgisi yok"],
+                days=[_pday(4), _pday(11)])
+        for n in range(40)]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+    people_screen.root.geometry("880x620")
+    people_screen.root.update_idletasks()
+    people_screen.root.update()
+
+    panel = screen.notes_frame.winfo_height()
+    gun = screen.day_card.winfo_height()
+    assert panel <= 190, f"not paneli {panel}px — gün paneline yer kalmıyor"
+    assert gun >= 100, f"gün paneli {gun}px; not paneli {panel}px"

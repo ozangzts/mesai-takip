@@ -337,7 +337,33 @@ Per employee, days by leave type — from the HCM export, subtotal rows skipped.
 medical and personal detail; it must not travel in a workbook circulated across HR.
 
 People with leave records but no attendance record appear here with a note in
-column J (26 in May 2026).
+column J (23 in May 2026).
+
+---
+
+### Sheet 6 — `Kontrol`
+
+Not a data sheet: it is how a human confirms in ten seconds that nothing was lost.
+Numbered sections, and **the numbers are how everything else refers to it** — "section 7
+lists every alias in effect" is the documented way to check that the alias table loaded
+at all. A test reads the numbers back and fails on a duplicate.
+
+`5. Kapsam` answers *who is in this report* and, since ADR-071, *who is not*:
+
+| Line | Says |
+| --- | --- |
+| Raporda yer alan kişi | rows written |
+| Mesai verisi olan | of those, with at least one badge reading |
+| Mesai verisi olmayan | of those, with none — the `Kart bilgisi yok` group, red |
+| Personel listesinde olmayan | rows with no roster entry — probable leavers |
+| Personel listesinde olup bu ayda hiç kaydı olmayan | **roster entries with no row at all**, red, with the names grouped by facility |
+
+The last line exists because every line above it is blind to the people it counts: no
+badge record **and** no leave row means no `Employee`, so no row, no note, and no place
+in any of those totals (ADR-011). 21 / 27 / 14 people over May–July 2026. It is omitted
+entirely when the count is zero, and it never states a duration — the roster carries no
+hire date, so a late joiner and a lost record are indistinguishable here (Q18) and the
+note says so instead of guessing. ADR-071.
 
 ---
 

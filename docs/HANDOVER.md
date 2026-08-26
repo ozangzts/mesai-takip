@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (70 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (73 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,17 +22,20 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **484 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **519 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
 | Toplam çalışma süresi | 17 103:58 | 27 166:19 | 26 233:17 |
 | Kişi | 171 | 163 | 176 |
 | Şüpheli kayıt | 365 | 622 | 689 |
-| `Sorunu olanlar` | 75 | 73 | 85 |
-| Mail listesine girecek gün | 216 | 352 | 419 |
+| `Sorunu olanlar` | 83 | 73 | 88 |
+| Mail listesine girecek gün | 238 | 380 | 446 |
+| **Listede olup hiç kaydı olmayan** (ADR-071) | 21 | 27 | 14 |
 
-Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Masaüstündeki üç ayın raporu ve
+Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Son satır yeni ve **hiçbir
+satırı olmayan** kişileri sayıyor: personel listesinde var, o ayda ne kart ne izin kaydı
+yok. `Kontrol` §5'te adlarıyla, tesise göre gruplu (ADR-071). Masaüstündeki üç ayın raporu ve
 veri dosyası **`format_version` 11** ile güncel.
 
 > Şüpheli kayıt 250/427/436'dan buraya çıktı ve **hiçbir saat değişmedi**. Sebebi
@@ -43,7 +46,12 @@ veri dosyası **`format_version` 11** ile güncel.
 Çalıştırma: `arayuz.cmd` (pencere) ya da `rapor.cmd --ay 2026-07` (komut satırı).
 
 **Pencerede üç ekran var:** Rapor, Kişiler, Takvim. Akış: klasörü seç → tatilleri
-işaretle → raporu üret → Kişiler'den listeyi çıkar.
+işaretle → raporu üret → Kişiler'den listeyi çıkar → **kişi kişi mail at**.
+
+> `Sorunu olanlar` 75/73/85'ten 83/73/88'e çıktı, gün sayısı 216/352/419'dan
+> 238/380/446'ya. **Hiçbir saat değişmedi.** Sebebi ADR-072: günü sayılmış notlar
+> (`Gece geçişi` gibi) artık filtrede de kimseyi getirmiyor değil, kendi kişilerini
+> getiriyor. Panel 6 derken filtrenin 0 demesi hataydı.
 
 **Kişiler ekranı iki panelli** (ADR-064): solda kişi listesi, sağda seçilen kişinin
 sorunlu günleri gün gün, her biri seçilebilir. Adın solundaki kareye tıklamak kişiyi
@@ -76,10 +84,13 @@ Temmuz'da not başına, **bekleyeni olan** kişi/gün: `Giriş yok` 15/23, `Çı
 `Hem giriş hem çıkış yok` 44/343, `Günlük süre çok kısa` 2/2, `Kart bilgisi yok` 26 kişi
 (günü yok, ay seviyesi).
 
-Ayrıca **olan ama bekleyeni olmayan** notlar var ve panelde kutu değil metin satırı
-(ADR-069): Temmuz'da `Tesis birleştirme` 13 kişi/26 gün, `Gece geçişi` 6/21,
-`Uzaktan + kart kaydı` 5/5, `Günlük süre çok uzun` 4/5, `Giriş-çıkış tutarsız` 2/2.
-Günleri sayıldı, seçime girmiyorlar — `(0)` yazan bir kutu "olmamış" diye okunuyordu.
+**Artık her not kutu** (ADR-072). Günü sayılmış olanlar — Temmuz'da `Tesis birleştirme`
+13 kişi/26 gün, `Gece geçişi` 6/21, `Uzaktan + kart kaydı` 5/5, `Günlük süre çok uzun`
+4/5, `Giriş-çıkış tutarsız` 2/2 — bir süre metin satırıydı (ADR-069), çünkü işaretlenince
+kimseyi getirmiyorlardı. O, notun özelliği değil **filtrenin hatasıydı**: `outstanding`
+kuralı yalnızca kaybı olan günü seçiyor, bu notların ise hiç kayıp günü yok. Şimdi kendi
+kişilerini getiriyorlar. `Günü sayılmayan` / `Günü sayılan` başlıkları duruyor — başlık
+"hangisi saat kaybettirdi", sayı "kime sorabilirim" sorusunun cevabı.
 
 Varsayılan ayarlarla mail listesi:
 
@@ -92,12 +103,24 @@ Varsayılan ayarlarla mail listesi:
 Adreslerin tamamı `deico.com.tr`. Adresi olmayanlar **düşürülmez, bildirilir**
 (`without_email`) — 30 kişilik bir listenin sessizce 22 olması kaçınılması gereken hata.
 
-**Başlamadan önce üç karar gerekiyor.** Bunlar kararlaştırılmadı, uygulama tarafından
-önerildi; kararlaştırılmış kısıt gibi davranılmamalı:
+**Birinci karar verildi, ikisi duruyor** (ADR-073):
 
-1. Varsayılan davranış **gönderim mi önizleme mi**? (162 kişiye mail geri alınamaz)
-2. Elle çıkarılan kişi kayda geçsin mi? ("kime gitmedi, neden")
-3. Eksik aydan mail atılsın mı? (`is_complete` bunu ayırt edebiliyor)
+1. ~~Varsayılan davranış gönderim mi önizleme mi?~~ **İkisi de değil: kişi kişi, önizlemeli
+   ve elle.** Gün panelinin altında adres alanı ve `E-posta gönder…` var; buton önizleme
+   penceresi açıyor, pencerede hem adres hem konu hem gövde düzenlenebiliyor ve
+   **ekranda ne varsa o gidiyor**. Toplu gönderme **yok** ve bir kontrol de sunmuyor —
+   `sender.py`'de döngü kuran bir fonksiyon olmadığını test tutuyor.
+2. Elle çıkarılan kişi kayda geçsin mi? ("kime gitmedi, neden") — **açık**
+3. Eksik aydan mail atılsın mı? (`is_complete` bunu ayırt edebiliyor) — **açık**
+
+İkisi de toplu gönderme hakkında, o yüzden ikisi de bunu bloke etmedi.
+
+**Gmail hesabı `config/gmail.yaml`'da**, git'e girmez (`personel.yaml` gibi — içinde giriş
+bilgisi var). Anahtarlar `config/gmail.example.yaml`'da. **Uygulama şifresi** gerekiyor,
+hesabın kendi şifresi değil: iki adımlı doğrulama açıkken Google 16 haneli ayrı bir şifre
+üretiyor ve tek başına iptal edilebiliyor. Google onu dörtlü gruplar hâlinde gösteriyor;
+boşlukları program kendisi atıyor, çünkü göründüğü gibi yapıştırılınca giriş başarısız
+oluyor.
 
 Metin yazılırken dikkat: **not bir kayıt hakkında, saatler gün hakkında.** Mail listesi
 artık yalnızca kaybı olan günleri taşıdığı için bu tuzak büyük ölçüde kapandı, ama günün
@@ -144,16 +167,21 @@ Asıl uğraş paketleme değil, **Python'un kurulu olmadığı bir makinede test
 
 | # | Soru | Neyi bloke ediyor |
 | --- | --- | --- |
-| 1 | **Macunköy dosyası o tesisin bütün turnikelerini kapsıyor mu?** Kart kaydı hiç olmayanların neredeyse hepsi Macunköy | Faz 1 onayı — **en kritik** (Q4) |
-| 2 | **Dosyalar her ay ayın kaçında alınacak?** Ayın 20'sinde alınan bir dosya yine yarım olur; Temmuz'da bir kez yaşandı | Bir sonraki ay (Q23) |
+| 1 | **Dosyalar her ay ayın kaçında alınacak?** Ayın 20'sinde alınan bir dosya yine yarım olur; Temmuz'da bir kez yaşandı | Bir sonraki ay (Q23) |
+| 2 | Personel listesi **işe giriş / çıkış tarihi** kolonlarıyla alınabilir mi? | Ay içinde giren/ayrılanın `Hem giriş hem çıkış yok` yanlış pozitifleri, ve `Kontrol` §5'teki "hiç kaydı olmayan" listesinin ayıklanması — şu an ikisi de elle (Q18) |
 | 3 | Dokuz isim eşleştirmesinin doğrulanması — `Kontrol` sayfası bölüm 7 | Yanlışsa iki kişinin bordro saatleri birleşir (Q4a) |
-| 4 | Personel listesi **işe giriş / çıkış tarihi** kolonlarıyla alınabilir mi? | Ay içinde giren/ayrılanın `Hem giriş hem çıkış yok` yanlış pozitifleri — şu an elle çıkarılıyor (Q18) |
 
-Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşünülecek.
+Soru 2'nin cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşünülecek.
+
+**Q4 listeden çıktı** — kapatıldı, cevaplanmadı (ADR-071). *"ya sen o soruyu boşver.
+direkt kart kaydı yok diye geçmiyor muyuz zaten o kişileri? onlar manuel kontrol edilecek
+yönetici tarafından."* Doğru: cevap programın yaptığı hiçbir şeyi değiştirmezdi, kart
+kaydı olmayana saat uydurulamaz. Kapatırken **başka bir boşluk** çıktı ve kapatıldı —
+aşağıdaki `Son değişiklikler`'de ADR-071.
 
 ### Bloke etmeyen ama cevaplanmalı
 
-- **Uzaktan beyanı olup kart da basanlar** — 3 ayda 10 gün. Beyan mı geçerli, kart mı?
+- **Uzaktan beyanı olup kart da basanlar** — 3 ayda 12 gün. Beyan mı geçerli, kart mı?
   Şu an ikisi birleştiriliyor ve işaretleniyor.
 - **İzinli görünüp kart basanlar.** Ölçerken çıktı (ADR-068): bir kişinin 13 Temmuz yıllık,
   14 Temmuz doğum günü izni var ve **14'ünde kart basmış**. `Günlük Detay` işi gösteriyor
@@ -194,9 +222,21 @@ gerekiyor.
 | 068 | `Not` kolonu yalnızca bekleyen notları taşır | Özet `Hem giriş hem çıkış yok` derken `Günlük Detay` o gün için sıradan 9 saatlik gün gösteriyordu |
 | 069 | `Şüpheli Kayıt` de öyle; `Günü sayılan` notlar kutu değil satır; kart kaydı olmayan panelde boş görünmüyor | Sayı ile notu aynı satırda çelişiyordu; `Tesis birleştirme (0)` "olmamış" gibi okunuyordu; kart kaydı hiç olmayan kişi panelde temiz görünüyordu |
 | 070 | `Günlük Detay` izin satırında **yalnızca `İzin`**; panel uyarısı kırmızı ve sarılıyor | Sayfa, ada ve tarihe karşı `Doğum İzni (Tam Ödeme)` yazıyordu; uyarı "sorun yok" ile aynı renk ve fontta, tam ekran olmadan sığmıyordu |
+| **071** | **Q4 kapandı; `Kontrol` §5 personel listesinde olup hiç kaydı olmayanları sayıyor** | Yönetici kararı: kart kaydı yoksa işaretle, elle bakılır. Ölçerken çıktı ki aynı şekilde eksik ama **hiç satırı olmayan** 21/27/14 kişi hiçbir sayıda görünmüyordu (%76'sı Macunköy — Q4'ün deseni). CLI'daki `<- ROADMAP.md Q4` de gitti, kullanıcıya gösterilen yerde depo referansıydı |
+| **072** | **Günü sayılmış notlar da filtrede kişi getiriyor; her not kutu; `Sorunu olanlar` sayısı işaretlere bağlı değil; panel 267→152 px** | `Gece geçişi` panelde 6, filtrede 0 diyordu — ADR-059'un kuralı bu notlarda her günü siliyordu. Kolon 2'den 3'e çıktı ama bloklar kolona dağıtılınca 880×620'de gün paneline **11 px** kalıyordu; etiketler artık kolonlara akıyor, gün paneli 126 px |
+| **073** | **Kişi kişi e-posta: adres alanı, `E-posta gönder…`, düzenlenebilir önizleme, Gmail SMTP** | Toplu gönderme **yok** ve bir kontrol sunmuyor. Ekranda ne varsa o gidiyor; gönderim anında metin kutusu okunuyor, pencereyi açan taslak değil. Hesap `config/gmail.yaml`, git'e girmez |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.
+
+**071 aynı ailenin devamı** ve tek başına okunmamalı: 060/061 *kaydı olmayan günü*
+görünür yaptı, 071 *kaydı hiç olmayan kişiyi*. İkisinin de gerekçesi aynı — eksik olan
+sessiz kalıyordu.
+
+**072 ise 059'u daraltıyor ve 069'un yarısını geri alıyor.** Sırayla: 059 filtreyi bekleyen
+güne kısıtladı → 069 bu yüzden hiç kimseyi getirmeyen notları kutudan çıkardı → 072 asıl
+sebebin filtre olduğunu bulup kısıtı o notlarda kaldırdı, kutuları geri getirdi. 069'un
+*sebebi* hâlâ doğru: `(0)` yazan bir kutu "olmamış" diye okunur. Çözümü yanlıştı.
 
 **Daha önce, 2026-08-20/21:** Temmuz tam ay dosyasıyla tamamlandı (16 078:44 →
 26 233:17), Takvim ekranı geldi ve sadeleşti (042 → 045), pencerede dört hata düzeltildi
@@ -325,3 +365,12 @@ Buradaki her madde bir kez ısırdı.
   hata yapar. Fazlalık düzeltilir, eksik sessizliktir (ADR-017, ADR-048, ADR-061). Bu
   yüzden `Hem giriş hem çıkış yok` ay içinde işe girmiş olabilecekleri de listeler:
   yanlışsa bedeli listeden bir elle çıkarma, atlanırsa bedeli o kişinin saatleri.
+  ADR-071 aynı kural: personel listesinde olup hiç kaydı olmayanların bir kısmı
+  gerçekten sonradan işe girmiştir, ama hangisi olduğunu program bilemediği için hepsi
+  sayılıyor.
+- **Bir sayının "ölçüldü" demesi, bugün de doğru olduğu anlamına gelmiyor.** ADR-071
+  turunda `KURALLAR.md`'nin not sayılarının çoğu bayat çıktı — `Hem giriş hem çıkış yok`
+  226 yazıyordu, gerçek 798 (ADR-060/061 kapsamı genişletmiş), `Çıkış yok` 526 yazıyordu,
+  gerçek 369 (ADR-067). `ROADMAP.md`'nin tablosunda Haziran'ın varlık süresi 47 dakika
+  eskiydi ve Temmuz "bilerek yok" diye duruyordu, oysa Q23 ile tamamlanmıştı. Bir kuralı
+  değiştiren ADR yazarken **o kuralın sayısını yazan dosyaları da** güncelle.

@@ -190,13 +190,27 @@ def test_the_day_count_is_what_the_person_row_shows(snap):
                            .intersection(d.problems)])
 
 
-def test_the_count_in_the_list_is_the_count_of_rows(snap):
-    """A filter list that says 12 and then shows 40 is worse than no number."""
+def test_the_problem_count_is_the_month_and_not_the_ticks(snap):
+    """`Sorunu olanlar` counts everybody with something outstanding, always.
+
+    It used to follow the tick panel, so unticking everything but one note made the
+    entry read `Sorunu olanlar (15)` — a number describing a state you have to already
+    be inside this filter to reach. It also broke the partition: `Sorunu olmayanlar`
+    never followed the ticks, so the two stopped adding up to the month.
+    """
+    counts = set()
     for labels in ([], ["Çıkış yok"], None):
         entry = next(c for c in recipients.choices(snap, labels)
                      if c.key == recipients.PROBLEM)
-        assert entry.count == len(
-            recipients.matching(snap, recipients.PROBLEM, labels))
+        counts.add(entry.count)
+    assert len(counts) == 1, f"the count moved with the ticks: {counts}"
+
+
+def test_the_two_standing_filters_partition_the_month(snap):
+    """Every person is in exactly one of them, whatever is ticked."""
+    for labels in ([], ["Çıkış yok"], None):
+        entries = {c.key: c.count for c in recipients.choices(snap, labels)}
+        assert entries[recipients.PROBLEM] + entries[recipients.NO_PROBLEM] ==             entries[recipients.ALL]
 
 
 def test_the_notes_offered_for_ticking_carry_their_group_and_counts(snap):
@@ -231,8 +245,46 @@ def test_a_note_is_grouped_by_whether_its_days_cost_anybody_hours():
 
     by_label = {l: (g, c) for g, l, c in recipients.problem_labels(snap)}
     assert by_label["Çıkış yok"] == (recipients.LOST, 1)
-    # in KEPT, and nobody is outstanding under it — the whole point
-    assert by_label["Tesis birleştirme"] == (recipients.KEPT, 0)
+    # Still in KEPT — the heading is about cost and that has not changed. But it now
+    # SELECTS its person: a note that counts 1 and filters to 0 read as a bug, and was
+    # one (`counted_only_labels`). The heading answers "which of these cost hours"; the
+    # count answers "who can I ask about it", and those are different questions.
+    assert by_label["Tesis birleştirme"] == (recipients.KEPT, 1)
+
+
+def test_a_counted_only_note_selects_its_days():
+    """`Gece geçişi  (6)` used to filter to nobody — the operator caught it.
+
+    Every day under such a note was counted, so the `outstanding` rule (ADR-059) removed
+    all of them and the list came back empty. A repaired night crossing is still a real
+    thing to ask somebody about; it is just not a lost day.
+    """
+    gun = _day(4, minutes=523, problems=("Gece geçişi",))
+    kisi = Person(**{**person("ESRA DENEME", problems=("Gece geçişi",)).__dict__,
+                     "days": (gun,)})
+    snap = Snapshot(period="2026-06", generated_at=datetime(2026, 8, 25, 10, 0),
+                    rules={}, coverage={}, people=(kisi,))
+
+    assert recipients.counted_only_labels(snap) == frozenset({"Gece geçişi"})
+    assert [p.name for p in recipients.matching(snap, "Gece geçişi")] == ["ESRA DENEME"]
+    assert recipients.days_for(kisi, {"Gece geçişi"}, snapshot=snap) == (gun,)
+
+
+def test_a_note_that_can_lose_time_keeps_the_outstanding_rule():
+    """The other half: `Çıkış yok` must NOT start returning days it never returned.
+
+    Otherwise the fix above quietly reverses ADR-059 for every note, and a day the
+    other site's record closed in full comes back into the mail list.
+    """
+    kapanmis = _day(4, minutes=523, problems=("Çıkış yok",))       # counted
+    kayip = _day(5, problems=("Çıkış yok",))                       # minutes None
+    kisi = Person(**{**person("ESRA DENEME", problems=("Çıkış yok",)).__dict__,
+                     "days": (kapanmis, kayip)})
+    snap = Snapshot(period="2026-06", generated_at=datetime(2026, 8, 25, 10, 0),
+                    rules={}, coverage={}, people=(kisi,))
+
+    assert "Çıkış yok" not in recipients.counted_only_labels(snap)
+    assert recipients.days_for(kisi, {"Çıkış yok"}, snapshot=snap) == (kayip,)
 
 
 def test_a_month_level_note_with_no_days_is_not_filed_as_counted():

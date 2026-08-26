@@ -4365,3 +4365,311 @@ something is wrong.
   checks the ordinary empty state does **not** shout — a warning style that is always on
   is the same as no warning style.
 - No figure moved: 17 103:58 / 27 166:19 / 26 233:17. No `format_version` change.
+
+---
+
+## ADR-071 — Q4 closes as a manual step, and the group it could not reach becomes visible
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Supersedes:** nothing. **Closes:** ROADMAP Q4.
+
+### Context
+
+Q4 had been the top open question since Phase 0 and it gated everything: *"is the
+Macunköy export the whole of that site's turnstiles and the whole of its staff?"* Its
+signature is people with a roster entry and leave rows and **not one badge reading**,
+almost all of them Macunköy-based. ROADMAP's own trust table said *"ready for payroll:
+no — Q4"* and the CLI printed `<- ROADMAP.md Q4` beside the count every run.
+
+The answer never came, and the operator closed the question instead of the gap:
+
+> *"ya sen o soruyu boşver. direkt kart kaydı yok diye geçmiyor muyuz zaten o kişileri?
+> onlar manuel kontrol edilecek yönetici tarafından."*
+
+That is right, and it is the right shape for this program. Knowing whether a turnstile is
+missing would not change a single line of what the pipeline does: it cannot invent a punch
+either way (AGENTS §2.1), so the only correct behaviour is the one already implemented —
+report the month as unaccounted for and let a person go and find out. Q4 was never a
+question the code was waiting on. It was a question about how much to trust the number,
+and the honest answer is written on the report already.
+
+### Decision
+
+**Q4 is closed. The `Kart bilgisi yok` note *is* the handling, and the manual check is
+the resolution.** Consequences:
+
+- The trust table no longer blocks on Q4. It says instead that the report marks what it
+  could not account for and that those people are checked by hand before payroll —
+  which is a claim about a process, not a promise about a file.
+- The CLI's `<- ROADMAP.md Q4` pointer is gone; it was a repository reference in
+  user-facing output, the thing AGENTS §6 forbids in the workbook and which nothing was
+  checking outside it. It now reads `<- kart kaydı yok, ayı eksik`, which stands alone.
+- Nothing about the figures changes: 17 103:58 / 27 166:19 / 26 233:17, unchanged.
+
+### But the manual check had a blind spot, and closing Q4 exposed it
+
+Measuring before agreeing (AGENTS §2.1) turned up a second group of the **same shape**
+that no manual check could ever reach, because it appears nowhere.
+
+`_resolve_employees` builds the employee index from attendance records and leave rows.
+The roster enriches identity and never creates it (ADR-011), so somebody with **no badge
+record and no leave row** gets no `Employee`, no row, no note, and no count — and
+`Kontrol` §5 `Kapsam` counted only the people who *did* reach the report. Measured across
+the three real months:
+
+| | May | June | July |
+| --- | --- | --- | --- |
+| rows in the report | 171 | 163 | 176 |
+| `Kart bilgisi yok` — flagged, reaches the manager | 23 | 17 | 26 |
+| **roster entry, no trace at all — reaches nobody** | **21** | **27** | **14** |
+| of those, Macunköy-based | 16 | 22 | 13 |
+
+The facility split is the same as Q4's. And the roster file is dated **28.07.2026**, so
+for July it is contemporaneous: "hired later" explains part of May's 21 and cannot
+explain most of July's 14.
+
+Not flagging them is the failure mode this project keeps choosing against — *"fazlalık
+düzeltilir, eksik sessizliktir"* (ADR-017, ADR-048, ADR-061). A group of 14 to 27 people
+silently absent from every count is exactly that.
+
+### What was added
+
+`Kontrol` §5 `Kapsam` gains one red line and, under it, the names grouped by facility:
+
+```
+Personel listesinde olup bu ayda hiç kaydı olmayan    14   [red]
+  Macunköy                                            13
+    <name>
+    …
+  Teknopark                                            1
+    <name>
+```
+
+The note says the ambiguity rather than hiding it: *"Bir kısmı sonradan işe başlamış
+olabilir; listede işe giriş tarihi olmadığı için program ayırt edemiyor, tek tek
+bakılması gerekiyor."* The roster has no hire date (ROADMAP Q18), so a late joiner and a
+missing record are genuinely indistinguishable here, and saying which it is would be a
+guess about payroll input.
+
+Names are printed because finding these people by hand is the entire purpose of the line.
+Facility comes through `settings.facility()` (ADR-026), so the sheet calls the sites what
+every other sheet calls them.
+
+### What was deliberately not done
+
+- **No row, no hours, no zero.** ADR-011 stands: a roster entry does not prove somebody
+  worked here that month, and a row of `0:00` would be a claim about a person the data
+  says nothing about. The line is a count of people to check, not a measurement.
+- **No exit code.** Unlike ADR-020 and ADR-057, this is not evidence of a broken file —
+  part of it is ordinary staff turnover, every month, forever. A code 5 that fires every
+  run trains the operator to ignore code 5.
+- **No banner on `Aylık Özet`** for the same reason.
+- **Not in the snapshot, so not in the window and not in the mail list.** Putting these
+  people into `Person` entries would pull them into `recipients` and bump
+  `format_version`, and who gets written to is one of the three mail decisions still
+  open (HANDOVER §1). Report-only keeps this change payroll-neutral and reversible. When
+  the mail decisions land, this is the group to ask about first: a message to somebody
+  the month has no trace of is either the most useful one sent or the most confusing.
+- **The line is omitted when the count is zero.** The counts above it always answer
+  something; this one is only ever a list of people to chase, and a line that is always
+  present stops being read (the `Tesis birleştirme (0)` lesson, ADR-069).
+
+### Consequences
+
+- 491 tests. Seven new: the helper's two halves (a leave row alone keeps somebody *out*
+  of the list, so the two groups never overlap), Turkish name order, the sheet's count
+  and facility split, the line's absence at zero, and an end-to-end month with a roster
+  person nobody recorded.
+- `RunStats` gains `roster_only` and `roster_size`; `pipeline.run` returns
+  `roster_only` for the CLI. No `format_version` change.
+- ROADMAP Q4 moves to answered; the trust table stops citing it. Q18 stays open and is
+  now cited by this line's own wording — it is what would let the program tell a new
+  hire from a missing record.
+
+---
+
+## ADR-072 — A note that counts 6 and filters to 0 was the filter's bug, not the note's
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Narrows ADR-059 / ADR-061. Reverses ADR-069's "not a checkbox" half.**
+
+### The report
+
+> *"gece geçişi 0 görünüyor temmuzda ama bu gerçekten 0 mı? ... aşağıda notta sorunlu
+> olanları seçince gece geçişi 6 kişi diyor ama filtrede 0 görünüyor kimse çıkmıyor."*
+
+Both halves were right, and they were describing the same defect from two sides.
+`Gece geçişi` in July is **21 person-days over 6 people** (May 7, June 23) — not zero.
+The panel said 6. The filter returned nobody.
+
+### Why
+
+ADR-059 restricted every filter to **outstanding** days: a day is selected only if
+nothing was counted for it and no leave covers it. That is right for the notes it was
+written for — ticking `Çıkış yok` must not return a day the other site's record closed
+in full. It is wrong for a note whose days were *all* counted, because the restriction
+then removes every one of them and the note selects nobody, for ever, by construction.
+
+`Gece geçişi` is exactly that shape: it means the source wrote a negative duration and
+the program **repaired** it by assuming midnight was crossed. The day is counted — that
+is the note's whole point — and it is still a real thing to ask somebody about. Same for
+`Tesis birleştirme`, `Uzaktan + kart kaydı`, `Günlük süre çok uzun`,
+`Giriş-çıkış tutarsız`.
+
+ADR-069 met this and drew the wrong conclusion. Seeing `Tesis birleştirme (0)` on a
+checkbox, it took "ticking this selects nobody" as a property of the note and moved
+those notes off the controls into a line of prose. It was a property of the filter.
+
+### Decision
+
+`recipients.counted_only_labels(snapshot)` names the notes under which **nothing was ever
+lost**, and for those the day is selected whether or not it was counted. Every note that
+*can* lose time keeps the `outstanding` rule untouched — a test holds that half, because
+otherwise this quietly reverses ADR-059 for everything and days the union already
+covered come back into the mail list.
+
+Consequences, measured on the three real months:
+
+| | May | June | July |
+| --- | --- | --- | --- |
+| `Sorunu olanlar` | 75 → **83** | 73 → **73** | 85 → **88** |
+| days in the mail list | 216 → **238** | 352 → **380** | 419 → **446** |
+
+`Gece geçişi` July now selects its 6 people and 21 days. No hour moved and no
+`format_version` change: this is who the list admits, not what anything is worth.
+
+### Three things that follow
+
+1. **Every note is a checkbox again.** ADR-069's `Bu ay ayrıca: …` line is gone — every
+   note it named is now a control above it, so the line would be describing the panel it
+   sits in. The `Günü sayılmayan` / `Günü sayılan` headings stay: the heading answers
+   *which of these cost hours*, the count answers *who can I ask*, and those were always
+   two questions.
+2. **`Sorunu olanlar` stops following the ticks.** It counted against the ticked set, so
+   unticking everything but one note walked it down — *"sadece giriş yok seçince ... o
+   sayı değişmesin total sayı kalsın"*. It was describing a state you have to be inside
+   the filter to reach, and it broke the partition with `Sorunu olmayanlar`, which never
+   followed the ticks. Both now count against every note, so the two add up to the month
+   every time. The row count is on the screen anyway, under the list.
+3. **The panel is 152 px, not 267.** Ten checkboxes instead of five needed a third
+   column, but dealing whole families to columns left the third empty and let the taller
+   family set the height alone: at the 880x620 floor the panel took 267 px and the day
+   panel was left **11**. The labels flow across the columns under a full-width heading
+   instead — 6 rows, and the day panel gets 126 px at the floor and 274 at 1366x768. A
+   test pins the ratio there, because that height is where the mail step lives.
+
+`Gün` on the person list is now **`Sorunlu gün`**. Beside a duration, a bare "Gün" read
+as days worked; the number is the count of the person's problem days. The day panel's own
+`Gün` column really is the day of the week and keeps the short name.
+
+---
+
+## ADR-073 — Writing to one person, and only ever one
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Closes:** the first of the three delivery questions in `HANDOVER.md` section 1.
+
+### Decision
+
+The people screen can now send one person one message about the days ticked for them.
+`src/mesai/mail/message.py` composes the text, `src/mesai/mail/sender.py` sends it
+through Gmail's SMTP, and `MailPreview` puts it on screen first.
+
+**No bulk send exists, and no control offers one.** This is the answer to the first of
+those three questions — *"varsayılan davranış gönderim mi önizleme mi"* — and it is
+neither: the default is one person at a time, with a preview, chosen by hand. 162
+e-mails cannot be recalled, and every rule in this project about lists that decide who
+gets contacted (ADR-017, ADR-048, ADR-061) exists because the expensive mistake is the
+silent one. A loop over the list is a decision not yet taken, and a test asserts no
+function in `sender.py` is named for one.
+
+### The text
+
+Short on purpose: the month, the days with their reason, a request to reply, stop.
+
+```
+Sayın <ad>,
+
+Temmuz 2026 dönemi giriş-çıkış kayıtları incelenmiştir.
+
+Aşağıdaki günlerde kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir:
+
+  · 03.07.2026 Cum — Çıkış yok
+  · 14.07.2026 Sal — Çıkış yok
+
+Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
+
+İyi çalışmalar.
+```
+
+Two rules it obeys, both already on the record:
+
+- **It names nobody and no department** (ADR-046, ADR-047). No "İK talebiyle", no "onay
+  bekliyor", no "IT ile kontrol edin". A test greps the composed text for all of them.
+  This matters more here than anywhere else in the program: this is the only output that
+  leaves the building.
+- **Only the ticked note is written** — the trap the handover notes name. A day can carry
+  more than one note; July has two that are both `Çıkış yok` and `Günlük süre çok kısa`.
+  Writing the second asks about something nobody selected.
+
+The day of the week is on every line. A bare date makes the reader look it up before they
+can remember anything about it.
+
+A person with **no dated day still composes** — `Kart bilgisi yok` carries no date and is
+the most important one to write about. The body says it in words rather than showing an
+empty list.
+
+### The address
+
+Prefilled from the snapshot, beside the button, and **editable**. The eight people a
+month with no address (`without_email`) are precisely the ones somebody has to type in,
+and a read-only field would send them nowhere. Editing writes nothing back: the snapshot
+is the record of what the report said, and a typed address is for that send only. It is
+refilled when the person changes and left alone otherwise — a typed address has to
+survive ticking a day off, and must **not** follow the operator onto the next person,
+which would send one person's mail to another's address. A test holds both halves.
+
+### The preview
+
+A send is the only irreversible action in this program; everything else writes a file
+that can be looked at and regenerated. So the last thing between the composed text and
+somebody's inbox is a person reading it.
+
+Editable, because the composed body is a starting point and the operator knows things the
+snapshot does not — a preview that can only be accepted or cancelled makes them choose
+between sending the wrong words and not writing at all.
+
+**What is on screen is what is sent.** The text widget is read back at send time, not the
+draft that opened the window; a preview showing one thing while another goes out would be
+worse than no preview. A test edits the body and the address in the window and asserts
+both reach the transport.
+
+On failure the window stays open with the reason. The two failures this will actually
+produce — a wrong app password and a missing `config/gmail.yaml` — are both fixed by a
+person, and closing the window loses the message they were about to send. Nothing retries.
+
+### The account
+
+`config/gmail.yaml`, **git-ignored**, alongside `personel.yaml` and for the same reason:
+it holds a login, and AGENTS section 2.3 puts logins in the same class as names.
+`config/gmail.example.yaml` is committed with an obviously fake password.
+
+An **app password**, not the account password: Gmail issues a 16-character one per
+application once 2FA is on, and it can be revoked on its own. Getting this wrong is the
+failure that looks like "Gmail is broken", so the missing-file message says it in words,
+and the loader strips the spaces Google prints it with — pasted as shown, login fails.
+
+In `config/` rather than compiled in, because `config/` has to stay writable and editable
+by hand (ADR-042) and a credential inside an exe could not be rotated.
+
+### Consequences
+
+- 519 tests. 16 in a new `tests/test_mail.py` and 8 in `test_gui.py`. **Nothing in the
+  suite opens a socket** — `sender.send` takes a `transport` the tests substitute, so the
+  suite can never mail a real person.
+- No `format_version` change; no figure moved.
+- Still open: whether a manual removal is recorded, and whether an incomplete month may
+  be written from at all. Both are about a bulk send, which is why neither blocked this.

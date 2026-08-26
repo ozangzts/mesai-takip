@@ -773,3 +773,66 @@ def test_a_refused_reading_is_not_reported_as_no_record(tmp_path, settings):
     assert row[header.index("Etiket")] == "Giriş yok"
     assert row[header.index("Son Çıkış")] == "19:56", "ham damga HH:MM olarak"
     assert not row[header.index("Çalışma Süresi")], "sayılan süre yok"
+
+
+def test_the_control_sheet_counts_roster_people_the_period_never_mentions(
+        tmp_path, settings):
+    """The group that appeared on no list, in no count and in no note — ADR-071.
+
+    A roster entry with no badge record and no leave row gets no `Employee` and so no
+    row (ADR-011), which is right: there is nothing to report about them. What was
+    wrong is that `5. Kapsam` counted only the people who *did* reach the report, so
+    nothing anywhere said how many were missing from it. That made them the one group
+    the manual check on `Kart bilgisi yok` could not reach — 21 / 27 / 14 people over
+    May-July 2026, 16 / 22 / 13 of them at the same site that produces almost every
+    `Kart bilgisi yok`.
+
+    Names and the facility split are printed because finding these people by hand is
+    the entire point of the line, and the wording says the ambiguity out loud: the
+    roster has no hire date, so a late joiner and a missing record look identical
+    (ROADMAP Q18).
+    """
+    path = tmp_path / "kapsam.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "test.xlsx"}, roster_size=181,
+                       roster_only=(("KEREM ÖRNEK", "MACUNKÖY TESİSİ"),
+                                    ("ZEYNEP DENEME", "DEICO TESİS"))),
+        settings=settings, generated_at=datetime(2026, 8, 26, 12, 0),
+    )
+
+    rows = list(openpyxl.load_workbook(path, read_only=True)["Kontrol"].iter_rows(
+        values_only=True))
+    control = "\n".join(" ".join(str(c) for c in r if c is not None) for r in rows)
+
+    assert "Personel listesinde olup bu ayda hiç kaydı olmayan 2" in control
+    assert "181 kişiden" in control, "the total it is measured against"
+    # Grouped by facility, through the label table and never the roster's raw wording
+    # (ADR-026) — `Macunköy` and `Teknopark` are what every other sheet calls them.
+    assert "Macunköy 1" in control and "Teknopark 1" in control
+    assert "KEREM ÖRNEK" in control and "ZEYNEP DENEME" in control
+    # It must not read as an absence of work. No hours, no day count, no verdict.
+    assert "0:00" not in control.split("5. Kapsam")[1].split("6.")[0]
+
+
+def test_the_coverage_line_is_absent_when_the_roster_covers_everybody(
+        tmp_path, settings):
+    """A zero here is not news, and a line that is always present stops being read.
+
+    The counts above it are unconditional because they are always the answer to
+    something; this one is only ever a list of people to chase.
+    """
+    path = tmp_path / "tam-kapsam.xlsx"
+    workbook.build(
+        path=path, period="2026-07", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "test.xlsx"}, roster_size=181),
+        settings=settings, generated_at=datetime(2026, 8, 26, 12, 0),
+    )
+
+    control = "\n".join(
+        " ".join(str(c) for c in r if c is not None)
+        for r in openpyxl.load_workbook(path, read_only=True)["Kontrol"].iter_rows(
+            values_only=True))
+    assert "hiç kaydı olmayan" not in control

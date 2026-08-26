@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — Modules, Data Flow, and Why
 
-**Status: BUILT.** Phase 1 is implemented, 484 tests pass, and three months (May,
+**Status: BUILT.** Phase 1 is implemented, 519 tests pass, and three months (May,
 June and July 2026) have been generated with the reconciliation invariant holding.
 July's Teknopark export covers only part of the month and the run says so — ADR-020.
 Phase 2/3/4 modules listed below are still design.
@@ -356,7 +356,9 @@ statements and the sheet must not conflate them.
 
 `RunStats` (mutable, the one exception) carries reconciliation counters to the
 `Kontrol` sheet: rows read and records built per file, excluded badges, accepted
-interval count and total, out-of-period counts, roster export date, roster duplicates.
+interval count and total, out-of-period counts, roster export date, roster duplicates,
+and `roster_only` — the roster people the period left no trace of, who by design get no
+row and were therefore missing from every other count on the sheet (ADR-071).
 
 ## 5. Readers
 
@@ -531,8 +533,8 @@ Non-negotiable cases, each with a hand-computed expected value:
 
 A golden-file test over the real data is valuable but **cannot be committed**
 (personal data). The practical substitute is running two real months and checking the
-`Kontrol` sheet: May and June 2026 both reconcile, and all 110 Teknopark blocks match
-the source system's own totals in both.
+`Kontrol` sheet: May, June and July 2026 all reconcile, and every Teknopark block
+matches the source system's own total (110 / 110 / 112, zero disagreements).
 
 ## 11. Deployment
 

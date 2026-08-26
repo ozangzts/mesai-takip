@@ -874,6 +874,25 @@ def _sheet_control(sheet: Worksheet, period: str, stats: RunStats,
     line("Personel listesinde olmayan",
          sum(1 for s in summaries if not s.employee.in_roster),
          "Dönemde çalışıp personel listesi alınana kadar ayrılmış olabilir")
+    # The other direction, and the one nothing used to say (ADR-071): people the roster
+    # has and the period does not. They get no row, so every count above is blind to
+    # them — which made them the one group a manual check could not reach.
+    if stats.roster_only:
+        line("Personel listesinde olup bu ayda hiç kaydı olmayan",
+             len(stats.roster_only),
+             f"Personel listesindeki {stats.roster_size} kişiden bu kadarının ne kart "
+             "ne izin kaydı var, o yüzden rapora satır açılmıyor. Bir kısmı sonradan "
+             "işe başlamış olabilir; listede işe giriş tarihi olmadığı için program "
+             "ayırt edemiyor, tek tek bakılması gerekiyor",
+             styles.RED_FILL)
+        by_facility: dict[str, list[str]] = {}
+        for name, facility in stats.roster_only:
+            by_facility.setdefault(settings.facility(facility) or "—", []).append(name)
+        for facility in sorted(by_facility, key=sort_key):
+            names = by_facility[facility]
+            line(f"  {facility}", len(names))
+            for name in names:
+                line(f"    {name}")
     line("Şüpheli kayıt (toplam)", len(anomalies))
     line("  toplama dahil edilmeyen",
          sum(1 for a in anomalies.items if a.severity == "excluded"))
