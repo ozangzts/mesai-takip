@@ -219,7 +219,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 547 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 550 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 

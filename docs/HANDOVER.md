@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **547 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **550 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -142,8 +142,11 @@ sonra. Kişinin açıklama yazacağı **tablo hazır** — `html_gun_satiri`'nda
 bırakıldı. Tabloyu değiştirmek dosya düzenlemesi, derleme değil. HTML alanlarını boşaltmak
 düz metne döner.
 
-> **Önizlemede gövdeyi düzenlersen HTML kısmı düşer.** Pencere düz metni gösteriyor;
-> eski metni taşıyan bir HTML parçası, okuyanın senin görmediğin bir şeyi okuması olurdu.
+> **Önizleme yalnızca düz metni çiziyor** — tkinter HTML çizemiyor. Tablonun kendisini
+> görmek için penceredeki `HTML'i tarayıcıda gör` düğmesi var. Bu eksikti ve taslağı
+> değiştirdikten sonra pencereye bakan operatöre "eski taslak duruyor" gibi göründü.
+> **Gövdeyi düzenlersen HTML kısmı düşer:** eski metni taşıyan bir HTML parçası, okuyanın
+> senin görmediğin bir şeyi okuması olurdu ve çoğu istemci tam o parçayı gösterir.
 
 **Hiçbir test soket açamaz** — `conftest.py` bütün pakete `smtplib.SMTP`'yi kapatıyor.
 Tedbir değil: *eksik* `gmail.yaml` raporlanıyor mu diye yazılmış bir test gerçeğini buldu

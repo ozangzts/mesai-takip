@@ -5076,6 +5076,17 @@ code. So the HTML path is built now and the future table is a file edit:
   recipient reads something the operator never saw, and most clients would show them
   exactly that part. Editing there is a decision to send the plain version; changing the
   table is an edit to the file.
+- **The preview says an HTML part is going too, and opens it in a browser.** This was
+  missing and it cost the operator a confused look at a template they had just changed:
+  *"uygulamaya girdim de aynı görünüyor, eski taslak var? ben mi bir şey kaçırıyorum?"* —
+  no. The window renders only the plain part, because tkinter has no HTML engine, and the
+  note under it claimed *"gönderilecek olan bu pencerede gördüğünüzün aynısıdır"* while a
+  whole second version went out unseen. It now says which part it is showing and offers
+  `HTML'i tarayıcıda gör`, which writes the current draft to a temp file and opens it — a
+  browser is the only renderer on the machine that shows it the way a mail client will.
+  Written fresh on each click, so it follows an edit to the template without a restart.
+  With both HTML fields empty the note says the message is plain text only and no button
+  appears; a note promising a table that is not there would be the same defect again.
 
 ### Two defects this turned up
 

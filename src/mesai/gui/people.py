@@ -96,11 +96,32 @@ class MailPreview:
                  highlightbackground=w.LINE, highlightcolor=w.ACCENT).grid(
             row=1, column=1, sticky="ew", ipady=4, pady=(8, 0))
 
-        tk.Label(top, background=w.BG, foreground=w.MUTED, font=(w.FACE, 8),
-                 anchor="w", justify="left", wraplength=600,
-                 text="Aşağıdaki metin düzenlenebilir. Gönderilecek olan, bu "
-                      "pencerede gördüğünüzün aynısıdır.").grid(
-            row=1, column=0, sticky="ew", padx=14, pady=(10, 4))
+        # What this window can and cannot show. It renders the PLAIN part — tkinter has
+        # no HTML engine — and the message also carries an HTML part with the table,
+        # which is what most people will actually see. Saying "gönderilecek olan bu
+        # pencerede gördüğünüzün aynısıdır" while a whole second version went out
+        # unseen was the gap: the operator opened the window, saw text they recognised,
+        # and concluded the template had not changed.
+        note_row = tk.Frame(top, background=w.BG)
+        note_row.grid(row=1, column=0, sticky="ew", padx=14, pady=(10, 4))
+        note_row.columnconfigure(0, weight=1)
+        self.note = tk.Label(note_row, background=w.BG, foreground=w.MUTED,
+                             font=(w.FACE, 8), anchor="w", justify="left",
+                             wraplength=470)
+        self.note.grid(row=0, column=0, sticky="ew")
+        if self._draft.html.strip():
+            self.note.configure(
+                text="Aşağıdaki DÜZ METİN düzenlenebilir. Mail ayrıca tablolu bir "
+                     "HTML biçimi taşıyor ve çoğu kişi onu görecek — sağdaki düğme "
+                     "onu tarayıcıda açar. Düz metni düzenlerseniz HTML biçimi "
+                     "gönderilmez.")
+            w.button(note_row, "HTML'i tarayıcıda gör", self._show_html,
+                     primary=False).grid(row=0, column=1, sticky="e", padx=(10, 0))
+        else:
+            self.note.configure(
+                text="Aşağıdaki metin düzenlenebilir. Gönderilecek olan, bu "
+                     "pencerede gördüğünüzün aynısıdır — bu mail yalnızca düz "
+                     "metin taşıyor.")
 
         body_card = tk.Frame(top, background=w.LINE)
         body_card.grid(row=3, column=0, sticky="nsew", padx=14)
@@ -147,6 +168,24 @@ class MailPreview:
         return replace(self._draft, to=self.to_var.get().strip(),
                        subject=self.subject_var.get().strip(),
                        body=body, html=html)
+
+    def _show_html(self) -> None:
+        """Open the HTML part in the default browser.
+
+        A temporary file rather than anything clever: the point is to let a person look
+        at the thing that will be sent, and a browser is the only renderer on the machine
+        that shows it the way a mail client will. Written fresh each time, so it follows
+        an edit to `config/mail-taslagi.yaml` without restarting.
+        """
+        import tempfile
+        import webbrowser
+
+        html = self.current().html or self._draft.html
+        if not html.strip():
+            return
+        path = Path(tempfile.gettempdir()) / "mesai-mail-onizleme.html"
+        path.write_text(html, encoding="utf-8")
+        webbrowser.open(path.as_uri())
 
     def confirm(self) -> None:
         draft = self.current()

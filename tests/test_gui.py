@@ -2621,3 +2621,70 @@ def test_the_day_headline_counts_only_what_the_panel_holds(day_screen):
             assert f"{len(kept)} sayılan" in baslik, baslik
         if lost or kept:
             assert f"{len(lost)} sayılmayan gün" in baslik, baslik
+
+
+def test_the_preview_says_an_html_part_is_going_too(day_screen):
+    """The gap that made a changed template look unchanged.
+
+    The window renders the PLAIN part — tkinter has no HTML engine — and the message also
+    carries an HTML part with the table, which is what most recipients see. The old note
+    said "gönderilecek olan bu pencerede gördüğünüzün aynısıdır" while a whole second
+    version went out unseen, so the operator opened it, saw text they recognised, and
+    concluded the new template had not been picked up.
+    """
+    from mesai.gui.people import MailPreview
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    draft = screen._draft()
+    assert draft.html.strip(), "sevk edilen taslakta HTML var"
+
+    preview = MailPreview(screen.root, draft, lambda d: (True, ""))
+    preview.show()
+    metin = preview.note.cget("text")
+
+    assert "HTML" in metin
+    assert "aynısıdır" not in metin, metin
+    preview.close()
+
+
+def test_the_preview_writes_the_html_it_would_send(day_screen, tmp_path, monkeypatch):
+    """The button must show the current draft, not the one the window opened with."""
+    from mesai.gui.people import MailPreview
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    acilan = []
+    monkeypatch.setattr("webbrowser.open", lambda uri: acilan.append(uri))
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+
+    preview = MailPreview(screen.root, screen._draft(), lambda d: (True, ""))
+    preview.show()
+    preview._show_html()
+
+    assert len(acilan) == 1
+    yazilan = (tmp_path / "mesai-mail-onizleme.html").read_text(encoding="utf-8")
+    assert "<table" in yazilan
+    assert "Açıklama" in yazilan
+    preview.close()
+
+
+def test_a_plain_only_message_says_so_and_offers_no_button(day_screen):
+    """Both HTML fields empty is a correct message; the note must not promise a table."""
+    from dataclasses import replace as _replace
+
+    from mesai.gui.people import MailPreview
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+    duz = _replace(screen._draft(), html="")
+
+    preview = MailPreview(screen.root, duz, lambda d: (True, ""))
+    preview.show()
+
+    assert "yalnızca düz metin" in preview.note.cget("text")
+    preview.close()
