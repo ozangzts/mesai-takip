@@ -218,7 +218,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 525 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 529 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -543,7 +543,9 @@ ticked set, so the column read 446 across July (27 of them days that were counte
 what a person's days are is not up for selection. Counted days are offered in the panel
 under their own heading and **start unticked** — the off-set is inverted for them on
 purpose, because silence is the expensive mistake when a day was lost and a false
-statement is the expensive one when it was not.
+statement is the expensive one when it was not. A **leave-covered day is in neither
+half** and does not reach the panel at all (ADR-075): nobody is asked about a day they
+were on leave, so `days_by_cost` is deliberately **not** a partition of `person.days`.
 
 **Mail goes to one person per call and there is no bulk send** (ADR-073). Not an omission
 — 162 e-mails cannot be recalled, and a loop is a decision nobody has taken. A test

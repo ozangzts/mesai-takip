@@ -25,7 +25,7 @@ is git-ignored by name, wherever the user pointed the output.
 Sheet names, column headers and all visible text are **Turkish** — HR reads this.
 
 The `Sorun` column holds a **keyword**, not a sentence — it is what the people screen
-filters on — and `İnceleme Listesi` prints the sentence beside it in `Açıklama`. No two
+filters on — and `İnceleme Listesi` explains each one once, under the table. No two
 kinds may share a label; a test enforces that, because the label is the filter key
 (ADR-027).
 
@@ -241,16 +241,21 @@ into a per-person question: **191 rows**, each naming the days.
 | C | Tesis | `Teknopark` |
 | D | Departman | |
 | E | Sorun | `Çıkış yok` |
-| F | Açıklama | `Giriş basılmış, çıkış kaydı yok` |
-| G | Gün Sayısı | `15` |
-| H | Günler | `4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 17, 18, 20 Mayıs` |
-| I | Etki | `2 gün 0 saat sayıldı; 3 gün başka kayıttan sayıldı` |
-| J | Ayrıntı | `22 iş gününün 2 tanesi açıklanıyor (%9) — çalışma 1 gün, izin 1 gün` |
+| F | Gün Sayısı | `15` |
+| G | Günler | `4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 17, 18, 20 Mayıs` |
+| H | Etki | `2 gün 0 saat sayıldı; 3 gün başka kayıttan sayıldı` |
+| I | Ayrıntı | `22 iş gününün 2 tanesi açıklanıyor (%9) — çalışma 1 gün, izin 1 gün` |
 
 One row per **(person, problem type)** pair — a person with both a missing entry and
 a missing exit gets two rows, because they are two different questions.
 
-`Açıklama` is the note's meaning and reads the same on every row carrying that note.
+**Below the table: `SORUNLARIN ANLAMI`**, one line per note that occurred this month
+(11 in July 2026). This used to be an `Açıklama` column, 52 characters wide and
+repeating the same sentence on every row carrying that note — the meaning does not vary
+by person, so per row it bought nothing and cost the width the days needed. Under the
+table rather than on `Kontrol`, because the reader who wants a meaning is looking at the
+row that needs it. ADR-075.
+
 `Ayrıntı` is the opposite: the record's **own** words, and it is filled only where the
 row stands for a single record. That is always true of a month-level note, which is the
 case the column exists for — `Kart bilgisi yok` says what it found about the month, and
@@ -271,12 +276,15 @@ Grey rows exist so that a genuine question is not buried among expected ones. Fo
 the day counted anyway from another one, **3** split between the two, 29 amber and 19 grey.
 The 112 are the ones somebody has to chase.
 
-Sorted worst first: `excluded`, then `included`, then `info`, and within each by day
-count descending. The person costing the most hours is the first thing you see; the
-expected-behaviour rows are at the bottom where they belong.
+**Sorted by name**, Turkish alphabetical, like `Aylık Özet`, `Günlük Detay` and
+`İzin Özeti`. It used to lead with severity and then descending day count — worst first,
+which is right for triage and wrong for this sheet, because this is the sheet somebody
+looks a person up in. Nothing is lost: the row colour states the severity, and Excel
+sorts `Gün Sayısı` for whoever wants the old order. A fourth sheet with its own order is
+one the reader has to relearn. ADR-075.
 
-Problems with no specific date (`Mesai verisi hiç yok`, which covers the whole
-month) show `tüm ay` in column G.
+Problems with no specific date (`Kart bilgisi yok`, which covers the whole month) show
+`tüm ay` in the `Günler` column.
 
 ### Sheet 4 — `Şüpheli Kayıtlar`
 

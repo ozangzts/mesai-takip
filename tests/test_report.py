@@ -654,10 +654,10 @@ def test_the_worklist_carries_a_month_level_notes_own_figures(tmp_path, settings
         _build(tmp_path, settings, anomalies=collector), read_only=True)
     rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
     header = [c for c in rows[3] if c is not None]
-    assert header[9] == "Ayrıntı"
+    assert header[8] == "Ayrıntı"
 
     row = next(r for r in rows[4:] if r and r[4] == "Kart bilgisi yok")
-    assert row[9] == sparse.detail
+    assert row[8] == sparse.detail
 
 
 def test_the_worklist_leaves_the_detail_empty_when_several_days_disagree(tmp_path,
@@ -675,18 +675,81 @@ def test_the_worklist_leaves_the_detail_empty_when_several_days_disagree(tmp_pat
     rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
     row = next(r for r in rows[4:] if r and r[4] == "Çıkış yok")
 
-    assert row[6] == 2
-    assert not row[9]
+    assert row[5] == 2
+    assert not row[8]
 
 
-def test_the_worklist_prints_the_explanation_beside_the_keyword(tmp_path, settings):
+def test_the_worklist_explains_each_note_once_under_the_table(tmp_path, settings):
+    """The meaning was a 52-wide column repeated on every row carrying that note.
+
+    It is the same sentence every time — a note's meaning does not vary by person — so
+    per row it bought nothing and cost the width the days needed. *"orayı kısalt bir
+    çözüm bul ya da komple kaldır."* It is a legend under the table now, once each,
+    listing only the notes this month actually produced.
+    """
     book = openpyxl.load_workbook(_build(tmp_path, settings), read_only=True)
     rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
     header = [c for c in rows[3] if c is not None]
 
-    assert header[4] == "Sorun" and header[5] == "Açıklama"
-    explanations = {row[4]: row[5] for row in rows[4:] if row and row[4]}
-    assert explanations["Çıkış yok"] == "Giriş basılmış, çıkış kaydı yok"
+    assert "Açıklama" not in header, header
+    assert header[4] == "Sorun" and header[5] == "Gün Sayısı"
+
+    flat = ["|".join(str(c) for c in r if c is not None) for r in rows]
+    legend = next(i for i, line in enumerate(flat) if "SORUNLARIN ANLAMI" in line)
+    text = chr(10).join(flat[legend:])
+    assert "Çıkış yok|Giriş basılmış, çıkış kaydı yok" in text, text
+    # and only once, not once per person carrying it
+    assert text.count("Giriş basılmış, çıkış kaydı yok") == 1
+
+
+def test_the_worklist_legend_names_only_the_notes_that_occurred(tmp_path, settings):
+    """A legend listing notes nobody has invites looking for people who are not there."""
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.MISSING_EXIT, source="macunkoy", source_row=4, key=KEY,
+        raw_name="AYŞE DENEME", date=DAY, raw_entry="07:41"))
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
+    flat = ["|".join(str(c) for c in r if c is not None) for r in rows]
+    legend = chr(10).join(flat[next(i for i, l in enumerate(flat)
+                                    if "SORUNLARIN ANLAMI" in l):])
+
+    assert "Çıkış yok" in legend
+    assert "Gece geçişi" not in legend, legend
+
+
+def test_the_worklist_is_in_turkish_name_order(tmp_path, settings):
+    """*"onu normal isimle alfabetik yap diğer bölümler gibi yoksa kafa karıştırıyor."*
+
+    It led with severity and then with descending day count — useful when triaging,
+    confusing when looking somebody up, and this is the sheet people look somebody up in.
+    The colour says the severity on every row and Excel will sort `Gün Sayısı` for
+    whoever wants that order. Three other sheets are by name; a fourth with its own
+    order is one the reader has to relearn.
+    """
+    from mesai.normalize import sort_key
+
+    collector = Collector()
+    # ZEYNEP: one day, `included`. AHMET: three days, `excluded`. Old order put AHMET
+    # first on both counts, so name order is the only thing that can move ZEYNEP up.
+    collector.add(Anomaly(
+        kind=AnomalyKind.NEGATIVE_DURATION, source="macunkoy", source_row=2,
+        key=("ZEYNEP", "DENEME"), raw_name="ZEYNEP DENEME", date=DAY))
+    for day in (3, 9, 11):
+        collector.add(Anomaly(
+            kind=AnomalyKind.MISSING_EXIT, source="macunkoy", source_row=day,
+            key=("AHMET", "ORNEK"), raw_name="AHMET ÖRNEK",
+            date=date(2026, 5, day), raw_entry="07:41"))
+
+    book = openpyxl.load_workbook(
+        _build(tmp_path, settings, anomalies=collector), read_only=True)
+    rows = list(book["İnceleme Listesi"].iter_rows(values_only=True))
+    names = [r[0] for r in rows[4:]
+             if r and r[0] and r[4] and "SORUNLARIN" not in str(r[0])]
+
+    assert names == sorted(names, key=sort_key), names
 
 
 # --- the Etki column says what happened to the RECORD (ADR-055) --------------

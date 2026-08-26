@@ -371,7 +371,10 @@ Sağdaki panel kişinin **bütün** sorunlu günlerini gösterir, iki blokta:
 | Blok | Ne | İlk hâli |
 | --- | --- | --- |
 | (başlıksız, üstte) | O gün hiçbir yerde sayılmamış — gerçek kayıp | **işaretli** |
-| `SAYILAN YA DA İZİNLİ GÜNLER` | Kaybı yok: süre sayıldı ya da izin kapsıyor | **işaretsiz** |
+| `SAYILAN GÜNLER` | Süre sayıldı, kayıp yok | **işaretsiz** |
+
+**İzin kapsayan günler panelde hiç görünmez.** Yıllık izindeki bir güne "neredeydin"
+diye sorulmayacağı için orada durmalarının anlamı yok. Ayda 2–3 gün.
 
 İkinci blok teklif olarak duruyor: mesela gece vardiyası düzeltilmiş bir gün hakkında da
 soru sorulabilir, ama o gün **sayıldığı için** kendiliğinden mesaja girmez. Girmesini
@@ -393,8 +396,8 @@ Temmuz 2026 dönemi giriş-çıkış kayıtları incelenmiştir.
 
 Aşağıdaki günlerde kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir:
 
-  · 03.07.2026 Cum — Çıkış yok
-  · 14.07.2026 Sal — Çıkış yok
+  · 03.07.2026 Cum — Çıkış yok (giriş 07:41, çıkış kaydı yok)
+  · 14.07.2026 Sal — Çıkış yok (giriş 08:02, çıkış kaydı yok)
 
 Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
 
@@ -405,6 +408,10 @@ Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi ri
 
 - **Aynı gün birden çok not taşıyabiliyor** ve mesajda yalnızca işaretlenen yazılıyor.
   Yoksa kişiye sorulmayan bir şey sorulmuş olur.
+- **Her satırda o gün ne okunduğu yazıyor.** Eksik olan yarım tire ile değil kelimeyle
+  söyleniyor ("çıkış kaydı yok"), çünkü bu mesaj bir kez, elde sayfa olmadan okunuyor.
+- **Konuda sayı yok**, sadece ay ve yıl. Açılmadan okunan tek satırda bir sayı olması,
+  mesajın konusunun o sayı olduğu izlenimi veriyordu.
 - **Hiç kimse ve hiçbir birim adlandırılmıyor**, "onay bekleniyor" da denmiyor. Mesaj
   kayıtların ne gösterdiğini yazıp durumu sorar; kimin takip ettiği mesajın konusu değil.
 - **Toplu gönderim yok.** Kişi kişi, ve gönderilmeden önce mesaj ekranda gösteriliyor.

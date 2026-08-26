@@ -4760,3 +4760,81 @@ note.
   sites and two tests used it as a boolean — `any(...)` is the replacement. Anything new
   reading it must say which half it means.
 - No figure in the report moved. No `format_version` change.
+
+---
+
+## ADR-075 — Four corrections after the first real look
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Corrects ADR-074, ADR-073 and the sort order `İnceleme Listesi` has had since Phase 1.**
+
+Four things, all from the operator using it rather than reading it.
+
+### 1. Leave days leave the day panel entirely
+
+ADR-074 put them in `kept` beside the counted days, under a heading reading
+`SAYILAN YA DA İZİNLİ GÜNLER` so as not to call a leave day counted. That was careful
+about the wrong thing:
+
+> *"ya sayılan ya da izinli günler niye dedin, izinli günler zaten görünmemesi lazım
+> burada. izinlilerle işimiz yok."*
+
+Right. Nobody is asked about a day they were on leave, and the panel's only purpose is
+choosing what to ask — so the day does not belong in it, and the heading existed only to
+excuse its presence. `days_by_cost` now returns three-way: counted to `kept`, lost to
+`lost`, leave-covered to **neither**. It is therefore no longer a partition of
+`person.days`, and a test says so out loud. The heading is `SAYILAN GÜNLER`.
+
+Two or three days a month (July 2, May and June 3), so this is about the panel reading
+cleanly, not about volume. A day that was counted **and** has leave against it stays in
+`kept` — counted is counted, and the leave column does not remove measured hours.
+
+### 2. The message says what was read that day
+
+> *"giriş çıkış saatlerini de ekleyebilir miyiz o günler için?"*
+
+Yes, and it is the difference between the person being able to answer and having to go
+and ask somebody:
+
+```
+  · 01.07.2026 Çar — Çıkış yok (giriş 07:17, çıkış kaydı yok)
+```
+
+The missing half is **named, not dashed**. A dash beside a time reads as a formatting
+artefact to somebody reading this once, probably on a phone, without the sheet in front
+of them. Four forms, one per shape of reading, and a test pins each.
+
+### 3. The subject is the month and nothing else
+
+`Temmuz 2026 mesai kayıtları — 22 gün` became `Temmuz 2026 mesai kayıtları`. A number in
+the subject line is the one thing read before anything is opened, which invites it to be
+read as the point of the message. The point is inside, and it is a question, not a count.
+
+### 4. `İnceleme Listesi` — by name, and the explanation column is gone
+
+**Order.** It led with severity, then descending day count. Useful when triaging, wrong
+for this sheet: *"onu normal isimle alfabetik yap diğer bölümler gibi yoksa kafa
+karıştırıyor."* This is the sheet somebody looks a person up in, and three other sheets
+are already in Turkish name order — a fourth with its own order is one the reader has to
+relearn. Nothing is lost: the row colour states the severity, and Excel will sort
+`Gün Sayısı` for whoever wants the old order.
+
+**`Açıklama`.** A 52-wide sentence repeated on every row carrying that note — and it is
+the same sentence every time, because a note's meaning does not vary by person. So it
+bought nothing per row and cost the width the days needed:
+*"çok uzun, ne dediğini de anlamadım, kimse de açıp okumaz."*
+
+It is a legend under the table now, `SORUNLARIN ANLAMI`, one line per note **that
+actually occurred** — 11 lines in July. Under the table rather than on `Kontrol`: the
+reader who wants a meaning is looking at the row that needs it, and a meaning on another
+sheet is a meaning nobody reads. `Günler` gets the freed width; `Ayrıntı` stays, because
+it carries the *record's* own words and does differ row to row.
+
+### Consequences
+
+- 529 tests. `Çıkış yok` is on 226 worklist rows in July and the legend explains it once.
+- No figure moved. The mail list stays 216 / 352 / 419 days; 37 / 59 / 61 counted days are
+  offered unticked, and 3 / 3 / 2 leave days are no longer offered at all.
+- No `format_version` change — the snapshot still carries every problem day, including
+  the leave-covered ones. What changed is what the window does with them.

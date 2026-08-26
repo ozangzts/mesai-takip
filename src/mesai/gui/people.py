@@ -804,13 +804,12 @@ class PeopleScreen:
             # A heading row rather than a word on each line. The distinction is about
             # the whole block, so saying it once is enough, and the `Sorun` column has
             # the note in it — a second phrase per row competes with the thing the row
-            # is actually about. `izinli` is in the heading because `explained` folds
-            # two things together (July: 158 counted, 2 covered by leave) and calling a
-            # leave day "sayıldı" would be a small false statement.
+            # is actually about. It said "sayılan ya da izinli" while leave days were
+            # here too; they are not here any more (ADR-075), so it says one thing.
             heading = self.day_tree.insert(
                 "", "end", tags=("baslik",),
-                values=("", "SAYILAN YA DA İZİNLİ GÜNLER", "", "", "", "",
-                        "kaybı yok — istenirse tek tek seçilir"))
+                values=("", "SAYILAN GÜNLER", "", "", "", "",
+                        "süre sayıldı — istenirse tek tek seçilir"))
             self._day_rows.append((None, heading))
             for day in kept:
                 self._insert_day(day, off)

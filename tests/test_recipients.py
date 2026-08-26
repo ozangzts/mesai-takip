@@ -519,19 +519,33 @@ def test_days_by_cost_splits_every_problem_day_and_ignores_the_ticks():
 
     lost, kept = recipients.days_by_cost(kisi)
     assert lost == (kayip,)
-    assert kept == (sayilan, izinli)
-    # every problem day is in exactly one half
-    assert len(lost) + len(kept) == len(kisi.days)
+    assert kept == (sayilan,)
+    # The leave day is in NEITHER, so this is not a partition and must not be read as
+    # one — see the test below.
+    assert izinli not in lost + kept
 
 
-def test_days_by_cost_counts_a_leave_covered_day_as_no_loss():
-    """Nothing went missing on a day annual leave covers, so nobody is asked about it.
+def test_a_leave_covered_day_is_left_out_altogether():
+    """*"izinlilerle işimiz yok."*
 
-    It is in `kept` rather than `lost` even though no minutes were counted — the window
-    heading says "sayılan ya da izinli" rather than calling it counted.
+    It first went into `kept` beside the counted days, under a heading reading "sayılan
+    ya da izinli" so as not to call it counted. That was solving the wrong problem:
+    nobody is asked about a day they were on leave, so the panel — whose only purpose is
+    choosing what to ask — has no business listing it, and the heading existed only to
+    excuse its presence. Two or three days a month, so this is about the panel reading
+    cleanly rather than about volume.
     """
     izinli = _day(5, covered_by="Doğum İzni (Tam Ödeme)")
     kisi = Person(**{**person("ESRA DENEME", problems=("Çıkış yok",)).__dict__,
                      "days": (izinli,)})
 
-    assert recipients.days_by_cost(kisi) == ((), (izinli,))
+    assert recipients.days_by_cost(kisi) == ((), ())
+
+
+def test_a_counted_day_that_leave_also_covers_stays_in_kept():
+    """Counted is counted. The leave column does not remove hours that were measured."""
+    ikisi = _day(5, minutes=523, covered_by="Yıllık İzin")
+    kisi = Person(**{**person("ESRA DENEME", problems=("Çıkış yok",)).__dict__,
+                     "days": (ikisi,)})
+
+    assert recipients.days_by_cost(kisi) == ((), (ikisi,))

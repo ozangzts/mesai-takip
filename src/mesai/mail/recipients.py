@@ -314,18 +314,27 @@ def days_by_cost(person: Person) -> tuple[tuple[ProblemDay, ...],
     set was reporting and 127 with one note ticked.
 
     `lost` is what the column counts and what a message is about by default. `kept` is
-    every problem day where nothing went missing — the time was counted, or leave covers
-    it. Those are offered but never selected for somebody unless it is asked for: telling
-    a person "eksik durum tespit edilmiştir" about a day that was counted in full is a
-    false statement, and 27 of July's days were in that position while the ticked set
-    drove the panel.
+    the problem days whose time **was counted** — offered but never selected unless it is
+    asked for, because telling a person "eksik durum tespit edilmiştir" about a day that
+    was counted in full is a false statement, and 27 of July's days were in that position
+    while the ticked set drove the panel.
 
-    Note `kept` folds two things together, 158 counted days and 2 leave-covered ones in
-    July. The window's heading says both rather than calling a leave day counted.
+    **A day leave covers is in neither.** It first went into `kept` alongside the counted
+    days, under a heading that said "sayılan ya da izinli" so as not to call it counted.
+    That was solving the wrong problem: *"izinlilerle işimiz yok."* Nobody is asked about
+    a day they were on annual leave, so it does not belong in a panel whose only purpose
+    is choosing what to ask — and the heading was only there to excuse its presence. Two
+    or three days a month (July 2), so this is about the panel reading cleanly, not about
+    volume.
     """
-    lost = tuple(day for day in person.days if not day.explained)
-    kept = tuple(day for day in person.days if day.explained)
-    return lost, kept
+    lost, kept = [], []
+    for day in person.days:
+        if day.minutes:
+            kept.append(day)         # counted; offered, never selected by default
+        elif not day.covered_by:
+            lost.append(day)         # nothing counted and no leave: a real loss
+        # else: leave covers it — not a question for anybody, so not here at all
+    return tuple(lost), tuple(kept)
 
 
 def outstanding(person: Person, labels: Iterable[str],

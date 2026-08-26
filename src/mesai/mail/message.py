@@ -47,8 +47,30 @@ class Draft:
         return bool(self.to.strip()) and bool(self.body.strip())
 
 
+def _reading(day: ProblemDay) -> str:
+    """What the badge system actually recorded that day, in parentheses.
+
+    Asked for after the first version shipped without it, and it is the difference
+    between a person being able to answer and having to go and ask somebody. `Çıkış yok`
+    tells them what is wrong; `giriş 07:41, çıkış kaydı yok` tells them which day of
+    their life it was.
+
+    The missing half is named rather than dashed. A dash beside a time reads as a
+    formatting artefact, and this message is read once, probably on a phone, by somebody
+    who does not have the sheet in front of them.
+    """
+    entry, exit = day.entry_text, day.exit_text
+    if entry and exit:
+        return f"giriş {entry}, çıkış {exit}"
+    if entry:
+        return f"giriş {entry}, çıkış kaydı yok"
+    if exit:
+        return f"giriş kaydı yok, çıkış {exit}"
+    return "giriş ve çıkış kaydı yok"
+
+
 def _day_line(day: ProblemDay, counted: frozenset[str]) -> str:
-    """One dated line: the date, the day of the week, and why it is listed.
+    """The date, the weekday, why it is listed, and what was read that day.
 
     The reason is the **ticked** note and only that. Without the reason the reader gets
     a list of dates and no idea what to answer; with every note on the day, they get
@@ -56,7 +78,8 @@ def _day_line(day: ProblemDay, counted: frozenset[str]) -> str:
     """
     shown = [label for label in day.problems if label in counted] or list(day.problems)
     stamp = f"{day.date:%d.%m.%Y}"
-    return f"  · {stamp} {_DAYS[day.date.weekday()]} — {', '.join(shown)}"
+    return (f"  · {stamp} {_DAYS[day.date.weekday()]} — {', '.join(shown)}"
+            f" ({_reading(day)})")
 
 
 def compose(person: Person, days: Iterable[ProblemDay], period: str,
@@ -89,7 +112,9 @@ def compose(person: Person, days: Iterable[ProblemDay], period: str,
     lines += ["", "Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak "
                   "bildirmenizi rica ederiz.", "", "İyi çalışmalar."]
 
-    sayi = f"{len(dated)} gün" if dated else "kayıt bulunamadı"
+    # The subject is the month and nothing else. It carried the day count, which put a
+    # number in the one line the reader sees before opening anything — and a number in a
+    # subject line invites being read as the point of the message. The point is inside.
     return Draft(to=(person.email or "").strip(),
-                 subject=f"{ay} mesai kayıtları — {sayi}",
+                 subject=f"{ay} mesai kayıtları",
                  body="\n".join(lines))

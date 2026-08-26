@@ -37,12 +37,14 @@ def test_the_body_lists_the_days_with_their_reason():
     draft = message.compose(person(), [day(14), day(3)], "2026-07", {"Çıkış yok"})
 
     assert draft.to == "ayse@example.com"
-    assert "Temmuz 2026" in draft.subject and "2 gün" in draft.subject
+    # The month and nothing else. It carried the day count, which put a number in the
+    # one line read before anything is opened.
+    assert draft.subject == "Temmuz 2026 mesai kayıtları"
     assert draft.body.startswith("Sayın AYŞE DENEME,")
     # Sorted, and each line says which day of the week — a bare date makes the reader
-    # go and look it up before they can remember anything about it.
-    assert "03.07.2026 Cum — Çıkış yok" in draft.body
-    assert "14.07.2026 Sal — Çıkış yok" in draft.body
+    # go and look it up before they can remember anything about it — and what was read.
+    assert "03.07.2026 Cum — Çıkış yok (giriş 07:41, çıkış kaydı yok)" in draft.body
+    assert "14.07.2026 Sal — Çıkış yok (giriş 07:41, çıkış kaydı yok)" in draft.body
     assert draft.body.index("03.07") < draft.body.index("14.07")
     assert draft.is_sendable
 
@@ -64,6 +66,26 @@ def test_with_no_note_ticked_the_day_still_says_why_it_is_listed():
     """A dated line with no reason is a date the reader cannot answer."""
     draft = message.compose(person(), [day(9)], "2026-07", set())
     assert "09.07.2026 Per — Çıkış yok" in draft.body
+
+
+def test_each_line_says_what_was_actually_read_that_day():
+    """*"giriş çıkış saatlerini de ekleyebilir miyiz o günler için?"* — and it is the
+    difference between answering and having to go and ask somebody.
+
+    The missing half is named, never dashed: a dash beside a time reads as a formatting
+    artefact to somebody reading this once on a phone.
+    """
+    tam = day(2, entry="07:41", exit="18:26")
+    girissiz = day(3, problems=("Giriş yok",), entry="", exit="18:26")
+    bossuz = day(4, problems=("Hem giriş hem çıkış yok",), entry="", exit="")
+    body = message.compose(person(), [tam, girissiz, bossuz, day(5)],
+                           "2026-07", set()).body
+
+    assert "(giriş 07:41, çıkış 18:26)" in body
+    assert "(giriş kaydı yok, çıkış 18:26)" in body
+    assert "(giriş ve çıkış kaydı yok)" in body
+    assert "(giriş 07:41, çıkış kaydı yok)" in body
+    assert "—," not in body and ", —" not in body, "eksik yarım tire ile yazılmamalı"
 
 
 def test_a_person_with_no_dated_day_still_composes():

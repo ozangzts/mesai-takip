@@ -449,19 +449,17 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
 # Sheet 3 — İnceleme Listesi (per-person worklist)
 # ---------------------------------------------------------------------------
 
-# "Sorun" is a keyword now, so the sentence it used to be goes in its own column.
-# Without this the sheet would say "Gece geçişi" and leave the reader to guess.
-# `Ayrıntı` carries the record's OWN words, where the row is about a single record.
-# `Açıklama` is the note's meaning and is the same on every row with that note, so a
-# figure that differs per person had nowhere to go. Written for `Ay büyük ölçüde boş`,
-# which ADR-062 removed; `Kart bilgisi yok` is the month-level note that needs it now,
-# and every single-record row gets its own words. Only the row-per-record audit sheet
-# was showing them, and that is the sheet you do not take to a meeting.
+# `Açıklama` used to be here, a 52-wide sentence repeated on every row carrying that
+# note. It was the same text every time — the note's meaning does not vary by person —
+# so it bought nothing per row and cost the width the days needed. It is a legend under
+# the table now, once per note that actually occurs (ADR-075).
+# `Ayrıntı` stays: it carries the RECORD's own words, and only where the row stands for
+# a single record, so it does differ row to row.
 _WORKLIST_HEADERS = [
-    "Ad Soyad", "Sicil No", "Tesis", "Departman", "Sorun", "Açıklama",
+    "Ad Soyad", "Sicil No", "Tesis", "Departman", "Sorun",
     "Gün Sayısı", "Günler", "Etki", "Ayrıntı",
 ]
-_WORKLIST_WIDTHS = [28, 10, 14, 30, 22, 52, 11, 46, 24, 58]
+_WORKLIST_WIDTHS = [28, 10, 14, 30, 26, 11, 52, 24, 58]
 
 
 def _single_detail(found: list[str]) -> str:
@@ -523,9 +521,17 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
         names[anomaly.key] = employee.display_name if employee else anomaly.raw_name
 
     def order(item):
-        (key, label), dates = item
-        return (_SEVERITY_ORDER[severity[(key, label)]], -len(dates),
-                sort_key(names.get(key, "")), label)
+        """By name, in Turkish alphabetical order, like every other sheet.
+
+        It led with severity and then with descending day count, which put the worst
+        case at the top — useful if you are triaging, confusing if you are looking
+        somebody up, and this is the sheet people look somebody up in. The colour
+        already says the severity on every row, and `Gün Sayısı` is sortable in Excel by
+        whoever wants that order. `Aylık Özet`, `Günlük Detay` and `İzin Özeti` are all
+        by name; a fourth sheet with its own order is one the reader has to relearn.
+        """
+        (key, label), _dates = item
+        return (sort_key(names.get(key, "")), label)
 
     row = 5
     for (key, label), dates in sorted(grouped.items(), key=order):
@@ -538,7 +544,6 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
             settings.facility(employee.facility if employee else ""),
             employee.department if employee else "",
             label,
-            explanations.get(label, ""),
             len(unique_days) or "",
             _day_list(unique_days, period),
             _group_impact(severity[(key, label)], dates, key, measured),
@@ -546,9 +551,9 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
         ]
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
-            if index == 7:
+            if index == 6:                       # Gün Sayısı
                 cell.alignment = styles.RIGHT
-            if index in (6, 8, 10):
+            if index in (7, 9):                  # Günler, Ayrıntı
                 cell.alignment = styles.LEFT
         level = severity[(key, label)]
         fill = {"excluded": styles.RED_FILL, "info": styles.GREY_FILL}.get(
@@ -556,7 +561,39 @@ def _sheet_worklist(sheet: Worksheet, period: str, anomalies: Collector,
         styles.style_row(sheet, row, span, fill)
         row += 1
 
+    row = _worklist_legend(sheet, row + 1, grouped, explanations, span)
     styles.write_footer(sheet, row + 1, footer, span)
+
+
+def _worklist_legend(sheet: Worksheet, row: int, grouped: dict,
+                     explanations: dict[str, str], span: int) -> int:
+    """The note meanings, once each, under the table instead of on every row.
+
+    Only the notes this month actually produced, in the order they appear in
+    `anomalies.py` — a legend listing notes nobody has invites the reader to look for
+    people who are not there.
+
+    Below the table rather than on `Kontrol`: the reader who needs a meaning is looking
+    at the row that has it, and a meaning on another sheet is a meaning nobody reads.
+    """
+    seen = [label for _key, label in grouped]
+    order = [label for label, _s, _e, _g in DESCRIPTIONS.values()]
+    labels = [label for label in dict.fromkeys(order) if label in set(seen)]
+    if not labels:
+        return row
+
+    heading = sheet.cell(row=row, column=1, value="SORUNLARIN ANLAMI")
+    heading.font = styles.HEADER_FONT
+    heading.fill = styles.HEADER_FILL
+    sheet.merge_cells(start_row=row, start_column=1, end_row=row, end_column=span)
+    row += 1
+    for label in labels:
+        sheet.cell(row=row, column=1, value=label)
+        cell = sheet.cell(row=row, column=2, value=explanations.get(label, ""))
+        cell.alignment = styles.LEFT
+        sheet.merge_cells(start_row=row, start_column=2, end_row=row, end_column=span)
+        row += 1
+    return row
 
 
 # Plural wording for this sheet, which groups several days into one row. Only the
