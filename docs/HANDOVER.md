@@ -1,6 +1,6 @@
 # HANDOVER.md — Nerede kaldık
 
-**Son güncelleme: 2026-08-25, commit `5131b74`.**
+**Son güncelleme: 2026-08-25, commit `bf21d0d`.**
 
 > Bu dosya kalıcı bilgi tutmaz, sadece **akıştaki işi**, **beklenen cevapları** ve
 > **tuzakları** tutar. Kalıcı olan her şey aşağıdaki dosyalarda ve onlar güncel:
