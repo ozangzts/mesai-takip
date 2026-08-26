@@ -4182,3 +4182,69 @@ imports it instead of carrying its own copy.
 - Three tests hold the pair apart: a one-sided record is not an unrecorded day, somebody
   whose every reading was refused still has attendance, and no day carries two
   contradictory missing-punch notes.
+
+---
+
+## ADR-068 — The `Not` column carries what is outstanding, not every note
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Narrows ADR-049. Applies ADR-061's rule to the report.**
+
+### Context
+
+Found the same way as ADR-067, on one person: *"ahmetcan aydoğan kişisinde hem giriş hem
+çıkış yok yazıyor aylık özette temmuz ayında, ama günlük detaya geldiğimde sadece 1 gün
+izin kullanmış, giriş çıkış eksiği yok?"*
+
+Both sheets were right. The Macunköy export has a **blank row** for him on 2 July; his
+Teknopark record covers that day in full and `Günlük Detay` prints it as an ordinary
+`07:36–16:41 · 9:05`. The note is about the record, the day is about the day, and the
+summary showed the first while the detail showed the second.
+
+ADR-059 and ADR-061 already settled this for the people screen: a day the other site
+covered is not a problem and is not offered for selection. The report's `Not` column had
+not been given the same rule — it still came from every problem-severity anomaly the
+person had.
+
+### Decision
+
+`Collector.labels_by_key()` takes the set of `(person, date)` pairs that ended up with
+measured time, and skips anomalies falling on them. The `Not` column is the one thing on
+the deliverable sheet that says *look at this*; a record the day survived is not that.
+
+Everything else is untouched. `Şüpheli Kayıt` still counts records, `Şüpheli Kayıtlar`
+still lists every one of them with `Etki` explaining which side it fell on, and
+`İnceleme Listesi` still groups them. The audit trail loses nothing — AGENTS §2.2 stands.
+
+### Alternatives rejected
+
+**Make `Şüpheli Kayıt` skip them too**, so the row has one number. It would then
+disagree with the sheet it is a summary of, which is the four-numbers problem ADR-066 was
+about. A row reading `Şüpheli Kayıt 1` with an empty `Not` says something true and useful:
+there is an odd record, and nothing needs chasing.
+
+**Leave it and explain in the banner.** The banner already explains a good deal; the
+column was making a claim about a person that the next sheet contradicted.
+
+### Consequences
+
+- The reported person's `Not` is now empty, `Şüpheli Kayıt` still 1, and the record is
+  still on both audit sheets.
+- People with a note: 78 / 74 / 85 across May–July. The people screen's `Sorunu olanlar`
+  is 75 / 73 / 85, and the difference is **exactly** `Personel listesinde yok` — a roster
+  fact rather than a problem, and the documented exception in ADR-049. Measured: 3 / 1 / 0
+  people, no other label. The two lists now agree on every actual problem.
+- No `format_version` change and no hours moved: 17 103:58 / 27 166:19 / 26 233:17.
+
+### Noticed while measuring, not fixed
+
+The same person shows `İzin Günü 2` with one leave row in `Günlük Detay`. Both are true:
+the HCM records annual leave on 13 July and birthday leave on 14 July, and he **badged in
+on the 14th**. The daily sheet shows the work, because he was there.
+
+Nothing flags the overlap. There is a note for the remote-work version of it
+(`Uzaktan + kart kaydı`, ADR-018) and none for ordinary leave. Whether a leave day
+somebody worked through should be flagged — and whether it should be paid as leave, as
+work, or both — is a question for whoever owns the leave data, not a decision to take
+here.

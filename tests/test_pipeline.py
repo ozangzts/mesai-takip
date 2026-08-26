@@ -817,3 +817,66 @@ def test_no_day_carries_two_contradictory_missing_punch_notes(settings):
     o_gun = {a.label for a in collector.items if a.date == gun}
 
     assert "Hem giriş hem çıkış yok" not in o_gun, o_gun
+
+
+def test_a_note_about_a_day_that_counted_is_not_the_persons_note(settings):
+    """The operator's case: the summary said `Hem giriş hem çıkış yok` and the daily
+    detail showed an ordinary nine-hour day for the same date (ADR-068).
+
+    A blank Macunköy row on a day the person's Teknopark record covered in full. The
+    record was refused, the day was counted, and there is nothing to chase — so the
+    `Not` column, which is the one that says "look at this", must not carry it. The
+    audit sheets keep the record either way.
+    """
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+    from mesai.models import PunchRecord
+
+    key = ("AYSE", "DENEME")
+    gun = date(2026, 6, 2)
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.EMPTY_RECORD, source="macunkoy", source_row=4, key=key,
+        raw_name="AYŞE DENEME", date=gun))
+
+    # A record and a counted day on EVERY expected working day, so the only thing left
+    # to produce a note is the blank row. Without this the person's other 21 days are
+    # unrecorded and carry the same label for a reason that has nothing to do with the
+    # case under test.
+    from mesai.pipeline import _summarise
+    gunler = _settings_with_calendar(holidays=()).calendar.expected_workdays(2026, 6)
+    kayitlar = [PunchRecord(source="teknopark", source_row=n, raw_name="AYŞE DENEME",
+                            key=key, date=d, entry=None, exit=None)
+                for n, d in enumerate(gunler, start=1)]
+    workdays = [_day(d.day, key) for d in gunler]
+    summaries = _summarise("2026-06", {key: _employee()}, workdays, [],
+                           collector, settings, kayitlar)
+
+    assert "Hem giriş hem çıkış yok" not in summaries[0].notes, summaries[0].notes
+    # the record is still counted and still in the audit trail
+    assert summaries[0].anomaly_count >= 1
+    assert any(a.label == "Hem giriş hem çıkış yok" for a in collector.items)
+
+
+def test_a_note_about_a_day_that_counted_nothing_stays(settings):
+    """The other half. A rule that never fires in the original direction is not a fix."""
+    from mesai.anomalies import Anomaly, AnomalyKind, Collector
+    from mesai.models import PunchRecord
+    from mesai.pipeline import _summarise
+
+    key = ("AYSE", "DENEME")
+    gun = date(2026, 6, 3)
+    collector = Collector()
+    collector.add(Anomaly(
+        kind=AnomalyKind.MISSING_EXIT, source="macunkoy", source_row=4, key=key,
+        raw_name="AYŞE DENEME", date=gun))
+
+    gunler = _settings_with_calendar(holidays=()).calendar.expected_workdays(2026, 6)
+    kayitlar = [PunchRecord(source="macunkoy", source_row=n, raw_name="AYŞE DENEME",
+                            key=key, date=d, entry=None, exit=None)
+                for n, d in enumerate(gunler, start=1)]
+    # every day counted EXCEPT the one the note is about
+    workdays = [_day(d.day, key) for d in gunler if d != gun]
+    summaries = _summarise("2026-06", {key: _employee()}, workdays, [],
+                           collector, settings, kayitlar)
+
+    assert "Çıkış yok" in summaries[0].notes, summaries[0].notes

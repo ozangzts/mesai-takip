@@ -270,7 +270,9 @@ class Collector:
     def extend(self, anomalies: list[Anomaly]) -> None:
         self.items.extend(anomalies)
 
-    def labels_by_key(self) -> dict[NameKey, tuple[str, ...]]:
+    def labels_by_key(
+        self, counted_days: set[tuple[NameKey, date]] | None = None,
+    ) -> dict[NameKey, tuple[str, ...]]:
         """Per-person problem labels, in the order every list in the program uses.
 
         Family first, then declaration order — the same ordering as the filter list and
@@ -282,6 +284,15 @@ class Collector:
 
         `info` items are excluded for the same reason they are excluded from the count:
         expected behaviour is not somebody's note (ADR-017).
+
+        `counted_days` holds the `(person, date)` pairs that ended up with measured time.
+        An anomaly on one of those days does not become somebody's note: the record was
+        refused, the day was counted anyway from another one, and there is nothing for
+        the reader to do. Without it, a person whose only mark was a blank Macunköy row
+        on a day their Teknopark record covered in full read `Hem giriş hem çıkış yok`
+        in the summary while `Günlük Detay` showed an ordinary nine-hour day — the
+        contradiction the operator found. The audit sheets keep every record; this
+        column is the one that says "look at this". ADR-068.
         """
         family = {label: group for label, _s, _e, group in DESCRIPTIONS.values()}
         order = {name: index for index, name in enumerate(GROUPS)}
@@ -290,8 +301,12 @@ class Collector:
 
         found: dict[NameKey, set[str]] = {}
         for anomaly in self.items:
-            if anomaly.key and anomaly.is_problem:
-                found.setdefault(anomaly.key, set()).add(anomaly.label)
+            if not (anomaly.key and anomaly.is_problem):
+                continue
+            if (counted_days is not None and anomaly.date is not None
+                    and (anomaly.key, anomaly.date) in counted_days):
+                continue
+            found.setdefault(anomaly.key, set()).add(anomaly.label)
         return {
             key: tuple(sorted(
                 labels,

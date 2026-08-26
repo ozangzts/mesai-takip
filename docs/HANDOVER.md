@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (67 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (68 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **479 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **481 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -149,6 +149,12 @@ Soru 4'ün cevabı "böyle bir liste yok" olabilir; o durumda alternatif düşü
 
 - **Uzaktan beyanı olup kart da basanlar** — 3 ayda 10 gün. Beyan mı geçerli, kart mı?
   Şu an ikisi birleştiriliyor ve işaretleniyor.
+- **İzinli görünüp kart basanlar.** Ölçerken çıktı (ADR-068): bir kişinin 13 Temmuz yıllık,
+  14 Temmuz doğum günü izni var ve **14'ünde kart basmış**. `Günlük Detay` işi gösteriyor
+  (oradaydı), `İzin Günü` HCM'in yazdığı 2'yi. İkisi de doğru ve **çakışmayı hiçbir şey
+  işaretlemiyor** — uzaktan çalışmanın aynısı için not var (`Uzaktan + kart kaydı`), sıradan
+  izin için yok. Çalışılmış bir izin günü izin mi, çalışma mı, ikisi birden mi sayılmalı?
+  İzin verisinin sahibine sorulacak.
 - **Teknopark neden `09:00–18:00` yazıyor?** Raporun ~%17'si bu satırlardan geliyor.
   "Bordroda ödenmiyor" cevabı yeni bir ADR ve ciddi düşüş demek (Q20a).
 
@@ -179,6 +185,7 @@ gerekiyor.
 | **065** | **ADR-053 geri alındı: üç eksik-kayıt notu tamamen ayrı** | Yönetici kararı. `Giriş yok` artık ikisi de olmayan günleri getirmiyor |
 | 066 | `Mesai verisi yok` → **`Kart bilgisi yok`**; `+N` kolonu → **`Gün`**; iki listeye kolon başlıkları | Aynı kişi için dört farklı sayı dolaşıyordu ve hangisinin ne olduğunu söyleyen bir şey yoktu |
 | **067** | **Kullanılamayan bir kayıt da kayıttır** | Tek taraflı damga WorkDay üretmiyor; üç yer bunu "hiç kayıt yok" sanıyordu. Aynı gün hem `Giriş yok` hem `Hem giriş hem çıkış yok` yazıyordu |
+| 068 | `Not` kolonu yalnızca bekleyen notları taşır | Özet `Hem giriş hem çıkış yok` derken `Günlük Detay` o gün için sıradan 9 saatlik gün gösteriyordu |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.

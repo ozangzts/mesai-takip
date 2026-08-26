@@ -562,7 +562,11 @@ def _summarise(
     # the roster rather than a problem — somebody absent from it worked and keeps every
     # hour (ADR-011) — so it must not become an anomaly, and it is added here.
     refreshed = anomalies.count_by_key()
-    labels = anomalies.labels_by_key()
+    # The days that ended up with measured time. A note on one of them is about a record
+    # the day survived, so it is not this person's note — see `labels_by_key` and
+    # ADR-068.
+    counted_days = {(w.key, w.date) for w in workdays if w.gross}
+    labels = anomalies.labels_by_key(counted_days)
     return [
         MonthSummary(
             employee=s.employee, period=s.period, gross=s.gross, net=s.net,
