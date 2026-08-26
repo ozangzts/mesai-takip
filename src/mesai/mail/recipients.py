@@ -23,6 +23,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from ..anomalies import DESCRIPTIONS
+
+# The `Eksik kayıt` family, read off `anomalies.py` rather than listed here so a note
+# added to that family cannot miss this rule. What these four have in common is that
+# they say a **punch was not recorded** — and on a day whose time was counted, that
+# means another record covered it and the person has nothing to answer for. ADR-076.
+MISSING_PUNCH = frozenset(
+    label for label, _severity, _explanation, group in DESCRIPTIONS.values()
+    if group == "Eksik kayıt")
 from ..normalize import sort_key
 from ..snapshot import Person, ProblemDay, Snapshot
 
@@ -301,6 +309,23 @@ def days_for(person: Person, labels: Iterable[str] | None = None,
     return tuple(kept)
 
 
+def day_notes(day: ProblemDay) -> tuple[str, ...]:
+    """The notes worth showing for one day, wherever it is presented as a question.
+
+    On a day that counted nothing, all of them. On a **counted** day, the missing-punch
+    notes come off: another record covered it, so `Hem giriş hem çıkış yok` beside a
+    9:05 duration is the contradiction ADR-076 exists to remove — and a day can carry
+    both that and `Tesis birleştirme`, which would have put it straight back.
+
+    The record still carries its own note on `Şüpheli Kayıtlar`. This is about the two
+    places that ask somebody a question: the day panel and the message.
+    """
+    if not day.minutes:
+        return tuple(day.problems)
+    kept = tuple(label for label in day.problems if label not in MISSING_PUNCH)
+    return kept or tuple(day.problems)
+
+
 def days_by_cost(person: Person) -> tuple[tuple[ProblemDay, ...],
                                           tuple[ProblemDay, ...]]:
     """Every problem day this person has, split into `(lost, kept)`.
@@ -319,18 +344,36 @@ def days_by_cost(person: Person) -> tuple[tuple[ProblemDay, ...],
     was counted in full is a false statement, and 27 of July's days were in that position
     while the ticked set drove the panel.
 
-    **A day leave covers is in neither.** It first went into `kept` alongside the counted
-    days, under a heading that said "sayılan ya da izinli" so as not to call it counted.
-    That was solving the wrong problem: *"izinlilerle işimiz yok."* Nobody is asked about
-    a day they were on annual leave, so it does not belong in a panel whose only purpose
-    is choosing what to ask — and the heading was only there to excuse its presence. Two
-    or three days a month (July 2), so this is about the panel reading cleanly, not about
-    volume.
+    **Two kinds of day are in neither**, on the same principle: the panel exists to
+    choose what to ask somebody, so a day nobody can be asked about does not belong in
+    it.
+
+    * **A day leave covers.** It first went into `kept` under a heading reading "sayılan
+      ya da izinli" so as not to call it counted — solving the wrong problem:
+      *"izinlilerle işimiz yok."* Two or three a month.
+    * **A counted day whose only notes say a punch was missing** (`MISSING_PUNCH`). A
+      one-sided stamp yields no interval (ADR-067), so minutes on the day mean **another
+      record covered it in full** — the person did badge, at the other site. The note is
+      about the refused record and the hours are about the day (ADR-055), and the panel
+      had them on one row with nothing joining them: *"2 tane sayılan gün görünüyor giriş
+      çıkış süre var, ama sorun kısmı var hem giriş hem çıkış yok diye. ama aynı zamanda
+      da sayılmış? wtf"* — a fair reaction. Verified on July 2026: all 73 such notes came
+      from the **Macunköy** file with both stamps blank, while Teknopark had recorded the
+      whole day; `Şüpheli Kayıtlar` says so per record (`gün başka kayıttan 9:05 sayıldı`)
+      and `Günlük Detay` names the source. 52 / 97 / 87 days over May-July. ADR-076.
+
+    What survives in `kept` is the counted day with something genuinely to ask —
+    `Gece geçişi`, `Tesis birleştirme`, `Uzaktan + kart kaydı`, the duration notes,
+    `Giriş-çıkış tutarsız`: 35 / 75 / 71 days. Nothing is hidden from the record — both
+    dropped kinds stay on `Şüpheli Kayıtlar` and `İnceleme Listesi`, which is where a
+    record's fate belongs.
     """
     lost, kept = [], []
     for day in person.days:
         if day.minutes:
-            kept.append(day)         # counted; offered, never selected by default
+            if set(day.problems) - MISSING_PUNCH:
+                kept.append(day)     # counted, and something to ask: offered, unticked
+            # else: counted from another record — nothing to ask, so not here
         elif not day.covered_by:
             lost.append(day)         # nothing counted and no leave: a real loss
         # else: leave covers it — not a question for anybody, so not here at all

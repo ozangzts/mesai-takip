@@ -2179,12 +2179,11 @@ def test_an_explained_day_never_reaches_the_panel(day_screen):
     row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
     _click(screen, row, on_tick=False)
 
-    # He has a counted day and a leave-covered one, so `kept` is not empty — but
-    # nothing was lost, which is what the headline and the column are about.
-    lost, kept = screen._person_days()
-    assert lost == ()
-    assert kept, "sayılan günleri panelde durmalı"
-    assert "0 sayılmayan gün" in screen.day_title.cget("text"),         screen.day_title.cget("text")
+    # Nothing at all. One of his days was counted from another record and the other is
+    # leave, and neither is a question for anybody (ADR-075, ADR-076).
+    assert screen._person_days() == ((), ())
+    assert screen._day_rows == []
+    assert "sorunlu gün yok" in screen.day_title.cget("text")
 
 
 def test_the_panel_shows_the_times_and_the_note_for_each_day(day_screen):
@@ -2510,7 +2509,7 @@ def test_the_counted_days_sit_under_a_heading_and_start_unticked(day_screen):
     screen = day_screen()
     screen.filter_key = recipients.ALL
     screen._repaint()
-    row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
+    row = next(r for n, r in screen._rows if n == "DENİZ TASLAK")
     _click(screen, row, on_tick=False)
 
     lost, kept = screen._person_days()
@@ -2531,9 +2530,9 @@ def test_a_counted_day_can_be_ticked_on_and_reaches_the_message(day_screen):
     screen = day_screen()
     screen.filter_key = recipients.ALL
     screen._repaint()
-    row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
+    row = next(r for n, r in screen._rows if n == "DENİZ TASLAK")
     _click(screen, row, on_tick=False)
-    screen.mail_var.set("cem@example.com")
+    screen.mail_var.set("deniz@example.com")
 
     assert "·" not in screen._draft().body, "hiçbiri seçili olmamalı"
 
@@ -2552,7 +2551,7 @@ def test_clicking_the_heading_row_does_nothing(day_screen):
     screen = day_screen()
     screen.filter_key = recipients.ALL
     screen._repaint()
-    row = next(r for n, r in screen._rows if n == "CEM ÖRNEK")
+    row = next(r for n, r in screen._rows if n == "DENİZ TASLAK")
     _click(screen, row, on_tick=False)
 
     screen.frame.update_idletasks()

@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (75 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (76 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **529 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **533 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -31,7 +31,7 @@ Faz 1 çalışıyor, **üç ayın üçü de tam**, **529 test geçiyor**.
 | Şüpheli kayıt | 365 | 622 | 689 |
 | `Sorunu olanlar` | 83 | 73 | 88 |
 | Mail listesine girecek gün | 216 | 352 | 419 |
-| Panelde teklif edilen, işaretsiz gelen sayılan gün | 37 | 59 | 61 |
+| Panelde teklif edilen, işaretsiz gelen sayılan gün | 28 | 41 | 52 |
 | **Listede olup hiç kaydı olmayan** (ADR-071) | 21 | 27 | 14 |
 
 Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Son satır yeni ve **hiçbir
@@ -63,8 +63,12 @@ listeden çıkarır; adın kendisine tıklamak günlerini açar.
 gelir), sonra `SAYILAN GÜNLER` başlığı ve altında süresi sayılmış günler — **işaretsiz**
 gelirler, istenirse tek tek seçilir. `Sorunlu gün` kolonu yalnızca sayılmayanları sayar.
 İşaretler **kimin listede olduğuna** karar verir, kişinin günlerinin ne olduğuna karar
-vermez. **İzin kapsayan gün panelde hiç yok** (ADR-075) — izinli olduğu bir gün için
-kimseye soru sorulmuyor, o yüzden `days_by_cost` bilerek bir bölünme değil.
+vermez. **İki tür gün panelde hiç yok**, o yüzden `days_by_cost` bilerek bir bölünme
+değil: izin kapsayan gün (ADR-075) ve **notu yalnızca "damga eksik" olan sayılan gün**
+(ADR-076). İkincisi şu: tek taraflı damga aralık üretmiyor (ADR-067), yani günün süresi
+varsa o günü **başka bir kayıt tamamen kapatmış** — kişi kart basmış, öteki tesiste. O
+yüzden `Hem giriş hem çıkış yok` ile 9:05 aynı satırda çelişki oluyordu. İkisi de
+`Şüpheli Kayıtlar` ve `İnceleme Listesi`'nde duruyor, kaydın akıbeti oraya ait.
 
 Panelin altında **e-posta satırı** var: adres snapshot'tan dolu gelir, düzenlenebilir,
 `E-posta gönder…` önizleme açar. Kişi kişi; toplu gönderme yok (ADR-073).
@@ -239,6 +243,7 @@ gerekiyor.
 | **073** | **Kişi kişi e-posta: adres alanı, `E-posta gönder…`, düzenlenebilir önizleme, Gmail SMTP** | Toplu gönderme **yok** ve bir kontrol sunmuyor. Ekranda ne varsa o gidiyor; gönderim anında metin kutusu okunuyor, pencereyi açan taslak değil. Hesap `config/gmail.yaml`, git'e girmez |
 | **074** | **`Sorunlu gün` ve gün paneli işaretlerden bağımsız; sayılan günler ayrı başlık altında, işaretsiz** | Kolon 446 diyordu (27'si sayılmış gün), tek not işaretliyken 127; gerçek 419. ADR-072'nin yan etkisi ve ADR-066'nın "kolon = panel satırı" kuralının fazla dar yeri. Sayılmış bir gün için "eksik durum tespit edilmiştir" yazılması an meselesiydi |
 | **075** | **İzinli gün panelden çıktı; mailde giriş-çıkış saatleri; konuda gün sayısı yok; `İnceleme Listesi` alfabetik ve `Açıklama` kolonu legend oldu** | Dördü de kullanırken çıktı. İzinli güne "sayılan ya da izinli" başlığı yazmak yanlış şeye dikkat etmekti — o gün için kimseye soru sorulmuyor. `Açıklama` her satırda aynı 52 karakterlik cümleyi tekrarlıyordu; artık tablonun altında not başına bir kez, yalnızca o ay olan notlar |
+| **076** | **Notu yalnızca "damga eksik" olan sayılan gün panelden çıktı; `day_notes` o notu soru sorulan hiçbir yerde yazmıyor** | *"sorun kısmı var hem giriş hem çıkış yok diye. ama aynı zamanda da sayılmış? wtf"* — Macunköy satırının iki damgası boş, Teknopark aynı günü 9:05 saymış. Not kayıt hakkında, saat gün hakkında (ADR-055) ve panelde ikisini birleştiren bir şey yoktu. 52/97/87 gün. Aynı gün hem o notu hem `Tesis birleştirme` taşıyabildiği için `day_notes` de gerekti |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.

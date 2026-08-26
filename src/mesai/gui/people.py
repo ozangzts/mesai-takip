@@ -825,7 +825,7 @@ class PeopleScreen:
                     _GUN_KISA[day.date.weekday()],
                     day.entry_text or "—", day.exit_text or "—",
                     day.hours_text or "—",
-                    ", ".join(day.problems)))
+                    ", ".join(recipients.day_notes(day))))
         self._day_rows.append((day.date.isoformat(), row))
 
     # --- writing to one person ---------------------------------------------

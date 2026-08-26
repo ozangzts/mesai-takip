@@ -22,6 +22,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from ..snapshot import Person, ProblemDay
+from .recipients import day_notes
 
 _MONTHS = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
            "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
@@ -76,7 +77,10 @@ def _day_line(day: ProblemDay, counted: frozenset[str]) -> str:
     a list of dates and no idea what to answer; with every note on the day, they get
     asked about something nobody selected.
     """
-    shown = [label for label in day.problems if label in counted] or list(day.problems)
+    # `day_notes` first, so a counted day never carries "hem giriş hem çıkış yok" into a
+    # message beside the times it was counted from (ADR-076).
+    notes = day_notes(day)
+    shown = [label for label in notes if label in counted] or list(notes)
     stamp = f"{day.date:%d.%m.%Y}"
     return (f"  · {stamp} {_DAYS[day.date.weekday()]} — {', '.join(shown)}"
             f" ({_reading(day)})")

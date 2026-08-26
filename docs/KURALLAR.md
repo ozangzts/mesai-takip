@@ -373,8 +373,17 @@ Sağdaki panel kişinin **bütün** sorunlu günlerini gösterir, iki blokta:
 | (başlıksız, üstte) | O gün hiçbir yerde sayılmamış — gerçek kayıp | **işaretli** |
 | `SAYILAN GÜNLER` | Süre sayıldı, kayıp yok | **işaretsiz** |
 
-**İzin kapsayan günler panelde hiç görünmez.** Yıllık izindeki bir güne "neredeydin"
-diye sorulmayacağı için orada durmalarının anlamı yok. Ayda 2–3 gün.
+**İki tür gün panelde hiç görünmez**, çünkü ikisine de sorulacak bir şey yok:
+
+- **İzin kapsayan günler.** Yıllık izindeki bir güne "neredeydin" diye sorulmaz. Ayda 2–3.
+- **Günü başka bir kayıttan sayılmış eksik damgalar.** Bir tesiste satırın saatleri boş
+  kalmış ama kişi o gün öteki tesiste kart basmış ve gün tam sayılmış — Temmuz'da 87 gün.
+  Kişi kart basmış, sorulacak bir şey yok. Panelde `Hem giriş hem çıkış yok` yazarken
+  yanında 9:05 süre görünüyordu; not o **kayıt** hakkında, süre ise **gün** hakkında.
+
+İkisi de raporda duruyor: `Şüpheli Kayıtlar` o kayıt için `Bu kayıt sayılmadı; gün başka
+kayıttan 9:05 sayıldı` yazıyor, `Günlük Detay` da hangi tesisin saydığını. Yani hiçbir şey
+gizlenmiyor — sadece "kime soralım" listesinde yer almıyorlar.
 
 İkinci blok teklif olarak duruyor: mesela gece vardiyası düzeltilmiş bir gün hakkında da
 soru sorulabilir, ama o gün **sayıldığı için** kendiliğinden mesaja girmez. Girmesini

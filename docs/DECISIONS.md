@@ -4838,3 +4838,77 @@ it carries the *record's* own words and does differ row to row.
   offered unticked, and 3 / 3 / 2 leave days are no longer offered at all.
 - No `format_version` change — the snapshot still carries every problem day, including
   the leave-covered ones. What changed is what the window does with them.
+
+---
+
+## ADR-076 — A counted day whose only note is a missing punch is nobody's question
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Corrects ADR-074.**
+
+### The report
+
+> *"temmuzda [bir kişiyi] seçtim, 2 tane sayılan gün görünüyor giriş çıkış süre var, ama
+> sorun kısmı var hem giriş hem çıkış yok diye. ama aynı zamanda da sayılmış? wtf"*
+
+Not a contradiction in the data. Traced on the real July file:
+
+- the **Macunköy** export has a row for that person and day with **both stamps blank**
+  (row 2004, raw entry and raw exit empty). That row produced the note.
+- the **Teknopark** export recorded **07:36–16:41 = 9:05** for the same day. That is where
+  the panel's times and duration came from.
+
+The note is about a **record**; the hours are about the **day** — ADR-055's distinction,
+and the report states it correctly on both sheets: `Şüpheli Kayıtlar` prints
+`Bu kayıt sayılmadı; gün başka kayıttan 9:05 sayıldı` per record, and `Günlük Detay` names
+`Kaynak: Teknopark`. **The day panel carried neither**, so it put the note and the times
+on one row with nothing joining them. All 73 such notes in July came from Macunköy; this
+is §4's pattern — Teknopark staff calling at the Macunköy site.
+
+### Why the panel was wrong to show them at all
+
+A one-sided or empty stamp yields no interval (ADR-067), so **minutes on a day mean
+another record covered it in full**. The person did badge; they badged at the other site.
+There is nothing to ask them. And the panel exists for one purpose — choosing what to ask
+somebody — which is the same reasoning that took leave days out in ADR-075.
+
+ADR-074 offered every counted day without asking whether it was answerable. Split by
+that question, July 2026:
+
+| counted day carrying… | May | June | July |
+| --- | --- | --- | --- |
+| something genuinely to ask (`Gece geçişi`, `Tesis birleştirme`, `Uzaktan + kart kaydı`, the duration notes, `Giriş-çıkış tutarsız`) | 35 | 75 | 71 |
+| **only a missing-punch note** — the day was counted from another record | **52** | **97** | **87** |
+
+### Decision
+
+`days_by_cost` drops a counted day whose notes are **all** in the `Eksik kayıt` family.
+`recipients.MISSING_PUNCH` is read off `anomalies.DESCRIPTIONS` by group rather than
+listed by hand, so a note added to that family obeys the rule without anybody
+remembering this file exists.
+
+`recipients.day_notes(day)` is the second half, and it is needed because a day can carry
+**both** `Hem giriş hem çıkış yok` and `Tesis birleştirme` — which would have put the
+contradiction straight back on the surviving rows. On a counted day it returns the notes
+outside that family; on a day that counted nothing it returns all of them, because there
+the missing punch is the whole point of the row. The day panel and the message both go
+through it, so neither can print a missing-punch note beside the times the day was
+counted from. Verified across all three months: **0 such rows**.
+
+Nothing is hidden. Both kinds this drops — leave days and resolved missing punches — stay
+on `Şüpheli Kayıtlar` and `İnceleme Listesi`, which is where a record's fate belongs.
+Every input row still ends in a total or the anomaly report (AGENTS §2.2).
+
+### Consequences
+
+- 533 tests. One asserts the family is derived and not hand-listed; one asserts a day
+  carrying both notes keeps only the answerable one; one asserts a day that counted
+  nothing is left alone.
+- Counted days offered in the panel: 28 / 41 / 52 over May-July, down from 37 / 59 / 61.
+  Lost days unchanged at 216 / 352 / 419.
+- No workbook or snapshot change, so no report needs regenerating and `format_version`
+  stays 11. This is entirely about what the window and the message do with days the
+  snapshot already carried.
+- Both fixture people the GUI tests used for counted days had to move: a counted day with
+  `Çıkış yok` on it is now correctly invisible, which is the rule working.

@@ -511,7 +511,10 @@ def test_days_by_cost_splits_every_problem_day_and_ignores_the_ticks():
     was driving a column that is supposed to say "how many of this person's days were
     not counted". The second question has no ticks in it.
     """
-    sayilan = _day(4, minutes=523)
+    # `Gece geçişi` rather than `Çıkış yok`: on a counted day a missing-punch note means
+    # another record covered it and the day drops out entirely (ADR-076). This one is a
+    # repair the program made, so it stays.
+    sayilan = _day(4, minutes=523, problems=("Gece geçişi",))
     izinli = _day(5, covered_by="Yıllık İzin")
     kayip = _day(6)
     kisi = Person(**{**person("ESRA DENEME", problems=("Çıkış yok",)).__dict__,
@@ -521,7 +524,7 @@ def test_days_by_cost_splits_every_problem_day_and_ignores_the_ticks():
     assert lost == (kayip,)
     assert kept == (sayilan,)
     # The leave day is in NEITHER, so this is not a partition and must not be read as
-    # one — see the test below.
+    # one — see the tests below.
     assert izinli not in lost + kept
 
 
@@ -544,8 +547,50 @@ def test_a_leave_covered_day_is_left_out_altogether():
 
 def test_a_counted_day_that_leave_also_covers_stays_in_kept():
     """Counted is counted. The leave column does not remove hours that were measured."""
-    ikisi = _day(5, minutes=523, covered_by="Yıllık İzin")
-    kisi = Person(**{**person("ESRA DENEME", problems=("Çıkış yok",)).__dict__,
+    ikisi = _day(5, minutes=523, covered_by="Yıllık İzin",
+                 problems=("Gece geçişi",))
+    kisi = Person(**{**person("ESRA DENEME", problems=("Gece geçişi",)).__dict__,
                      "days": (ikisi,)})
 
     assert recipients.days_by_cost(kisi) == ((), (ikisi,))
+
+
+def test_a_counted_day_whose_only_note_is_a_missing_punch_is_dropped():
+    """*"sorun kısmı var hem giriş hem çıkış yok diye. ama aynı zamanda da sayılmış? wtf"*
+
+    A one-sided stamp yields no interval (ADR-067), so minutes on the day mean another
+    record covered it in full — the person did badge, at the other site. The note is
+    about the refused record, the hours about the day (ADR-055), and the panel had them
+    on one row with nothing joining them. 52 / 97 / 87 days over May-July 2026.
+    """
+    gun = _day(4, minutes=545, problems=("Hem giriş hem çıkış yok",))
+    kisi = Person(**{**person("ESRA DENEME",
+                             problems=("Hem giriş hem çıkış yok",)).__dict__,
+                     "days": (gun,)})
+
+    assert recipients.days_by_cost(kisi) == ((), ())
+
+
+def test_a_counted_day_keeps_its_other_note_and_loses_the_missing_punch_one():
+    """A day can carry both, which would have put the contradiction straight back."""
+    gun = _day(4, minutes=545,
+               problems=("Hem giriş hem çıkış yok", "Tesis birleştirme"))
+    kisi = Person(**{**person("ESRA DENEME",
+                             problems=("Tesis birleştirme",)).__dict__,
+                     "days": (gun,)})
+
+    assert recipients.days_by_cost(kisi) == ((), (gun,))
+    assert recipients.day_notes(gun) == ("Tesis birleştirme",)
+
+
+def test_day_notes_leaves_a_day_that_counted_nothing_alone():
+    """The missing punch is the whole point of the row there."""
+    gun = _day(4, problems=("Hem giriş hem çıkış yok",))
+    assert recipients.day_notes(gun) == ("Hem giriş hem çıkış yok",)
+
+
+def test_the_missing_punch_family_is_read_off_the_anomaly_table():
+    """Not a list kept in step by hand: a note added to `Eksik kayıt` must obey the rule
+    without anybody remembering this file exists."""
+    assert recipients.MISSING_PUNCH == {
+        "Giriş yok", "Çıkış yok", "Hem giriş hem çıkış yok", "Kart bilgisi yok"}
