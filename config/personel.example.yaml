@@ -26,7 +26,7 @@ exclude_prefixes:
 
 # (ilk ad, soyad) anahtarının köprü kuramadığı isim varyantları.
 #
-# Türkçe karakter tutarsızlıkları (KAYIKCI/KAYIKÇI, MELIK/MELİK) buraya YAZILMAZ —
+# Türkçe karakter tutarsızlıkları (DENEMECİ/DENEMEÇİ, MELIK/MELİK) buraya YAZILMAZ —
 # anahtar Türkçe karakterleri ASCII'ye indirgediği için kendiliğinden çözülür.
 #
 # Buraya yazılması GEREKEN: değişmiş soyadı, ya da kısaltılmış ilk ad. Çünkü

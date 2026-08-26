@@ -16,7 +16,7 @@ _TR_UPPER = str.maketrans({
 })
 
 # Turkish uppercase -> ASCII, for building match keys. Note that İ, I and ı all
-# fold to "I": this is what makes MELİK/MELIK and KAYIKÇI/KAYIKCI resolve without
+# fold to "I": this is what makes MELİK/MELIK and DENEMEÇİ/DENEMECİ resolve without
 # an alias entry.
 _FOLD = str.maketrans({
     "İ": "I", "Ş": "S", "Ğ": "G", "Ü": "U", "Ö": "O", "Ç": "C", "Â": "A", "Î": "I",

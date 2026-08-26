@@ -397,8 +397,8 @@ The roster is a registry, **not a whitelist**: a person with attendance records 
 is absent from it still gets a row and still has their hours counted.
 
 Surname changes still need aliases. `SEDA DENEME` (attendance, maiden) and
-`BÜŞRA ÜNAL` (roster, married) differ in the last token, so the key does not bridge
-them. The five cases in `DATA-SOURCES.md §6.1` remain manual config entries.
+`SEDA DENEME ÖRNEK` (roster, married) differ in the last token, so the key does not
+bridge them. The five cases in `DATA-SOURCES.md §6.1` remain manual config entries.
 
 ### Consequences
 
@@ -4193,9 +4193,9 @@ imports it instead of carrying its own copy.
 
 ### Context
 
-Found the same way as ADR-067, on one person: *"ahmetcan aydoğan kişisinde hem giriş hem
-çıkış yok yazıyor aylık özette temmuz ayında, ama günlük detaya geldiğimde sadece 1 gün
-izin kullanmış, giriş çıkış eksiği yok?"*
+Found the same way as ADR-067, on one person: *"… kişisinde hem giriş hem çıkış yok
+yazıyor aylık özette temmuz ayında, ama günlük detaya geldiğimde sadece 1 gün izin
+kullanmış, giriş çıkış eksiği yok?"*
 
 Both sheets were right. The Macunköy export has a **blank row** for him on 2 July; his
 Teknopark record covers that day in full and `Günlük Detay` prints it as an ordinary

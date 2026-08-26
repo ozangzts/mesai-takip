@@ -134,9 +134,20 @@ The check is the report's `Kontrol` sheet, section 7: it lists every alias in ef
 Empty there means the table did not load.
 
 **Before committing**, re-check that no real name, address, login or number leaked
-in. Load the real roster, collect every name variant from all four sources, and grep
-the staged files for them — a one-off script, not part of the pipeline. A doc example
-never needs a real person to make its point.
+in — a one-off script, not part of the pipeline. Two things about how to run it, both
+learned by it failing:
+
+- Scan **every committed file** (`git ls-files`), not only the lines this change added.
+  A name committed months ago is just as public, and the added-lines version had been
+  reporting clean over four real surnames — `KAYIKCI`/`KAYIKÇI` in this file, in
+  `DOMAIN-RULES.md`, in `normalize.py` and in `personel.example.yaml`, plus `KUŞÇU`,
+  `ÜNAL` and `ŞAHİN` elsewhere.
+- Load the names from **`docs/ISIM-ESLESMELERI.local.md` as well as the roster**, and do
+  not skip short ones. `ÜNAL` is four letters and a length filter had been dropping it.
+
+Turkish words collide with surnames (`alır`, `uzun`, `örnek`, and `elif` is a Python
+keyword), so match whole words on the folded text and expect noise. A doc example never
+needs a real person to make its point.
 
 ### 2.4 Turkish text will break naive code
 
@@ -361,7 +372,7 @@ Headline defects (all verified, not assumed):
   `SN100002` in the attendance export and `8801` in the leave export. The Teknopark
   export has no ID column at all. **Name is the key** (ADR-004, ADR-009).
 - Nine employees are spelled differently between systems — Turkish characters
-  entered inconsistently (`KAYIKCI`/`KAYIKÇI`), married names present in one system
+  entered inconsistently (`DENEMECİ`/`DENEMEÇİ`), married names present in one system
   only, one abbreviated given name. They live in the alias table in
   `config/personel.yaml`. No fuzzy matcher ships.
 - The leave export has a **per-person subtotal row** before each person's real

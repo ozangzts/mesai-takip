@@ -208,9 +208,14 @@ Buradaki her madde bir kez ısırdı.
 - Ekran görüntüsü alırken **tüm ekranı değil pencereyi** yakala (`PrintWindow`), ve
   Kişiler ekranını **sentetik veriyle** sür — gerçek veriyle alınan bir görüntü çalışan
   adlarını ve e-posta adreslerini gösterir.
-- Commit öncesi sızıntı kontrolü: gerçek listeyi yükle, bütün isim varyantlarını topla,
-  **eklenen satırlarda** tam kelime olarak ara. Türkçe sözcükler soyadlarla çakışıyor
-  (`alır`, `uzun`, `örnek`), o yüzden alt dizgi araması gürültü verir.
+- Commit öncesi sızıntı kontrolü — **iki kez yanlış yapıldı, ikisi de burada**:
+  - **Bütün commit'li dosyaları tara** (`git ls-files`), yalnızca eklenen satırları
+    değil. Aylar önce girmiş bir ad da aynı derecede açık; eklenen-satır sürümü dört
+    gerçek soyadın üzerinden temiz rapor veriyordu.
+  - İsimleri **hem roster'dan hem `ISIM-ESLESMELERI.local.md`'den** yükle ve kısa
+    olanları atlama — `ÜNAL` dört harf ve uzunluk filtresi onu düşürüyordu.
+  - Türkçe sözcükler soyadlarla çakışıyor (`alır`, `uzun`, `örnek`; `elif` Python
+    anahtar sözcüğü), o yüzden katlanmış metinde **tam kelime** ara ve gürültü bekle.
 
 ### Uygulamanın dili
 

@@ -236,7 +236,7 @@ Then:
 
 The alias table is required, not optional. Nine real cases exist in May 2026
 (`DATA-SOURCES.md §6.1`): four are Turkish-character inconsistencies entered at
-source (`KAYIKCI`/`KAYIKÇI`, `KUŞÇU`/`KUŞCU`), four are married names present in one
+source (`DENEMECİ`/`DENEMEÇİ`, `ÖRNEKÇİ`/`ÖRNEKCİ`), four are married names present in one
 system and not the other (`SEDA DENEME ÖRNEK` / `SEDA DENEME`), and one is an
 abbreviated given name (`MURAT KEREM ÖRNEK` / `M. KEREM ÖRNEK`).
 

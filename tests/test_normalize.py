@@ -51,7 +51,7 @@ def test_name_key_does_not_merge_different_people():
 def test_surname_change_is_not_bridged_by_the_key():
     # Deliberate: a changed surname alters the last token, so it needs a config
     # alias rather than a silent guess.
-    assert name_key("SEDA DENEME") != name_key("BÜŞRA ÜNAL")
+    assert name_key("SEDA DENEME") != name_key("BÜŞRA ÖRNEK")
 
 
 PREFIXES = ("ZIYARETCI", "GECICI", "STJ")
@@ -89,7 +89,7 @@ def test_turkish_letters_sort_in_the_right_place():
 def test_each_turkish_pair_orders_correctly():
     for earlier, later in [("CAN", "ÇAM"), ("GUL", "GÜL"), ("GAZI", "GÖZ"),
                            ("ILGIN", "İLKER"), ("OZAN", "ÖZGE"),
-                           ("SAMET", "ŞAHİN"), ("UFUK", "ÜMİT")]:
+                           ("SAMET", "ŞEKER"), ("UFUK", "ÜMİT")]:
         assert sort_key(earlier) < sort_key(later), f"{earlier} < {later}"
 
 
