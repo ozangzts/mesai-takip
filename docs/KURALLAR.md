@@ -428,10 +428,14 @@ Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi ri
   alınamayan tek işlem bu olduğu için araya bir insan konuldu.
 
 **Mail iki biçimde gidiyor.** HTML gösteren programlarda DEICO'nun bilgilendirme
-maillerindeki biçim görünüyor: üstte başlık şeridi, altında tablo — `Tarih`, `Gün`,
-`Durum`, `Kayıt` ve **boş bırakılmış `Açıklamanız`** kolonu. Kişi cevabını o kolona yazıp
-yanıtlıyor. HTML gösteremeyen bir program yukarıdaki düz metni görüyor; ikisi aynı bilgiyi
-taşıyor.
+maillerindeki biçim görünüyor: üstte başlık şeridi, altında tablo — `Tarih`, `Giriş`,
+`Çıkış`, `Sebep` ve **boş bırakılmış `Açıklama`** kolonu. Kişi *Yanıtla*'ya basıp o
+kolona, ilgili günün satırına açıklamasını yazıyor; Outlook masaüstü tabloyu yanıtın
+içine alıyor ve hücreye yazmaya izin veriyor.
+
+Tabloyu düzleştiren bir program (genellikle telefon uygulamaları) kullanan biri düz metni
+görüyor, o da günü belirterek yanıtlamayı istiyor. İkisi aynı bilgiyi taşıyor; yalnızca
+cevabın nasıl yazılacağı değişiyor, çünkü düz metinde doldurulacak bir tablo yok.
 
 **Metin `config/mail-taslagi.yaml` dosyasında.** Değiştirmek için programı yeniden kurmak
 gerekmiyor, dosyayı düzenleyip kaydetmek yeterli. Tanımadığı bir alan adı yazılırsa program

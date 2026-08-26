@@ -5124,13 +5124,25 @@ missing half is spelled out (`çıkış kaydı yok`) because a dash reads as a f
 artefact, but in a table cell the opposite holds — a blank cell looks like the mail failed
 to render, and `—` is what `Günlük Detay` already prints for this case.
 
-**The table cannot be filled in like a spreadsheet, and the wording does not ask anybody
-to try.** A table in an e-mail is markup, not a form: replying in desktop Gmail or Outlook
-does let somebody click into a quoted cell and type, but it is fiddly, phone clients
-commonly flatten the table, and a client that quotes as plain text turns it into a mess.
-So the instruction says *"günü belirterek bu e-postayı yanıtlayarak"* — which works in
-every client — and the table is there to show the reader what is being asked about. The
-empty column is a space to answer next to, not a field.
+**The instruction asks people to fill the table, because the recipients are known to be
+on Outlook.** A table in an e-mail is markup rather than a form, so this depends entirely
+on the client: pressing Reply in Outlook desktop (and in desktop Gmail) quotes the table
+and lets somebody click into the empty cell and type. The company runs Outlook — the Gmail
+account is only the sending side — so that path is the normal one here, and the wording
+says so plainly: *"Yanıtla'ya basıp tablonun Açıklama kolonuna ilgili günün satırında
+açıklamanızı yazmanız yeterlidir."*
+
+Two details it needs to actually work, both easy to omit:
+
+- **The empty cell contains `&nbsp;`.** A truly empty `<td>` can collapse in Outlook —
+  the border disappears and there is nothing left to click into.
+- **The `Açıklama` column is given a width** (35%, as both an attribute and a style). Left
+  to size itself the empty column shrinks to nothing and reads as though there is nowhere
+  to write.
+
+The **plain-text** part keeps asking for a reply that names the day. It has no table, so
+"fill the table" would be an instruction with no referent — and that part is what a client
+that flattens the HTML falls back to.
 
 Two things could not be carried over as written:
 

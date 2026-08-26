@@ -71,13 +71,20 @@ gunsuz_govde: |
 #      bloğunun çoğunu yok sayıyor; satır içi yazılmayan renk orada kaybolur.
 #      Yuvarlatılmış köşeler ve max-width Outlook'ta yine görünmez, bu kabul edildi.
 #
-# Son kolon (`Açıklama`) bilerek boş.
+# Son kolon (`Açıklama`) bilerek boş: kişi cevabını gün gün oraya yazıyor.
 #
-# DİKKAT: bir e-postadaki tablo Excel gibi doldurulamaz. Masaüstü Gmail ve Outlook'ta
-# "Yanıtla"ya basıp alıntılanan tablonun hücresine tıklayıp yazmak ÇALIŞIR ama zahmetli;
-# telefondaki uygulamalar çoğu zaman tabloyu düzleştirir ve düz metne çeviren istemcilerde
-# tablo bozulur. Bu yüzden `notes-section` metni "tabloya yaz" demiyor, günü belirtip
-# yanıtlamayı istiyor — her istemcide çalışan tek yol bu. Tablo bilgiyi göstermek için.
+# Bu, alıcıların Outlook masaüstü kullandığı bilindiği için böyle. "Yanıtla"ya basınca
+# Outlook tabloyu yanıtın içine alıyor ve boş hücreye tıklayıp yazmaya izin veriyor.
+# İki teknik ayrıntı bunun çalışması için gerekli ve ikisi de aşağıda var:
+#
+#   - Boş hücrede `&nbsp;` var. Tamamen boş bir <td> Outlook'ta çökebiliyor: kenar
+#     çizgisi kayboluyor ve tıklanacak bir alan kalmıyor.
+#   - `Açıklama` kolonuna genişlik verildi. Yazılacak yerin görünür olması lazım,
+#     yoksa hücre içeriğine göre daralıyor ve yazacak yer yok gibi duruyor.
+#
+# Telefon uygulamaları tabloyu çoğu zaman düzleştiriyor; o durumda kişi normal metinle
+# yanıtlar. Düz metin sürümü (yukarıda) bu yüzden "günü belirterek yanıtlayın" diyor —
+# tablosu olmayan bir biçimde "tabloyu doldur" demek anlamsız olurdu.
 
 html_govde: |
   <!DOCTYPE html>
@@ -115,7 +122,7 @@ html_govde: |
           <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Giriş</th>
           <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Çıkış</th>
           <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Sebep</th>
-          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Açıklama</th>
+          <th width="35%" style="width:35%;padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Açıklama</th>
         </tr>
       </thead>
       <tbody>
@@ -123,8 +130,9 @@ html_govde: |
       </tbody>
     </table>
     <div class="notes-section" style="padding:16px 20px;background-color:#e8f1fb;border-left:5px solid #ff6f00;margin:18px 0">
-      Yukarıdaki günlere ilişkin açıklamanızı, <span style="font-weight:bold">günü
-      belirterek</span> bu e-postayı yanıtlayarak iletmenizi rica ederiz.
+      <span style="font-weight:bold">Yanıtla</span>'ya basıp yukarıdaki tablonun
+      <span style="font-weight:bold">Açıklama</span> kolonuna ilgili günün satırında
+      açıklamanızı yazmanız ve yanıtı göndermeniz yeterlidir.
     </div>
     <div class="footer" style="background-color:#004c7a;color:#ffffff;text-align:center;padding:10px 0;font-size:13px">
       © {yil} DEICO Mühendislik
@@ -134,7 +142,7 @@ html_govde: |
   </html>
 
 html_gun_satiri: |
-      <tr><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{tarih}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{giris}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{cikis}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{sorun}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0"></td></tr>
+      <tr><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{tarih}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{giris}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{cikis}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{sorun}</td><td width="35%" style="width:35%;padding:7px 10px;border-bottom:1px solid #e0e0e0">&nbsp;</td></tr>
 
 html_gunsuz_govde: |
   <!DOCTYPE html>
