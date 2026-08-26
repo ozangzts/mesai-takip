@@ -37,14 +37,19 @@ OPTIONAL = ("html_govde", "html_gun_satiri", "html_gunsuz_govde")
 
 # What each field may refer to. Checked at load time against the actual template, so a
 # typo is caught before anything is sent rather than appearing in somebody's inbox.
+# `yil` is the reporting period's year, not today's. The house template it was adapted
+# from filled its footer year with `<script>`, which no mail client runs — a script tag
+# in an e-mail is stripped everywhere. It is substituted here instead, and from the
+# period rather than a clock, so `compose` stays pure and a July 2026 message says 2026
+# whenever it is read.
 FIELDS: dict[str, frozenset[str]] = {
-    "konu": frozenset({"ad", "donem"}),
-    "govde": frozenset({"ad", "donem", "gunler"}),
-    "gunsuz_govde": frozenset({"ad", "donem"}),
+    "konu": frozenset({"ad", "donem", "yil"}),
+    "govde": frozenset({"ad", "donem", "yil", "gunler"}),
+    "gunsuz_govde": frozenset({"ad", "donem", "yil"}),
     "gun_satiri": frozenset({"tarih", "gun", "sorun", "okuma", "giris", "cikis",
                              "sure"}),
-    "html_govde": frozenset({"ad", "donem", "gunler_html"}),
-    "html_gunsuz_govde": frozenset({"ad", "donem"}),
+    "html_govde": frozenset({"ad", "donem", "yil", "gunler_html"}),
+    "html_gunsuz_govde": frozenset({"ad", "donem", "yil"}),
     "html_gun_satiri": frozenset({"tarih", "gun", "sorun", "okuma", "giris", "cikis",
                                   "sure"}),
 }

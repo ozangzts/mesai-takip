@@ -122,7 +122,7 @@ def compose(person: Person, days: Iterable[ProblemDay], period: str,
     counted = frozenset(counted)
     dated = sorted(days, key=lambda d: d.date)
     ay = period_text(period)
-    common = {"ad": person.name, "donem": ay}
+    common = {"ad": person.name, "donem": ay, "yil": period.split("-")[0]}
 
     if dated:
         rows = [fill("gun_satiri", template.gun_satiri, **_values(day, counted))

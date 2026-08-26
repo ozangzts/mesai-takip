@@ -9,9 +9,10 @@
 #
 #   {ad}      kişinin adı soyadı
 #   {donem}   "Temmuz 2026"
+#   {yil}     "2026" — raporun dönemi, bugünün yılı değil
 #   {gunler}  aşağıdaki `gun_satiri` her seçili gün için doldurulup buraya konur
 #
-# `gun_satiri` içinde kullanılabilecekler:
+# `gun_satiri` ve `html_gun_satiri` içinde kullanılabilecekler:
 #
 #   {tarih}   14.07.2026
 #   {gun}     Sal
@@ -23,19 +24,24 @@
 
 konu: "{donem} mesai kayıtları"
 
-# Seçili günü olan kişiye giden metin.
+# --- Düz metin --------------------------------------------------------------
+#
+# HTML gösteremeyen bir mail programı bunu gösterir. Aşağıdaki HTML ile AYNI bilgiyi
+# taşımalı: okuyan hangi biçimi gördüğüne bağlı olarak farklı bir şey anlamamalı.
+
 govde: |
   Sayın {ad},
 
-  {donem} dönemi giriş-çıkış kayıtları incelenmiştir.
-
-  Aşağıdaki günlerde kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir:
+  {donem} dönemi giriş-çıkış kayıtları incelenmiştir. Aşağıdaki günlerde
+  kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir:
 
   {gunler}
 
-  Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
+  Yukarıdaki günlere ilişkin açıklamanızı bu e-postayı yanıtlayarak iletmenizi
+  rica ederiz.
 
   İyi çalışmalar.
+  DEICO Mühendislik
 
 gun_satiri: "  · {tarih} {gun} — {sorun} ({okuma})"
 
@@ -44,48 +50,109 @@ gun_satiri: "  · {tarih} {gun} — {sorun} ({okuma})"
 gunsuz_govde: |
   Sayın {ad},
 
-  {donem} dönemi giriş-çıkış kayıtları incelenmiştir.
-
-  Söz konusu dönem için tarafınıza ait giriş-çıkış kaydına ulaşılamamıştır.
+  {donem} dönemi giriş-çıkış kayıtları incelenmiştir. Söz konusu dönem için
+  tarafınıza ait giriş-çıkış kaydına ulaşılamamıştır.
 
   Durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
 
   İyi çalışmalar.
+  DEICO Mühendislik
 
-# --- HTML (isteğe bağlı) ----------------------------------------------------
+# --- HTML -------------------------------------------------------------------
 #
-# Boş bırakılırsa yalnızca yukarıdaki düz metin gönderilir. Doldurulursa mail iki
-# biçimli gider: HTML gösteremeyen bir program düz metni görür. İkisi de aynı bilgiyi
-# taşımalı — biri eksikse okuyan neyi gördüğüne bağlı olarak farklı şey anlar.
+# Boş bırakılırsa yalnızca yukarıdaki düz metin gönderilir.
 #
-# Kişinin o günler için açıklama yazacağı tablo buraya konacak. `{gunler_html}` yerine
-# `html_gun_satiri` her gün için doldurulup konur.
+# Biçim DEICO'nun mevcut bilgilendirme maillerinden alındı. İki şey bilerek değişti:
+#
+#   1. Özgün şablonda yılı `<script>` yazıyordu. Hiçbir mail programı script
+#      çalıştırmaz — her yerde silinir. Yıl artık {yil} ile dolduruluyor.
+#   2. Renkler ve dolgular hem <style> içinde hem ilgili etiketin `style="..."`
+#      özelliğinde var. Outlook masaüstü Word motoruyla çizdiği için <style>
+#      bloğunun çoğunu yok sayıyor; satır içi yazılmayan renk orada kaybolur.
+#      Yuvarlatılmış köşeler ve max-width Outlook'ta yine görünmez, bu kabul edildi.
+#
+# Son kolon (`Açıklamanız`) bilerek boş: kişi cevabını oraya yazıyor.
 
 html_govde: |
-  <p>Sayın {ad},</p>
-  <p>{donem} dönemi giriş-çıkış kayıtları incelenmiştir. Aşağıdaki günlerde
-  kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir.</p>
-  <table cellpadding="6" cellspacing="0" border="1"
-         style="border-collapse:collapse;font-family:sans-serif;font-size:13px">
-    <tr style="background:#f0f0f0">
-      <th align="left">Tarih</th>
-      <th align="left">Gün</th>
-      <th align="left">Durum</th>
-      <th align="left">Kayıt</th>
-      <th align="left">Açıklamanız</th>
-    </tr>
+  <!DOCTYPE html>
+  <html lang="tr">
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+  body { font-family: Calibri, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
+  .email-container { max-width: 640px; margin: 40px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; }
+  .header, .footer { background-color: #004c7a; color: #ffffff; text-align: center; }
+  .header { padding: 18px 0; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+  .footer { padding: 10px 0; font-size: 13px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+  .info, .notes-section { padding: 16px 20px; background-color: #e8f1fb; margin: 18px 0; border-left: 5px solid #ff6f00; }
+  .bold-previous { font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 12px; }
+  th { padding: 7px 10px; text-align: left; background-color: #e8f1fb; color: #555555; font-weight: bold; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; }
+  </style>
+  </head>
+  <body style="font-family:Calibri,sans-serif;background-color:#f4f4f4;margin:0;padding:0">
+  <div class="email-container" style="max-width:640px;margin:40px auto;background-color:#ffffff;padding:20px">
+    <div class="header" style="background-color:#004c7a;color:#ffffff;text-align:center;padding:18px 0">
+      <h2 style="margin:0;font-size:19px">{donem} Mesai Kayıtları</h2>
+    </div>
+    <div class="info" style="padding:16px 20px;background-color:#e8f1fb;border-left:5px solid #ff6f00;margin:18px 0">
+      <span class="bold-previous" style="font-weight:bold">Sayın {ad}</span>,<br>
+      {donem} dönemi giriş-çıkış kayıtlarınız incelenmiştir. Aşağıdaki günlerde
+      kayıtlarınızda eksik ya da tutarsız bir durum tespit edilmiştir.
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:18px">
+      <thead>
+        <tr>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Tarih</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Gün</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Durum</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Kayıt</th>
+          <th style="padding:7px 10px;text-align:left;background-color:#e8f1fb;color:#555555">Açıklamanız</th>
+        </tr>
+      </thead>
+      <tbody>
   {gunler_html}
-  </table>
-  <p>Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi rica
-  ederiz.</p>
-  <p>İyi çalışmalar.</p>
+      </tbody>
+    </table>
+    <div class="notes-section" style="padding:16px 20px;background-color:#e8f1fb;border-left:5px solid #ff6f00;margin:18px 0">
+      Yukarıdaki günlere ilişkin açıklamanızı tablonun son kolonuna yazıp bu
+      e-postayı yanıtlayarak iletmenizi rica ederiz.
+    </div>
+    <div class="footer" style="background-color:#004c7a;color:#ffffff;text-align:center;padding:10px 0;font-size:13px">
+      © {yil} DEICO Mühendislik
+    </div>
+  </div>
+  </body>
+  </html>
 
 html_gun_satiri: |
-  <tr><td>{tarih}</td><td>{gun}</td><td>{sorun}</td><td>{okuma}</td><td></td></tr>
+      <tr><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{tarih}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{gun}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{sorun}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0">{okuma}</td><td style="padding:7px 10px;border-bottom:1px solid #e0e0e0"></td></tr>
 
 html_gunsuz_govde: |
-  <p>Sayın {ad},</p>
-  <p>{donem} dönemi giriş-çıkış kayıtları incelenmiştir. Söz konusu dönem için
-  tarafınıza ait giriş-çıkış kaydına ulaşılamamıştır.</p>
-  <p>Durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.</p>
-  <p>İyi çalışmalar.</p>
+  <!DOCTYPE html>
+  <html lang="tr">
+  <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="font-family:Calibri,sans-serif;background-color:#f4f4f4;margin:0;padding:0">
+  <div style="max-width:640px;margin:40px auto;background-color:#ffffff;padding:20px">
+    <div style="background-color:#004c7a;color:#ffffff;text-align:center;padding:18px 0">
+      <h2 style="margin:0;font-size:19px">{donem} Mesai Kayıtları</h2>
+    </div>
+    <div style="padding:16px 20px;background-color:#e8f1fb;border-left:5px solid #ff6f00;margin:18px 0">
+      <span style="font-weight:bold">Sayın {ad}</span>,<br>
+      {donem} dönemi giriş-çıkış kayıtları incelenmiştir. Söz konusu dönem için
+      tarafınıza ait giriş-çıkış kaydına ulaşılamamıştır.
+    </div>
+    <div style="padding:16px 20px;background-color:#e8f1fb;border-left:5px solid #ff6f00;margin:18px 0">
+      Durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
+    </div>
+    <div style="background-color:#004c7a;color:#ffffff;text-align:center;padding:10px 0;font-size:13px">
+      © {yil} DEICO Mühendislik
+    </div>
+  </div>
+  </body>
+  </html>

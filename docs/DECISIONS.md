@@ -5098,6 +5098,30 @@ opt out: a test that wants to exercise sending passes a `transport`, and a test 
 reaches the network fails loudly. The earlier claim that "nothing in the suite opens a
 socket" was true when written and had quietly stopped being true.
 
+### The shipped HTML is DEICO's own house template, with two deliberate changes
+
+The operator supplied the existing DEICO notification template (`Mail Örnek Şablon.txt`
+— a purchasing-agreements mail from another system): header band `#004c7a`, an info box
+in `#e8f1fb` with a `#ff6f00` left rule, a table, a footer with the year. That layout is
+kept; only the content is ours (`Tarih | Gün | Durum | Kayıt | Açıklamanız`, the last
+column deliberately empty for the person to write in).
+
+Two things could not be carried over as written:
+
+1. **The year came from `<script>`.** No mail client runs JavaScript — the tag is stripped
+   everywhere — so that footer would have been blank. It is a `{yil}` substitution now,
+   taken from the **reporting period** rather than a clock: `compose` has no clock by
+   design, and a July 2026 message should say 2026 whenever it is read.
+2. **Every colour and padding is written twice**, once in the `<style>` block and once
+   inline on the element. Outlook for Windows renders mail with the Word engine and
+   ignores most of an embedded stylesheet, so a colour that exists only in `<style>`
+   disappears there. Rounded corners and `max-width` are still lost in Outlook; that was
+   accepted rather than rewriting the house design into nested tables.
+
+The footer names the company, not a person, a team or a department — the §6 rule is about
+attributing a decision to somebody the reader cannot follow up, and a sender's own name in
+a signature is neither. The banned-word test runs over the shipped file and passes.
+
 ### Consequences
 
 - 547 tests. Eleven are new and about the template file: the shipped one loads, carries

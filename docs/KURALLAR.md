@@ -427,6 +427,16 @@ Yukarıdaki günlere ilişkin durumu bu e-postayı yanıtlayarak bildirmenizi ri
   Ekranda görülen metin düzenlenebiliyor ve **giden, ekranda görünenin aynısı.** Geri
   alınamayan tek işlem bu olduğu için araya bir insan konuldu.
 
+**Mail iki biçimde gidiyor.** HTML gösteren programlarda DEICO'nun bilgilendirme
+maillerindeki biçim görünüyor: üstte başlık şeridi, altında tablo — `Tarih`, `Gün`,
+`Durum`, `Kayıt` ve **boş bırakılmış `Açıklamanız`** kolonu. Kişi cevabını o kolona yazıp
+yanıtlıyor. HTML gösteremeyen bir program yukarıdaki düz metni görüyor; ikisi aynı bilgiyi
+taşıyor.
+
+**Metin `config/mail-taslagi.yaml` dosyasında.** Değiştirmek için programı yeniden kurmak
+gerekmiyor, dosyayı düzenleyip kaydetmek yeterli. Tanımadığı bir alan adı yazılırsa program
+durup söylüyor — yanlış yazılmış bir alanla mail göndermiyor.
+
 Adresi olmayan kişide alan boş geliyor ve elle yazılabiliyor — her ay 8 kişi böyle.
 Yazılan adres hiçbir yere kaydedilmiyor, yalnızca o gönderim için geçerli.
 
