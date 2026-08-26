@@ -41,7 +41,7 @@ govde: |
   rica ederiz.
 
   İyi çalışmalar.
-  DEICO Mühendislik
+  DEICO Elektronik
 
 gun_satiri: "  · {tarih} {gun} — {sorun} ({okuma})"
 
@@ -56,7 +56,7 @@ gunsuz_govde: |
   Durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
 
   İyi çalışmalar.
-  DEICO Mühendislik
+  DEICO Elektronik
 
 # --- HTML -------------------------------------------------------------------
 #
@@ -134,7 +134,7 @@ html_govde: |
       e-postayı yanıtlamanızı rica ederiz.
     </div>
     <div class="footer" style="background-color:#004c7a;color:#ffffff;text-align:center;padding:10px 0;font-size:13px">
-      © {yil} DEICO Mühendislik
+      © {yil} DEICO Elektronik
     </div>
   </div>
   </body>
@@ -164,7 +164,7 @@ html_gunsuz_govde: |
       Durumu bu e-postayı yanıtlayarak bildirmenizi rica ederiz.
     </div>
     <div style="background-color:#004c7a;color:#ffffff;text-align:center;padding:10px 0;font-size:13px">
-      © {yil} DEICO Mühendislik
+      © {yil} DEICO Elektronik
     </div>
   </div>
   </body>

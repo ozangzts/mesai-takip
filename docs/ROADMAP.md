@@ -304,6 +304,74 @@ Not built and deliberately not: a monthly summary of somebody's own hours. This 
 asks about problem days. Telling people their figures is a different message with a
 different risk, and the address is not verified yet.
 
+### 4d — The correction round-trip: **asked for, not built** (Q24)
+
+The step after the mail. People reply with what actually happened — *"14.07'de 18:30'da
+çıktım, kart okutmadım"* — and somebody has to put those answers back in and get a report
+that counts them.
+
+> *"danışman o bizim hazırladığımız exceli düzenlemek isteyecek eksik giriş çıkışları
+> tamamlamak için günlük detaydan. o noktadan sonra o rapora göre bu uygulama ve json
+> falan yeniden düzenlenmesi gerekecek."*
+
+**Is it possible after the `.exe`? Yes — but it is a feature, so it is code, so it needs a
+new `.exe`.** That is the line to hold in your head about the whole packaging question:
+the things deliberately left in `config/` (mail wording, thresholds, holidays, aliases,
+the account) change without a rebuild. Anything that changes what the program *does* is a
+rebuild. There is no way around that and no reason to pretend otherwise.
+
+#### The one thing not to do
+
+Do **not** let the consultant edit `mesai-raporu-<ay>.xlsx` and have the program read that
+back. The workbook is a presentation artifact — durations are `HH:MM` strings, cells are
+merged, columns move when the layout changes (they moved in ADR-052 and again in ADR-075).
+`snapshot.py` exists precisely because nothing may parse it, and making it both output and
+input would mean a run could no longer be reproduced from its sources. It also means the
+first person to sort a column or widen a cell silently changes payroll input.
+
+#### The shape that works
+
+A **fourth input file, purpose-built**, and the three exports stay as the base:
+
+1. The program **writes a correction sheet** — only the problem days, one row each, with
+   `Ad Soyad | Tarih | Okunan Giriş | Okunan Çıkış | Düzeltilmiş Giriş | Düzeltilmiş Çıkış
+   | Açıklama`. Small, and the last three columns are empty and are the only ones anybody
+   touches.
+2. The consultant fills it from the replies.
+3. The next run takes that file **alongside** the three exports and the corrected times
+   become records like any other — with `source="düzeltme"`, so `Günlük Detay` shows
+   `Kaynak: Düzeltme` and `Kontrol` counts how many were applied.
+
+Note the consequence: this is not "updating" the report. It is **re-running** with one more
+input. The pipeline stays a function of its inputs, which is what makes the same month
+reproducible six months later when somebody argues about a figure (AGENTS §2.1).
+
+#### Four things it must not break
+
+- **A corrected hour must never look like a badge-read hour.** These figures go to payroll
+  and get argued about. `Kaynak: Düzeltme` on the day, a count on `Kontrol`, and the
+  original reading kept beside the corrected one — the same reasoning as ADR-055's `Etki`
+  column and ADR-067's "a record that could not be used is still a record".
+- **Determinism.** Same three exports + same correction file = byte-identical output. So
+  the correction file is data, never a free-text note the program has to interpret.
+- **A correction cannot invent a day nobody recorded.** It completes a reading; it does
+  not create attendance out of nothing. A row for a date with no record at all is an
+  anomaly to surface, not a day to count — otherwise the file becomes a way to type hours
+  in, and this program's whole premise is that it never does that (ADR-003).
+- **The reply itself is not evidence the program can check.** Whether somebody really left
+  at 18:30 is a human judgement, made by the person filling the sheet. The program records
+  *that a correction was made*, not that it was right.
+
+#### Open before it can be built
+
+- Who is allowed to fill that sheet, and does the report need to say a day was corrected
+  without saying by whom (AGENTS §6 forbids naming a person in output)?
+- Does a corrected month get regenerated in place, overwriting the report already sent to
+  payroll, or does it become a second file? A figure that changed after somebody acted on
+  it needs to be visible as changed.
+- What happens to a mail already sent about a day that has since been corrected. Nothing
+  currently records what was sent to whom (`HANDOVER.md` §1, still open).
+
 ## Phase 5 — Annual roll-up
 
 `PRODUCT.md` §3: annual overtime and annual Multinet totals. Needs several months
@@ -370,6 +438,7 @@ beklenmiyor artık, işaretlenip elle bakılıyor (ADR-071).
 | Q4a | `DATA-SOURCES.md §6.1`'deki dokuz isim varyantı çiftinin aynı kişiler olduğunu onaylayın, alias tablosuna sabitlenebilsin | Faz 1 | Yanlış bir eşleştirme iki kişinin bordro saatlerini birleştirir |
 | Q4c | Sicil `9001` — izin dosyasında olup personel listesinde olmayan tek kişi. `9xxx` aralığı stajyer mi, taşeron mu? | Faz 1 | Personel listesinin tamamen atladığı bir çalışan kategorisi olabilir |
 | **Q18** | **Personel listesi `İşe Giriş Tarihi` ve `İşten Çıkış Tarihi` kolonlarıyla yeniden alınabilir mi?** | Faz 1 doğruluğu, Faz 4 güvenliği | "Sonradan girdi / önceden ayrıldı / verisi eksik" ayrımını çıkarımdan olguya çevirir. Ayrıca Faz 4'te ayrılmış birine mail gitmesini engeller. ADR-011. **ADR-061'den sonra daha somut:** `Hem giriş hem çıkış yok` artık ay içinde işe girmiş olabilecekleri de listeliyor, çünkü program ikisini ayırt edemiyor — Temmuz'da 5 kişi 18–21 günle listede. Tarih gelirse çıpa `max(işe giriş, ayın 1'i)` olur ve o satırlar kendiliğinden düşer |
+| Q24 | **Düzeltme dosyası (4d) hangi biçimde gelecek ve düzeltilen bir gün raporda nasıl görünecek?** Kişiler maile dönüş yapıyor, danışman eksik giriş-çıkışları tamamlamak istiyor. Üretilen Excel'i düzenleyip programa geri okutmak **yapılmayacak** — o dosya bir sunum çıktısı ve `snapshot.py` tam bunu engellemek için var. Doğru biçim: programın yazdığı, yalnızca sorunlu günleri taşıyan ayrı bir düzeltme dosyası, üç kaynak dosyanın **yanına** dördüncü girdi olarak | Faz 4d | Düzeltilmiş bir saat, karttan okunmuş bir saatten ayırt edilebilir olmalı — bu sayılar bordroya gidiyor. Ayrıca bordroya gönderilmiş bir raporun sonradan değişmesi görünür olmalı |
 | Q5 | **Beklenen günlük süre `config/settings.yaml`'da hâlâ `expected_daily_net_hours: 8.25` yazıyor ve bu artık yanlış.** İş gününün 9 saat olduğu iki bağımsız kaynaktan doğrulandı (bkz. Cevaplananlar). İK'nın onaylaması gereken tek şey: fazla mesai eşiği 9 saatin üstünden mi başlıyor? | Faz 2 | Bütün fazla mesai hesabı buna dayanıyor. Kullanılmayan bir parametre, ama Faz 2 açılmadan düzeltilmeli |
 | Q6 | Fazla mesai hafta sınırı (Pzt–Paz mı); eksik çalışma hafta içinde fazla mesaiyi mahsup ediyor mu; tam 3 saat ve tam 7,5 saatte davranış ne. **"Brüt mü net mi" kısmı cevaplandı: brüt** — ADR-016 ile net diye ayrı bir sayı kalmadı | Faz 2 | Multinet hakedişi para demek |
 | Q7 | Otomatik vardiya atamasında giriş saati pencereleri tam olarak ne; `2. Vardiya` henüz yok — ne zaman devreye girecek? | Faz 2 | Yanlış vardiya ⇒ yanlış beklenen saat |

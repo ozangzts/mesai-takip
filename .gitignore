@@ -44,6 +44,12 @@ config/gmail.yaml
 # Pseudonym -> real name mapping for the docs. Internal only.
 *.local.md
 
+# --- PyInstaller ------------------------------------------------------------
+# Derleme cikitisi. `dist/MesaiTakip/config/` icine kuran kisi gercek personel.yaml
+# ve gmail.yaml koyuyor, yani bu klasor gercek isim ve giris bilgisi tasiyabilir.
+build/
+dist/
+
 # --- Python -----------------------------------------------------------------
 __pycache__/
 *.py[cod]

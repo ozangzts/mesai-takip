@@ -5174,3 +5174,133 @@ a signature is neither. The banned-word test runs over the shipped file and pass
 - The "names nobody" rule is now tested against the **shipped file** rather than a string
   in the code, which is the right place for it to be tested from.
 - No figure moved, no report changed, `format_version` stays 11.
+
+---
+
+## ADR-079 — Packaged as a folder, and the three ways the first builds were broken
+
+**Date:** 2026-08-26
+**Status:** Accepted
+**Depends on:** ADR-078 (the wording had to leave the code first).
+
+### What ships
+
+`derle.cmd` runs the tests, calls PyInstaller with `MesaiTakip.spec`, then assembles
+`dist/MesaiTakip/` — 38 MB, and the whole folder is what gets zipped and handed over:
+
+```
+MesaiTakip.exe
+KULLANIM.txt          the user guide, plain Turkish
+config/               beside the exe, not inside it
+_internal/            Python and the libraries. The operator never opens this.
+```
+
+### Three decisions
+
+- **`--onedir`, not `--onefile`.** A single file unpacks itself into a temp directory on
+  every launch — for a tkinter application that is three to eight seconds before the
+  window appears, every single time — and antivirus software treats self-extraction with
+  more suspicion than a plain folder. The folder starts in about a second. The cost is
+  that `MesaiTakip.exe` cannot be dragged out of its folder; `KULLANIM.txt` says so
+  twice, in the two places somebody would try it.
+- **`console=False`.** The window *is* the interface. A black terminal opening behind it
+  reads as a fault to somebody who does not know what a terminal is.
+  `disable_windowed_traceback` stays off, so a startup crash still shows a dialog rather
+  than nothing at all — which is the only reason the failures below were visible.
+- **UPX off.** Compression is a common antivirus trigger and the saving is irrelevant at
+  this size.
+
+`config/` stays outside for four separate reasons, and it is worth keeping all four in
+mind because any one of them alone would justify it: a rule change must be a YAML edit
+(AGENTS §6); the calendar screen **writes** to `takvim-<yıl>.yaml` (ADR-042), so it has
+to be a real writable file; `gmail.yaml` is a credential and must be rotatable; and
+`mail-taslagi.yaml` is wording that is expected to change (ADR-078).
+
+`personel.yaml` and `gmail.yaml` are excluded **by name**, not by a glob that happens to
+miss them — an exclusion that works by accident stops working the day somebody adds a
+file, and the failure there is a zip containing real employee names or a live credential,
+handed to somebody, unrecoverably. The examples ship instead and whoever installs it
+copies the real ones across, the same manual step a fresh clone already needs.
+
+### The three ways it was broken, all invisible until the exe was launched
+
+This is the part worth reading. Every one of them produced a build PyInstaller reported
+as successful.
+
+**1. The entry point could not import itself.** The spec pointed at
+`src/mesai/gui/__main__.py`, which is what `python -m mesai.gui` runs and therefore uses
+`from .app import main`. PyInstaller runs its entry script as a top-level `__main__` with
+no package, so:
+
+```
+ImportError: attempted relative import with no known parent package
+```
+
+`baslat.py` exists to be the frozen entry and its imports are absolute. `__main__.py`
+keeps its relative import, because `-m` gives it a package context and that path still
+works.
+
+**2. `config/` landed in `_internal/`.** PyInstaller 6 puts everything in `datas` under
+`_internal/`, and `cli.program_dir` looks beside the executable
+(`Path(sys.executable).parent` when frozen). So the copy was both in the wrong place and
+inside the one directory the operator must never be sent into. `datas` is empty now and
+`derle.cmd` does the copying — the spec builds the program, the script assembles the
+deliverable.
+
+**3. conda keeps its native libraries where PyInstaller does not look.** Extension modules
+(`_tkinter.pyd`, `pyexpat.pyd`, `_ssl.pyd`, …) link against DLLs that a normal CPython
+install puts in `DLLs/`. A conda environment puts them in `Library/bin/`, which the scan
+skips. It died twice more:
+
+```
+ImportError: DLL load failed while importing _tkinter    ->  tcl86t, tk86t
+ImportError: DLL load failed while importing pyexpat     ->  libexpat, via openpyxl
+```
+
+and then the one that mattered most: **`libssl-3-x64.dll` and `libcrypto-3-x64.dll` were
+still missing.** Those are not needed to start — they are needed for SMTP over TLS. The
+first symptom would have been a failed send, at month end, in front of somebody, after
+the report had already looked fine.
+
+So it is **resolved rather than listed**. The spec reads every `.pyd` the interpreter
+ships plus `python3*.dll` with `pefile` (already a PyInstaller dependency), walks the
+import tables transitively, and carries anything named that exists in `Library/bin`. 26
+files here, and the list maintains itself when the environment changes instead of rotting
+into a stale hard-coded set. It prints the count, and warns loudly if `Library/bin` is
+empty — a silently empty list is how this class of bug arrives.
+
+`xlrd` is a `hiddenimports` entry for the same shape of reason: it is imported inside
+`readers/base.py` only when a `.xls` turns up, so the scan can drop it and nothing is
+wrong until the month the Macunköy export changes container — which has happened once
+already (ADR-020), and on the operator's machine that is a dead run with no local fix.
+
+### What was verified, and what was not
+
+Verified on this machine: the window opens with no traceback; `PrintWindow` shows it
+actually drawn, with the project's own palette in it (`#f4f5f7`, `#dfe3e8`, `#e7f0fa`) and
+143 distinct colours, so it is a rendered interface and not a blank rectangle; `openpyxl`
+(352 modules) and `xlrd` (20) are in the archive; `libssl`, `libcrypto`, `libexpat`,
+`tcl86t`, `tk86t` are all present.
+
+**Not verified, and this is the whole remaining risk: a machine with no Python on it.**
+Everything above was measured with the conda environment still sitting on disk, and
+"it compiled" was wrong three times in a row today. The order to test in, and why each
+step is there rather than a general "try it", is in `HANDOVER.md` §3 — the two that catch
+the most are marking a holiday (proves `config/` is writable where they put it) and
+running a `.xls` month (proves `xlrd` really made it).
+
+Antivirus is also open. An unsigned PyInstaller binary commonly draws a SmartScreen
+warning and corporate antivirus sometimes quarantines it outright; with no code-signing
+certificate the answer is an exception or a shared folder. Which antivirus the target
+machine runs has not been answered.
+
+### Consequences
+
+- 560 tests. Ten are new and cover the build recipe as text — weaker than exercising a
+  build, but each encodes one of the three failures above, so a regression goes red
+  instead of shipping.
+- `dist/` and `build/` are git-ignored: `dist/MesaiTakip/config/` is where somebody puts
+  the real `personel.yaml` and `gmail.yaml`, so that tree can hold real names and a
+  credential.
+- `pyinstaller>=6.10` added to `environment.yml` as a pip dependency — a build tool, not
+  a runtime one. Nothing the program does at run time depends on it.

@@ -174,6 +174,10 @@ Planned structure (see `docs/ARCHITECTURE.md` for the reasoning):
 mesai-takip/
 ├── AGENTS.md                  # you are here
 ├── README.md                  # human-facing, Turkish
+├── KULLANIM.txt               # the operator's guide. Ships next to the .exe
+├── baslat.py                  # the FROZEN entry point. Absolute imports only — ADR-079
+├── MesaiTakip.spec            # PyInstaller recipe. Resolves conda's DLLs itself
+├── derle.cmd                  # test, build, assemble dist/MesaiTakip/
 ├── pyproject.toml
 ├── rapor.cmd                  # CLI wrapper, no conda activate needed
 ├── arayuz.cmd                 # opens the window; double-clickable, no console
@@ -219,7 +223,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 550 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 560 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 

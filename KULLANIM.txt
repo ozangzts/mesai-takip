@@ -1,0 +1,284 @@
+===============================================================================
+  MESAİ TAKİP - KULLANIM KILAVUZU
+===============================================================================
+
+Bu program, turnike ve izin dosyalarından aylık mesai raporu hazırlar.
+Elle hesap yapmaz, elinizdeki dosyalarda ne yazıyorsa onu toplar.
+
+Bilgisayardan anlamanız gerekmiyor. Aşağıdaki adımları sırayla takip edin.
+
+
+-------------------------------------------------------------------------------
+  0. BAŞLAMADAN ÖNCE - BU KLASÖR NEREDE DURMALI
+-------------------------------------------------------------------------------
+
+Bu klasörü MASAÜSTÜ'ne ya da BELGELER'e koyun.
+
+"Program Files" klasörüne KOYMAYIN. Program kendi ayarlarını (işaretlediğiniz
+tatiller, seçtiğiniz klasörler) yanındaki dosyalara yazıyor ve Windows o klasöre
+yazmaya izin vermiyor. Koyarsanız program açılır ama tatilleri kaydedemez.
+
+Klasörün içinden hiçbir dosyayı silmeyin, taşımayın, adını değiştirmeyin.
+MesaiTakip.exe dosyasını da klasörden dışarı çıkarmayın - yanındaki dosyalara
+ihtiyacı var. Kısayol isterseniz: sağ tık > Kısayol oluştur, kısayolu masaüstüne
+taşıyın.
+
+
+-------------------------------------------------------------------------------
+  1. HANGİ DOSYALAR GEREKİYOR
+-------------------------------------------------------------------------------
+
+Her ay için ÜÇ dosya gerekiyor. Üçü de aynı klasörde olmalı:
+
+  1) Macunköy giriş-çıkış dosyası      (Excel)
+  2) Teknopark mesai takip dosyası      (Excel)
+  3) İzin dosyası                       (Excel)
+
+Ayrıca AYA BAĞLI OLMAYAN bir dosya daha var:
+
+  4) Personel listesi (çalışan listesi) (Excel)
+
+Bu dördüncü dosya her ay değişmiyor. Bir kere yerini gösterirsiniz, program
+hatırlar.
+
+Dosya adlarının bir önemi yok - program içeriğine bakarak hangisinin hangisi
+olduğunu buluyor. Önemli olan tek şey: BİR KLASÖRDE BİR AY OLMALI. Haziran ve
+Temmuz dosyalarını aynı klasöre koymayın.
+
+
+-------------------------------------------------------------------------------
+  2. PROGRAMI AÇMAK
+-------------------------------------------------------------------------------
+
+MesaiTakip.exe dosyasına çift tıklayın.
+
+İlk açılışta Windows "Bilinmeyen yayıncı" ya da "Windows PC'nizi korudu" diye
+bir uyarı verebilir. Bu programın bozuk olduğu anlamına gelmez; imzalı bir
+program olmadığı için Windows tanımıyor. "Ek bilgi" > "Yine de çalıştır"
+seçeneğiyle açabilirsiniz. Bilgi işlemden onay almanız gerekebilir.
+
+Program açıldığında solda üç bölüm görürsünüz:
+
+  RAPOR     - raporu burada üretiyorsunuz
+  KİŞİLER   - sorunlu günleri olan kişileri burada görüyor ve mail atıyorsunuz
+  TAKVİM    - resmi tatilleri burada işaretliyorsunuz
+
+
+-------------------------------------------------------------------------------
+  3. SIRAYLA NE YAPILACAK
+-------------------------------------------------------------------------------
+
+ADIM 1 - TAKVİM (ayda bir, en başta)
+
+  TAKVİM bölümüne girin. O ayın resmi tatillerini işaretleyin.
+
+  Bu önemli: program "bugün iş günü müydü" sorusunu buradan cevaplıyor.
+  Tatil işaretlenmezse, o gün kimse çalışmadığı için program eksik kayıt
+  var sanır ve boş yere uyarı verir.
+
+  İşaretlediğiniz tatiller kaydedilir, her ay yeniden girmeniz gerekmez.
+
+
+ADIM 2 - RAPOR
+
+  RAPOR bölümüne girin. Yukarıdan aşağıya doğru dört bölüm var.
+
+  a) KAYNAK KLASÖR
+     "Gözat..." düğmesiyle o ayın Excel dosyalarının bulunduğu klasörü seçin.
+
+     Seçtikten sonra altta dört satır çıkar - Macunköy, Teknopark, İzin ve
+     Personel listesi. Bulunanın yanında dosya adı yazar. Bulunamayan satırın
+     sağında "Seç..." düğmesi olur, ona basıp dosyayı elle gösterebilirsiniz.
+
+     Personel listesi genelde ayrı bir yerde durur; bir kere "Seç..." ile
+     gösterirsiniz, sonraki aylarda hatırlanır.
+
+  b) DÖNEM
+     Hangi ay olduğunu yazın:  2026-08
+
+     Klasör adından anlayabiliyorsa kendisi doldurur. "Temmuz 2026" ya da
+     "08-2026" gibi yazsanız da anlar.
+
+  c) RAPOR KLASÖRÜ
+     Raporun nereye kaydedileceği. Varsayılan Masaüstü ve orada
+     "2026-08 Rapor" diye bir klasör açar. "Değiştir..." ile başka yer
+     seçebilirsiniz; seçtiğiniz yer hatırlanır.
+
+     Aynı ay için ikinci kez rapor üretirseniz eskisinin üzerine yazar ve
+     bunu önceden söyler.
+
+  d) "Rapor Oluştur" düğmesine basın.
+
+     Birkaç saniye sürer. Bitince ne bulduğunu yazar: kaç kişi, toplam süre,
+     kaç şüpheli kayıt. Altta "Raporu Aç" ve "Klasörü Aç" düğmeleri çıkar.
+
+
+ADIM 3 - RAPORU KONTROL ETMEK
+
+  Çıktı klasöründe iki dosya oluşur:
+
+    mesai-raporu-2026-08.xlsx   <- Excel raporu, açıp bakacağınız dosya
+    gonderim-2026-08.json       <- programın kendi kullandığı dosya, SİLMEYİN
+
+  Excel'de 6 sayfa var:
+
+    Aylık Özet        Kişi başına toplam süre. Asıl sonuç bu.
+    Günlük Detay      Herkesin her günü, tek tek. Denetim izi.
+    İnceleme Listesi  Kişi bazlı sorun listesi - "kime ne soracağım"
+    Şüpheli Kayıtlar  Sorunlu kayıtların tek tek listesi
+    İzin Özeti        Kişi başına izin günleri
+    Kontrol           Sayıların tutup tutmadığı. Aşağıya bakın.
+
+  KONTROL SAYFASINA MUTLAKA BAKIN. Orada "Mutabakat" satırı var:
+
+    TAMAM yazıyorsa   -> hiçbir saat kaybolmamış ya da iki kez sayılmamış
+    Başka bir şey     -> rapor kullanılmaz, geliştiriciye haber verin
+
+  Aynı sayfada "Personel listesinde olup bu ayda hiç kaydı olmayan" diye
+  kırmızı bir satır olabilir. Oradaki kişilerin o ay hiçbir kaydı yok - ne
+  kart ne izin. Bir kısmı sonradan işe başlamış olabilir, program ayırt
+  edemiyor. Bu kişilere elle bakmanız gerekiyor.
+
+
+ADIM 4 - KİŞİLER VE MAİL
+
+  KİŞİLER bölümüne girin. Rapor ürettikten sonra otomatik dolar.
+
+  SOLDA kişi listesi var. "Sorunlu gün" kolonu, o kişinin kaç gününün hiç
+  sayılmadığını gösterir.
+
+  Bir kişinin ADINA tıklayın -> SAĞDA o kişinin sorunlu günleri açılır.
+  Adın solundaki KAREYE tıklayın -> o kişi listeden çıkar (mail almaz).
+
+  Sağdaki gün listesinde iki blok olabilir:
+
+    Üstteki (başlıksız)   O gün hiç sayılmamış. İşaretli gelir.
+    "SAYILAN GÜNLER"      Süre sayılmış, kayıp yok. İşaretsiz gelir.
+                          İstersen tek tek işaretleyip mesaja eklersin.
+
+  Alttaki E-posta kutusunda kişinin adresi hazır gelir. Adresi yoksa kutu
+  boş gelir, elle yazabilirsiniz.
+
+  "E-posta gönder..." düğmesi bir ÖNİZLEME penceresi açar:
+
+    - Metni burada düzenleyebilirsiniz.
+    - "HTML'i tarayıcıda gör" düğmesi, karşı tarafın göreceği tablolu hâli
+      tarayıcıda açar. Pencerede sadece düz metin görünüyor.
+    - "Gönder" düğmesine basana kadar hiçbir şey gönderilmez.
+
+  TEK SEFERDE TEK KİŞİYE gönderilir. Toplu gönderme yok - bilerek böyle.
+  162 kişiye giden bir mail geri alınamaz.
+
+
+-------------------------------------------------------------------------------
+  4. NOT PANELİ (KİŞİLER bölümünde, ortada)
+-------------------------------------------------------------------------------
+
+"Sorunu olanlar" filtresini seçtiğinizde ortada onay kutuları çıkar. Her kutu
+bir sorun türü. İşaretli olanlar listeye kimin gireceğini belirler.
+
+İki başlık altında toplanmış:
+
+  Günü sayılmayan  -> bu sorunlar yüzünden saat kaybedilmiş
+  Günü sayılan     -> süre sayılmış ama yine de sorulabilir
+
+Kutuların yanındaki sayı, o sorunu olan KİŞİ sayısı.
+
+Not: bir gün birden fazla kutuya girebilir, o yüzden sayıları toplamayın.
+
+
+-------------------------------------------------------------------------------
+  5. MAİL METNİNİ DEĞİŞTİRMEK
+-------------------------------------------------------------------------------
+
+Mail metni programın içinde değil, yanındaki dosyada:
+
+    config\mail-taslagi.yaml
+
+Bu dosyayı Not Defteri ile açıp değiştirebilirsiniz. Programı yeniden kurmak
+gerekmez, kaydedip programda önizlemeyi tekrar açmanız yeterli.
+
+DİKKAT:
+  - Süslü parantezli yerlere ({ad}, {donem}, {tarih} gibi) dokunmayın.
+    Onları program dolduruyor.
+  - Yanlış bir isim yazarsanız (mesela {isim}) program size söyler ve mail
+    göndermez. Yani bozamazsınız, uyarı alırsınız.
+  - Dosyanın en başında hangi parantezlerin kullanılabileceği yazıyor.
+
+
+-------------------------------------------------------------------------------
+  6. MAİL HESABI
+-------------------------------------------------------------------------------
+
+Mail göndermek için config\gmail.yaml dosyası gerekiyor. İçinde gönderim
+yapılacak Gmail adresi ve o hesabın "uygulama şifresi" var.
+
+Bu dosya bir GİRİŞ BİLGİSİ içerir. Kimseyle paylaşmayın, mail eki olarak
+göndermeyin.
+
+Uygulama şifresi hesabın normal şifresi DEĞİLDİR. Google hesabında iki adımlı
+doğrulama açıkken ayrı üretilen 16 haneli bir şifredir ve tek başına iptal
+edilebilir. Kurulumu bilgi işlem ya da geliştirici yapar.
+
+
+-------------------------------------------------------------------------------
+  7. BİR ŞEY TERS GİDERSE
+-------------------------------------------------------------------------------
+
+Program hata verdiğinde ne olduğunu Türkçe yazar. Sık görülenler:
+
+"Dosya bulunamadı" / "Klasörde ... dosyası yok"
+    Seçtiğiniz klasörde üç dosyadan biri eksik. Klasörü kontrol edin.
+
+"Bu klasörde iki farklı ayın dosyası var"
+    Bir klasörde bir ay olmalı. Ayları ayrı klasörlere koyun.
+
+"BU RAPOR EKSİK" (raporun en üstünde kırmızı yazı)
+    Dosyalardan biri ayın tamamını kapsamıyor. Örneğin ayın 19'unda alınmış
+    bir dosya. Bu rapordaki saatler bordroya gitmez. Dosyayı ay bittikten
+    sonra yeniden isteyin.
+
+"Rapor dosyası kilitli"
+    Excel raporu açık. Kapatıp tekrar deneyin.
+
+"Gmail girişi reddedildi"
+    Uygulama şifresi yanlış ya da iptal edilmiş. Bilgi işleme sorun.
+
+Ne yazdığını anlamadığınız bir hata olursa: EKRAN GÖRÜNTÜSÜ ALIN ve
+geliştiriciye gönderin. Hata metni neyin yanlış olduğunu söylüyor.
+
+
+-------------------------------------------------------------------------------
+  8. YAPMAYIN
+-------------------------------------------------------------------------------
+
+- Üretilen Excel raporunu düzenleyip programa geri okutmaya çalışmayın.
+  Program o dosyayı okumuyor, yanındaki .json dosyasını okuyor.
+
+- gonderim-....json dosyasını silmeyin. Kişiler bölümü onu kullanıyor.
+
+- Kaynak Excel dosyalarını elle düzeltmeyin. Bir şey yanlışsa dosyayı veren
+  yerden düzeltilmiş hâlini isteyin. Elle düzeltilen bir dosya, bir sonraki
+  ay aynı hatayı yine getirir.
+
+- Raporu bordroya göndermeden önce Kontrol sayfasındaki "Mutabakat TAMAM"
+  yazısını görmeden göndermeyin.
+
+
+-------------------------------------------------------------------------------
+  9. NE YAPMADIĞINI BİLİN
+-------------------------------------------------------------------------------
+
+Bu program bir hesap makinesidir, karar verici değil.
+
+- Eksik bir damgayı TAHMİN ETMEZ. "Muhtemelen 18:00'da çıkmıştır" demez;
+  o günü sayılmamış olarak işaretler ve size söyler.
+- Kimin haklı olduğuna karar vermez. Dosyalarda ne varsa onu toplar,
+  tutmayan yerleri listeler.
+- Fazla mesai, Multinet, vardiya hesabı henüz YOK. Şu an sadece aylık
+  toplam çalışma süresi hesaplanıyor.
+
+Bir sayıyı kim sorarsa sorsun, cevabı Günlük Detay ve Kontrol sayfalarında
+tek tek gösterilebilir. Program bunun için böyle yapıldı.
+
+===============================================================================

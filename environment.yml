@@ -34,7 +34,12 @@ dependencies:
   - xlrd=2.0.2            # sadece .xls — Temmuz 2026'da Macunköy dışa aktarımı bu forma geçti (ADR-020)
   - pyyaml=6.0.3
 
-  # Geliştirme aracı — rapor çıktısını etkilemez, o yüzden aralık yeterli.
+  # Geliştirme araçları — rapor çıktısını etkilemez, o yüzden aralık yeterli.
   - pytest>=8.0
+
+  # `.exe` paketleme. Yalnızca `derle.cmd` kullanıyor; programın çalışması için
+  # gerekli değil. conda-forge'da güncel sürümü yok, pip ile kuruluyor.
+  - pip:
+      - pyinstaller>=6.10
 
   - pip

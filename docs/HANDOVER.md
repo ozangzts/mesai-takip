@@ -8,7 +8,8 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (78 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (79 ADR) | [DECISIONS.md](DECISIONS.md) |
+| **Programı kullanacak kişi için** | [KULLANIM.txt](../KULLANIM.txt) — sade Türkçe, exe ile birlikte gidiyor |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +23,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **550 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **560 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -181,20 +182,94 @@ kural, öteki tercih.
 > **ilk bakılacak şey: içinde sicil no var mı.** Yoksa eşleşmeyen her satır için uyarı
 > verilecek; program tahmin etmez, söyler (AGENTS §2.1).
 
-### 3. Tek `.exe` paketi (PyInstaller)
+### 3. `.exe` paketi — **derlendi, temiz makinede denenmedi**
 
-Asıl uğraş paketleme değil, **Python'un kurulu olmadığı bir makinede test etmek.**
+`derle.cmd` bütün işi yapıyor: testleri koşuyor, PyInstaller'ı çağırıyor, sonra teslim
+klasörünü topluyor. Sonuç `dist\MesaiTakip\` — **bu klasörün tamamı** zip'lenip verilir,
+23 MB.
 
-- `config/` exe'nin içine gömülmemeli — kural değişikliği YAML düzenlemesi ve
-  `personel.yaml` gerçek isim yazımlarını tutuyor.
-- **`config/` yazılabilir olmalı.** Takvim ekranı `config/takvim-<yıl>.yaml`'a yazıyor
-  (ADR-042), yani ADR-024'ün "programın kendi dizini yazılabilir olmak zorunda değil"
-  ilkesi config klasörü için artık geçerli değil. Ölçüldü: salt-okunur bir dosyada kayıt
-  sessizce başarısız olmuyor, ekranda kırmızıyla ne yapılacağını yazıyor ve dosya
-  bozulmuyor. Yani hata durumu düzgün, ama exe + `config/` **Masaüstü ya da Belgeler
-  gibi bir yere** konmalı — `Program Files`'a değil.
-- İki giriş noktası da kontrol edilmeli: `arayuz.cmd`'nin `-m mesai.gui` çağrısı
-  (`gui/__main__.py`) ve `pyproject.toml`'un `mesai.gui:main` girdisi.
+```
+dist\MesaiTakip\
+  MesaiTakip.exe
+  KULLANIM.txt          <- kullanacak kişi için, sade Türkçe
+  config\               <- exe'nin YANINDA, içinde değil
+  _internal\            <- Python ve kütüphaneler. Kullanıcı buraya hiç girmez.
+```
+
+**Üç karar ve gerekçeleri:**
+
+- **`--onedir`, `--onefile` değil.** Tek dosya her açılışta kendini geçici klasöre
+  açıyor — tkinter uygulamasında her seferinde 3–8 saniye — ve antivirüs bu davranışa
+  daha çok takılıyor. Klasör ~1 saniyede açılıyor. Bedeli: `MesaiTakip.exe` klasörün
+  dışına çıkarılamaz, yanındaki dosyalara ihtiyacı var. `KULLANIM.txt` bunu iki yerde
+  söylüyor.
+- **`console=False`.** Pencere arayüzün kendisi; arkasında açılan siyah bir terminal,
+  terminalin ne olduğunu bilmeyen birine bir şeyin ters gittiğini düşündürür. CLI ayrı
+  giriş noktası ve pakete girmiyor.
+- **UPX kapalı.** Sıkıştırma antivirüs tetikleyicisi ve kazancı bu boyutta anlamsız.
+
+**`config/` neden dışarıda** — dördü de ayrı sebep: kural değişikliği YAML düzenlemesi
+olmalı (AGENTS §6); Takvim ekranı `takvim-<yıl>.yaml`'a **yazıyor** (ADR-042), yani gerçek
+ve yazılabilir bir dosya olmak zorunda; `gmail.yaml` bir giriş bilgisi ve derleme
+yapmadan değiştirilebilmeli; `mail-taslagi.yaml` metin ve değişeceği belli (ADR-078).
+
+> **PyInstaller 6 tuzağı:** `datas` listesine konan her şey `_internal\` altına gidiyor,
+> program ise `config/`'i exe'nin **yanında** arıyor (`cli.program_dir`, donmuşken
+> `Path(sys.executable).parent`). O yüzden `.spec` dosyasında `datas=[]` ve kopyalamayı
+> `derle.cmd` yapıyor. Bunu atlarsan program açılır ve config bulamaz.
+
+**Pakete girmeyen iki dosya, adıyla dışlanıyor** (glob'a güvenilmiyor: kazara çalışan bir
+dışlama, biri yeni dosya ekleyince çalışmaz olur): `personel.yaml` gerçek isim yazımlarını,
+`gmail.yaml` bir girişi taşıyor. Örnekleri gidiyor, gerçeklerini kuran kişi elle koyuyor —
+temiz bir klonun zaten gerektirdiği aynı elle adım.
+
+**Yapılmayan ve asıl iş olan:** **Python'un kurulu olmadığı bir makinede denemek.** Kendi
+makinemizde çalışıyor olması hiçbir şey kanıtlamıyor — conda ortamı hâlâ ortada. Denenecek
+sıra:
+
+1. Klasörü zip'le, temiz makineye kopyala, **Masaüstü'ne** çıkar (`Program Files`'a değil).
+2. `config\personel.yaml` ve `config\gmail.yaml` elle konsun.
+3. Aç. SmartScreen "bilinmeyen yayıncı" derse "Ek bilgi > Yine de çalıştır".
+4. **Takvim ekranında bir tatil işaretle ve kaydet** — yazma izni burada anlaşılıyor.
+5. Bir ay üret, `Kontrol` sayfasında `Mutabakat TAMAM` gör.
+6. `.xls` formatlı bir ay dene (Temmuz Macunköy dosyası öyle) — `xlrd` gerçekten pakete
+   girdi mi ancak böyle anlaşılır. `hiddenimports`'ta yazılı olmasının sebebi bu: o
+   kütüphane yalnızca `.xls` karşısına çıkınca import ediliyor.
+7. Bir kişiye mail at, Outlook'ta yanıtlayıp tabloya yaz.
+
+**Antivirüs:** imzasız PyInstaller çıktısı sık sık "bilinmeyen yayıncı" uyarısı alıyor,
+kurumsal antivirüs bazen doğrudan karantinaya alıyor. Kod imzalama sertifikası yoksa
+çözüm ya istisna ekletmek ya da ortak bir klasörden çalıştırmak. Hedef makinede hangi
+antivirüsün olduğu **henüz sorulmadı**.
+
+### 4. Düzeltme turu — **istendi, yapılmadı** (ROADMAP 4d, Q24)
+
+Mailden sonraki adım. Kişiler cevap veriyor, danışman eksik giriş-çıkışları tamamlayıp
+saatleri sayan bir rapor istiyor.
+
+> *"danışman o bizim hazırladığımız exceli düzenlemek isteyecek ... o noktadan sonra o
+> rapora göre bu uygulama ve json falan yeniden düzenlenmesi gerekecek. artık o 3 excel
+> dosyasını kullanmıyoruz."*
+
+**Exe'den sonra mümkün mü? Evet — ama bu bir özellik, yani kod, yani yeni bir exe.**
+Paketleme sorusunun tamamı hakkında akılda tutulacak çizgi bu: `config/`'e bilerek
+bırakılan şeyler (mail metni, eşikler, tatiller, alias'lar, hesap) derleme olmadan
+değişiyor. Programın **ne yaptığını** değiştiren her şey yeniden derleme.
+
+**Yapılmayacak olan:** üretilen Excel'i düzenleyip programa geri okutmak. O dosya bir
+sunum çıktısı — süreler `HH:MM` metni, hücreler birleşik, kolonlar yer değiştiriyor
+(ADR-052'de ve tekrar ADR-075'te değişti) — ve `snapshot.py` tam bunu engellemek için var.
+Hem girdi hem çıktı olması, bir koşunun kaynaklarından yeniden üretilememesi demek.
+
+**Çalışan biçim:** üç kaynak dosya **taban olarak kalıyor**, yanına dördüncü ve amaca özel
+bir dosya geliyor. Program yalnızca sorunlu günleri taşıyan bir düzeltme sayfası yazıyor,
+danışman son üç kolonu dolduruyor, sonraki koşu onu üç dosyanın yanında okuyor ve
+düzeltilen saatler `source="düzeltme"` ile kayıt oluyor. Yani rapor "güncellenmiyor",
+**yeniden üretiliyor** — bir girdi fazlasıyla. Boru hattı girdilerinin fonksiyonu olarak
+kalıyor, ki altı ay sonra bir sayı tartışıldığında aynı ayı yeniden üretebilmenin şartı bu.
+
+Kısıtlar, gerekçeleri ve açık sorular `ROADMAP.md` 4d'de. En kritiği: **düzeltilmiş bir
+saat, karttan okunmuş bir saatten ayırt edilebilir olmalı** — bu sayılar bordroya gidiyor.
 
 ---
 
