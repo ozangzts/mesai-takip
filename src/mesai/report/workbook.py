@@ -384,7 +384,13 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
             # reading, and `00:00` would look like one.
             middle_values = ["", "", ""] if settings.brk.deduct else ["", ""]
             if leave_type:
-                kaynak, etiket, giris, cikis = "İzin", leave_type, "", ""
+                # `İzin` and nothing more. The HCM's own type went in this column and it
+                # spelled out `Doğum İzni (Tam Ödeme)` and `İstirahat (Raporlu)` against
+                # a name and a date — which is a person's parental and medical record on
+                # the sheet HR circulates, and is not what the sheet is for. `Kaynak`
+                # already says the day was leave; `İzin Özeti` is where the breakdown
+                # belongs. ADR-070.
+                kaynak, etiket, giris, cikis = "İzin", "", "", ""
             elif kayitlar:
                 # The person appears on this day; nothing could be counted from it.
                 kaynak = " + ".join(sorted(

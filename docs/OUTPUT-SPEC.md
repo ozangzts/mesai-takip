@@ -159,7 +159,7 @@ missing and 31 people appearing nowhere.
 | G | Çalışma Süresi | `12:42` — **must equal E − D**; empty, never `00:00`, when there is no reading |
 | H | Gün İçi Boşluk | `0:42` — time between intervals, paid under ADR-015 |
 | I | Kaynak | `Teknopark`, `Macunköy`, `Macunköy + Teknopark`, `Uzaktan`, **`İzin`**, **`kayıt yok`** |
-| J | Etiket | the day's tags; the leave type for an `İzin` row; `Hem giriş hem çıkış yok` for a `kayıt yok` one |
+| J | Etiket | the day's tags; **empty** for an `İzin` row; `Hem giriş hem çıkış yok` for a `kayıt yok` one |
 
 Three row colours: **red** where nothing accounts for the day, **grey** for leave and for
 a worked holiday, **amber** where the day carries a tag. July: 853 rows read `kayıt yok`,

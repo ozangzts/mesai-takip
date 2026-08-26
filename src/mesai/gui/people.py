@@ -249,6 +249,11 @@ class PeopleScreen:
             self.day_tree.column(column, width=width, anchor=anchor, stretch=stretch)
             self.day_tree.heading(column, text=title, anchor=anchor)
 
+        # The note has to fit the panel it sits in, at any window size. A fixed
+        # `wraplength` was cut off until the window was maximised, which is how the
+        # loudest message on the screen came to be the one nobody could read (ADR-070).
+        day_card.bind("<Configure>", self._day_card_resized)
+
         self._day_scroll = ttk.Scrollbar(day_card, orient="vertical",
                                          command=self.day_tree.yview)
         self.day_tree.configure(yscrollcommand=self._day_scrolled)
@@ -261,7 +266,7 @@ class PeopleScreen:
         # cannot hold a paragraph and a row saying "pick someone" is still a row.
         self.day_note = tk.Label(
             day_card, background=w.CARD, foreground=w.MUTED, font=(w.FACE, 9),
-            justify="left", anchor="nw", padx=14, pady=12,
+            justify="left", anchor="nw", padx=14, pady=12, wraplength=380,
             text=("Soldaki listeden bir kişiye tıklayın; o kişinin sorunlu "
                   "günleri burada gün gün listelenir." + chr(10) * 2 +
                   "Adın solundaki kareye tıklamak kişiyi listeden çıkarır."))
@@ -552,7 +557,8 @@ class PeopleScreen:
             self._day_scroll.grid_remove()
             self.day_note.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
             if self._person is None:
-                self.day_title.configure(text="GÜNLER")
+                self.day_title.configure(text="GÜNLER", foreground=w.INK)
+                self.day_note.configure(foreground=w.MUTED, font=(w.FACE, 9))
                 return
             # A person can have nothing to list for two very different reasons, and
             # saying "sorunlu gün yok" to both made somebody with no card record at all
@@ -560,20 +566,26 @@ class PeopleScreen:
             # note. ADR-069.
             aylik = self._month_level_notes()
             if aylik:
+                # Red and bold. It carried the same muted grey as "nothing wrong here",
+                # so the one message that means the opposite looked like it (ADR-070).
                 self.day_title.configure(
-                    text=f"{self._person} — gün bazlı kayıt yok")
-                self.day_note.configure(text=chr(10).join(aylik))
+                    text=f"⚠  {self._person} — GÜN BAZLI KAYIT YOK",
+                    foreground=w.BAD)
+                self.day_note.configure(text=chr(10).join(aylik),
+                                        foreground=w.BAD, font=(w.FACE, 9, "bold"))
             else:
-                self.day_title.configure(text=f"{self._person} — sorunlu gün yok")
+                self.day_title.configure(text=f"{self._person} — sorunlu gün yok",
+                                         foreground=w.INK)
                 self.day_note.configure(
                     text="Bu kişinin, işaretli notlara ait ve hiçbir yerde "
                          "sayılmamış bir günü yok." + chr(10) * 2 +
-                         "Notlardan seçimi değiştirirseniz bu liste de değişir.")
+                         "Notlardan seçimi değiştirirseniz bu liste de değişir.",
+                    foreground=w.MUTED, font=(w.FACE, 9))
             return
 
         self.day_note.grid_remove()
         self.day_tree.grid(row=1, column=0, sticky="nsew", padx=1, pady=(0, 1))
-        self.day_title.configure(text=self._day_headline(days))
+        self.day_title.configure(text=self._day_headline(days), foreground=w.INK)
 
         for day in days:
             key = (self._person, day.date.isoformat())
@@ -616,6 +628,9 @@ class PeopleScreen:
         else:
             self._day_scroll.grid(row=1, column=1, sticky="ns", pady=(0, 1))
         self.day_tree.yview_moveto(first)
+
+    def _day_card_resized(self, event: tk.Event) -> None:
+        self.day_note.configure(wraplength=max(240, event.width - 40))
 
     def _day_wheel(self, event: tk.Event) -> str:
         self.day_tree.yview_scroll(-1 if event.delta > 0 else 1, "units")

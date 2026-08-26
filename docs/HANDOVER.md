@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (69 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (70 ADR) | [DECISIONS.md](DECISIONS.md) |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
 > | Kaynak dosyaların kusurları (D1–D13) | [DATA-SOURCES.md](DATA-SOURCES.md) |
@@ -22,7 +22,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **483 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **484 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -30,10 +30,10 @@ Faz 1 çalışıyor, **üç ayın üçü de tam**, **483 test geçiyor**.
 | Kişi | 171 | 163 | 176 |
 | Şüpheli kayıt | 365 | 622 | 689 |
 | `Sorunu olanlar` | 75 | 73 | 85 |
+| Mail listesine girecek gün | 216 | 352 | 419 |
 
 Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Masaüstündeki üç ayın raporu ve
-veri dosyası **`format_version` 9** ile güncel; Haziran'ı yeniden üretip karşılaştırdım,
-üretim zamanı dışında birebir aynı.
+veri dosyası **`format_version` 11** ile güncel.
 
 > Şüpheli kayıt 250/427/436'dan buraya çıktı ve **hiçbir saat değişmedi**. Sebebi
 > ADR-060/061: kaydı hiç olmayan günler de artık işaretleniyor. O günlerde sayılacak bir
@@ -72,15 +72,21 @@ günlerini getirir** (ADR-065, yönetici kararı). `Hem giriş hem çıkış yok
 `Giriş yok` / `Çıkış yok` seçimlerine de giriyordu (ADR-053); artık girmiyor. Üçü üç ayrı
 soru: kaçta çıktın, kaçta geldin, o gün burada mıydın.
 
-Varsayılan ayarlarla Temmuz'da not başına: `Giriş yok` 15 kişi/20 gün, `Çıkış yok` 31/127,
-`Hem giriş hem çıkış yok` 52/297, `Kart bilgisi yok` 31 kişi (günü yok, ay seviyesi).
+Temmuz'da not başına, **bekleyeni olan** kişi/gün: `Giriş yok` 15/23, `Çıkış yok` 31/143,
+`Hem giriş hem çıkış yok` 44/343, `Günlük süre çok kısa` 2/2, `Kart bilgisi yok` 26 kişi
+(günü yok, ay seviyesi).
+
+Ayrıca **olan ama bekleyeni olmayan** notlar var ve panelde kutu değil metin satırı
+(ADR-069): Temmuz'da `Tesis birleştirme` 13 kişi/26 gün, `Gece geçişi` 6/21,
+`Uzaktan + kart kaydı` 5/5, `Günlük süre çok uzun` 4/5, `Giriş-çıkış tutarsız` 2/2.
+Günleri sayıldı, seçime girmiyorlar — `(0)` yazan bir kutu "olmamış" diye okunuyordu.
 
 Varsayılan ayarlarla mail listesi:
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
 | Kişi | 75 | 73 | 85 |
-| Mesaja girecek gün | 210 | 379 | 389 |
+| Mesaja girecek gün | 216 | 352 | 419 |
 | **Adresi olmayan** | 8 | 8 | 8 |
 
 Adreslerin tamamı `deico.com.tr`. Adresi olmayanlar **düşürülmez, bildirilir**
@@ -187,6 +193,7 @@ gerekiyor.
 | **067** | **Kullanılamayan bir kayıt da kayıttır** | Tek taraflı damga WorkDay üretmiyor; üç yer bunu "hiç kayıt yok" sanıyordu. Aynı gün hem `Giriş yok` hem `Hem giriş hem çıkış yok` yazıyordu |
 | 068 | `Not` kolonu yalnızca bekleyen notları taşır | Özet `Hem giriş hem çıkış yok` derken `Günlük Detay` o gün için sıradan 9 saatlik gün gösteriyordu |
 | 069 | `Şüpheli Kayıt` de öyle; `Günü sayılan` notlar kutu değil satır; kart kaydı olmayan panelde boş görünmüyor | Sayı ile notu aynı satırda çelişiyordu; `Tesis birleştirme (0)` "olmamış" gibi okunuyordu; kart kaydı hiç olmayan kişi panelde temiz görünüyordu |
+| 070 | `Günlük Detay` izin satırında **yalnızca `İzin`**; panel uyarısı kırmızı ve sarılıyor | Sayfa, ada ve tarihe karşı `Doğum İzni (Tam Ödeme)` yazıyordu; uyarı "sorun yok" ile aynı renk ve fontta, tam ekran olmadan sığmıyordu |
 
 **Sırayla okunması gereken zincir:** 055 kuralı kurdu → 059 onu doğru katmana taşıdı →
 060 kapsamı genişletti → 061 koşulları kaldırdı → 062 gereksizleşen notu sildi.
@@ -277,9 +284,25 @@ Buradaki her madde bir kez ısırdı.
   93 px pay (ADR-058'in ölçümü, etiketler sadeleştikten sonra da geçerli). Panel daha önce
   dört kolonda kırpılmıştı. Bir etiket bunu aşarsa paneli genişlet ya da etiketi kısalt —
   kırpma yapma, okuyan hangi notu işaretlediğini göremez.
+- **Bir uyarı, uyarı gibi görünmeli.** Panelin `Kart bilgisi yok` mesajı "sorun yok"
+  mesajıyla aynı soluk gri ve aynı fonttaydı, ve sabit `wraplength` yüzünden tam ekran
+  olmadan kırpılıyordu — ekrandaki en yüksek sesli mesaj, okunamayan mesaj olmuştu
+  (ADR-070). Artık kırmızı, kalın, ve sarma uzunluğu `<Configure>` ile paneli takip
+  ediyor. Sıradan boş hâl soluk gri kalıyor: her zaman açık olan bir uyarı stili,
+  uyarı stili olmamakla aynı şey.
 - **Pencere 880×620'den 2560×1400'e ve maximize'da ölçüldü** (ADR-059 turu, 11 test): iki
   ekran da pencereyi dolduruyor, liste pencereyle büyüyor, ekran değiştirmek maximize'ı
   bozmuyor. `_fit` yalnızca büyütür, asla küçültmez (ADR-038).
+
+### İzin ve gizlilik
+
+- **`Günlük Detay` izin gününe tip yazmaz, yalnızca `İzin`** (ADR-070). Kolon HCM'in
+  yazdığı tipi taşıyordu ve sayfa **ada ve tarihe karşı** `Doğum İzni (Tam Ödeme)`,
+  `İstirahat (Raporlu)` yazıyordu — kişinin doğum ve sağlık kaydı, İK'nın dolaştırdığı
+  sayfada. Temmuz'da 44 + 61 + 5 satır. `Kaynak` zaten `İzin` diyor.
+- **`İzin Özeti` hâlâ tipe göre kırıyor** ve istenmedi diye dokunulmadı. Ama
+  `İstirahat (Raporlu)` bir adın yanında, tarih olmasa da aynı türden bir olgu. Aynı
+  itiraz oraya da geçerliyse ayrı bir karar ve alınmaya değer.
 
 ### Rapor ile filtre aynı soruyu sormaz
 

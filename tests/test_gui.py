@@ -2244,3 +2244,41 @@ def test_somebody_with_no_card_record_does_not_look_clean(day_screen, tmp_path):
     assert "sorunlu gün yok" not in baslik, baslik
     assert "Kart bilgisi yok" in metin, metin
     assert "Dönem:" in metin, "hangi dönem olduğu yazmalı"
+
+
+def test_the_no_card_record_message_is_loud_and_fits(day_screen, tmp_path):
+    """It carried the same muted grey and font as "nothing wrong here", and a fixed wrap
+    length cut it off until the window was maximised — so the one message that means the
+    opposite of "fine" looked like it and could not be read (ADR-070)."""
+    from mesai.gui import widgets as w
+    from mesai.mail import recipients
+
+    screen = day_screen()
+    screen.load(_snapshot_file(tmp_path / "kartsiz2", [
+        _person("KEREM DENEME", ["Kart bilgisi yok"]),
+        _person("AYŞE DENEME", ["Çıkış yok"], days=[_pday(4)]),
+    ]))
+    screen.filter_key = recipients.PROBLEM
+    screen._repaint()
+    root = screen.frame.winfo_toplevel()
+
+    kartsiz = next(r for n, r in screen._rows if n == "KEREM DENEME")
+    _click(screen, kartsiz, on_tick=False)
+    assert screen.day_note.cget("foreground") == w.BAD
+    assert "bold" in str(screen.day_note.cget("font"))
+    assert screen.day_title.cget("foreground") == w.BAD
+
+    # and the ordinary empty state must not shout
+    temiz = next(r for n, r in screen._rows if n == "AYŞE DENEME")
+    _click(screen, temiz, on_tick=False)
+    assert screen.day_title.cget("foreground") == w.INK
+
+    # the note wraps to whatever the panel is, at the window floor and above
+    for width, height in ((880, 620), (1366, 768)):
+        root.geometry(f"{width}x{height}")
+        root.update()
+        _click(screen, kartsiz, on_tick=False)
+        root.update_idletasks()
+        pay = screen.day_card.winfo_width() - screen.day_note.winfo_width()
+        assert pay >= 0, (f"{width}x{height}: yazı {screen.day_note.winfo_width()}px, "
+                          f"panel {screen.day_card.winfo_width()}px")

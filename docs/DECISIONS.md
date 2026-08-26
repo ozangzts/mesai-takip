@@ -4317,3 +4317,51 @@ answer is all of them.
   The run's own total (`Şüpheli kayıt 689`) is unchanged — it counts the audit trail.
 - 483 tests. Two are new: a note with nothing outstanding is not a checkbox, and somebody
   with no card record does not read as clean.
+
+---
+
+## ADR-070 — The daily sheet says `İzin` and nothing more; the panel's warning looks like one
+
+**Date:** 2026-08-26
+**Status:** Accepted
+
+### 1. The leave type left `Günlük Detay`
+
+`Etiket` carried the HCM's own leave type on a leave row, so the sheet HR circulates read
+`Doğum İzni (Tam Ödeme)` and `İstirahat (Raporlu)` **against a name and a date**. Measured
+on July 2026: 44 rows of the first, 61 of the second, 5 `Evlilik İzni`.
+
+That is a person's parental and medical record laid out day by day, and AGENTS §2.3 names
+exactly this data as the reason the source files are handled the way they are. The operator
+put it plainly: *"salak gibi doğum izni (tam ödeme) falan yazmışsın ne alaka. sadece izin
+yaz, yıllık bile yazma."*
+
+`Kaynak` already says `İzin` on those rows, so `Etiket` is now empty — the row says it
+once. All 317 leave rows in July carry no type, and none of the seven type strings appears
+anywhere in the sheet.
+
+`İzin Özeti` still breaks the month down by type, which is that sheet's whole purpose and
+is a per-month total rather than a dated record. It was not part of the request; if the
+same objection applies there it is a separate decision, and worth taking, because
+`İstirahat (Raporlu)` beside a name is the same kind of fact whether or not a date is
+attached.
+
+### 2. The loudest message on the screen was the quietest
+
+The day panel's `Kart bilgisi yok` message — the one saying a person has no badge record
+for the entire month — was drawn in the same muted grey and the same font as *"this person
+has nothing outstanding"*, and its `wraplength` was a fixed 380 px, so it was cut off
+until the window was maximised. *"bir fontu ve rengi yine sorun yokla aynı, dolayısıyla
+gözden kaçabilir … tam ekran yapmayınca sığmıyor."*
+
+It is red and bold now, the headline reads `⚠ … — GÜN BAZLI KAYIT YOK`, and the wrap length
+follows the panel through a `<Configure>` binding, so it fits at the 880 px floor and
+anything above it. The ordinary empty state keeps the muted grey: only one of the two means
+something is wrong.
+
+### Consequences
+
+- 484 tests. One holds the colour, the weight and the fit at 880×620 and 1366×768, and
+  checks the ordinary empty state does **not** shout — a warning style that is always on
+  is the same as no warning style.
+- No figure moved: 17 103:58 / 27 166:19 / 26 233:17. No `format_version` change.
