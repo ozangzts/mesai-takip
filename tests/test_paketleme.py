@@ -213,3 +213,35 @@ def test_the_packaging_script_never_touches_the_build_folder():
 
     assert "copytree" in text
     assert "TemporaryDirectory" in text
+
+
+def test_the_internal_package_keeps_the_two_secret_files(tmp_path):
+    """`--icerde` exists so a handover machine works out of the box.
+
+    The manager's PC could not edit the alias table because the file was not there — the
+    exclusion that protects a public Release was blocking an internal handover. Two
+    audiences, two packages: this one carries them, and `SURUM.txt` plus the file name
+    both say it must not be uploaded anywhere public.
+    """
+    import paketle
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "personel.yaml").write_text("x", encoding="utf-8")
+    (tmp_path / "config" / "gmail.yaml").write_text("x", encoding="utf-8")
+
+    assert paketle.denetle(tmp_path, icerde=True) == []
+    assert len(paketle.denetle(tmp_path, icerde=False)) == 2
+
+
+def test_neither_package_ever_carries_the_roster_or_the_local_settings(tmp_path):
+    """The two things that are the operator's own state, not the program's — stripped in
+    both modes. The roster is 181 real people; the settings file is this machine's paths.
+    """
+    import paketle
+
+    (tmp_path / "data" / "personel").mkdir(parents=True)
+    (tmp_path / "data" / "personel" / "liste.xlsx").write_bytes(b"x")
+    (tmp_path / "arayuz-ayarlari.json").write_text("{}", encoding="utf-8")
+
+    for icerde in (True, False):
+        assert len(paketle.denetle(tmp_path, icerde=icerde)) == 2, icerde
