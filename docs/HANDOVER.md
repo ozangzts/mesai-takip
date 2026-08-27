@@ -230,19 +230,33 @@ dışlama, biri yeni dosya ekleyince çalışmaz olur): `personel.yaml` gerçek 
 `gmail.yaml` bir girişi taşıyor. Örnekleri gidiyor, gerçeklerini kuran kişi elle koyuyor —
 temiz bir klonun zaten gerektirdiği aynı elle adım.
 
-**Yapılmayan ve asıl iş olan:** **Python'un kurulu olmadığı bir makinede denemek.** Kendi
-makinemizde çalışıyor olması hiçbir şey kanıtlamıyor — conda ortamı hâlâ ortada. Denenecek
-sıra:
+**Buradan yapılabilen en iyi vekil testi geçti.** Exe, `PATH` yalnızca
+`C:\Windows\System32;C:\Windows` iken ve `PYTHONHOME`/`PYTHONPATH` boşaltılmışken de
+açıldı. Yani DLL'ler `_internal`'dan yükleniyor, conda ortamından değil — bu makinede
+conda zaten `PATH`'te değil (ölçüldü, 0 eşleşme). "Ortam hâlâ diskte olduğu için
+çalışıyor" şüphesi bu kadarıyla kapandı.
+
+**Kapanmayanlar, ve buradan ölçülemezler:** farklı bir Windows sürümü/yaması (bu makine
+10.0.19045), antivirüs karantinası (buradaki Defender klasörü tanıyor), `config\`'e yazma
+izni başka bir konumda, ve **`.xls` formatlı bir ayın exe'den koşulması** — `xlrd`
+gerçekten pakete girdi mi ancak öyle anlaşılır.
+
+**Denenecek sıra** (en çok yakalayan 4 ve 5; 7 ise sessiz hatayı yakalayan tek adım):
 
 1. Klasörü zip'le, temiz makineye kopyala, **Masaüstü'ne** çıkar (`Program Files`'a değil).
 2. `config\personel.yaml` ve `config\gmail.yaml` elle konsun.
 3. Aç. SmartScreen "bilinmeyen yayıncı" derse "Ek bilgi > Yine de çalıştır".
 4. **Takvim ekranında bir tatil işaretle ve kaydet** — yazma izni burada anlaşılıyor.
-5. Bir ay üret, `Kontrol` sayfasında `Mutabakat TAMAM` gör.
-6. `.xls` formatlı bir ay dene (Temmuz Macunköy dosyası öyle) — `xlrd` gerçekten pakete
-   girdi mi ancak böyle anlaşılır. `hiddenimports`'ta yazılı olmasının sebebi bu: o
-   kütüphane yalnızca `.xls` karşısına çıkınca import ediliyor.
-7. Bir kişiye mail at, Outlook'ta yanıtlayıp tabloya yaz.
+5. **`.xls` formatlı bir ay koş** (Temmuz'un Macunköy dosyası öyle) — `xlrd` gerçekten
+   pakete girdi mi ancak böyle anlaşılır. `hiddenimports`'ta yazılı olmasının sebebi bu:
+   o kütüphane yalnızca `.xls` karşısına çıkınca import ediliyor.
+6. `Kontrol` sayfasında **`Mutabakat TAMAM`** gör, ve toplam süreyi bu depodaki
+   rakamla karşılaştır (Temmuz **26 233:17**). Tutmuyorsa rapor kullanılmaz.
+7. `Kontrol` sayfası **bölüm 7**'de isim eşleştirmeleri listeleniyor mu. **Bu adımı
+   atlama:** `personel.yaml` yanlış yere konursa program açılır, rapor üretir ve **beş
+   kişi ikiye bölünmüş** görünür — hiçbir uyarı vermez, çünkü çözülemeyen bir varyant
+   iki farklı çalışandan ayırt edilemez. Bölüm boşsa tablo yüklenmemiş.
+8. Bir kişiye mail at, Outlook'ta yanıtlayıp tabloya yaz.
 
 **Antivirüs:** imzasız PyInstaller çıktısı sık sık "bilinmeyen yayıncı" uyarısı alıyor,
 kurumsal antivirüs bazen doğrudan karantinaya alıyor. Kod imzalama sertifikası yoksa
