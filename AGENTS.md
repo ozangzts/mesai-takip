@@ -178,6 +178,7 @@ mesai-takip/
 ├── baslat.py                  # the FROZEN entry point. Absolute imports only — ADR-079
 ├── MesaiTakip.spec            # PyInstaller recipe. Resolves conda's DLLs itself
 ├── derle.cmd                  # test, build, assemble dist/MesaiTakip/
+├── paketle.py                 # the shippable zip, from a COPY — ADR-081
 ├── pyproject.toml
 ├── rapor.cmd                  # CLI wrapper, no conda activate needed
 ├── arayuz.cmd                 # opens the window; double-clickable, no console
@@ -223,7 +224,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 570 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 575 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 

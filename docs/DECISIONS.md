@@ -5423,3 +5423,79 @@ the file. AGENTS §2.1: the program never guesses at payroll input, it says what
   config. That is the general shape of the answer to "can we change this later": wording,
   thresholds, holidays and the account are file edits; anything about what the program
   *does* is a new build.
+
+---
+
+## ADR-081 — The zip is built from a copy, because the build folder is also the install
+
+**Date:** 2026-08-27
+**Status:** Accepted
+**Follows ADR-079.**
+
+### What was asked, and the answer
+
+> *"dist falan onları da commitle ben build edemem hazır olsun clonelayınca başka pcde."*
+
+Not committed. Three reasons, in order of how much they cost:
+
+1. **The ignore rule on `dist/` is the only thing stopping a credential from being
+   committed.** Un-ignoring it to save a manual step removes that guard — and see below
+   for why that is not theoretical.
+2. **38 MB, permanently, per build.** `.git` was 3.7 MB. Git deletes nothing, so five
+   rebuilds is roughly 200 MB carried by every clone for ever.
+3. **A committed binary goes stale silently** against `src/`, with nothing to say so.
+
+The need is real though — the operator cannot build, and the other machine should get a
+ready folder. That is what **GitHub Releases** is for: the zip is an asset, outside git
+history, not cloned by default, versioned and deletable.
+
+### The reason the guard matters, which is not theoretical
+
+> *"zaten sen yaml örneklerini koymuşsun sadece ben kendim ekliyorum gizli bilgileri.
+> sorun nerede anlamadım?"*
+
+The problem is not what `dist/` holds after a build. It is what it holds after being
+**used**. Checked at that moment, `dist/MesaiTakip/` contained:
+
+* `config/gmail.yaml` — a live Gmail app password,
+* `config/personel.yaml` — real name spellings,
+* `data/personel/SYST03_TEMPIASUSERS.xlsx` — **the roster: 181 people with names,
+  e-mail addresses, departments and job titles**,
+
+because that folder is where the program was installed and tested from. The repository is
+public. Had `dist/` not been ignored, the next `git add -A` would have published all
+three, and a pushed app password is compromised within minutes whatever is done next.
+
+### Two leaks, one caught by a check and one by widening it
+
+Packaging by hand the same day:
+
+* the first pass removed `personel.yaml` and `gmail.yaml` **by name** and reported the
+  zip clean;
+* the roster workbook walked straight past it, into a zip destined for a public Release.
+
+The rule is therefore **by kind, not by name**: no spreadsheet ships, whatever it is
+called, and nothing named `gonderim-*.json` either. `paketle.py` does the removals, then
+`denetle()` checks the staged tree again — and the second check is the point, because the
+first one only knew about the files somebody had already thought of.
+
+### The shape
+
+`paketle.py` copies `dist/MesaiTakip/` to a temporary directory, strips the private
+things, writes `SURUM.txt` (build date, commit hash, and what the installer still has to
+put in), verifies, and only then writes the zip. **It never deletes from `dist/`** — that
+folder is the operator's own working install.
+
+`data/` ships as an empty folder plus its explanatory note, so the roster has an obvious
+home; anything else found in it is the operator's data and is removed.
+
+### Consequences
+
+- 575 tests. Five new: the roster workbook is caught by kind, the two YAML files by name,
+  a generated snapshot by prefix, the things that *should* ship are not flagged (a check
+  that refuses everything is a check nobody keeps), and the script works on a copy.
+- Result: 14.8 MB zipped, 1007 files, `MesaiTakip-<tarih>-<commit>.zip`.
+- `derle.cmd` now ends by pointing at `paketle.cmd` and saying not to zip `dist/`
+  directly.
+- `data/out/` was deleted from the working tree on request. Regenerable in seconds, and
+  git-ignored either way.

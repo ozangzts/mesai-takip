@@ -20,6 +20,7 @@ import pytest
 SPEC = Path("MesaiTakip.spec")
 BASLAT = Path("baslat.py")
 DERLE = Path("derle.cmd")
+PAKETLE = Path("paketle.py")
 
 # Real name spellings and a login. Neither may leave this machine inside a zip.
 GIZLI = ("personel.yaml", "gmail.yaml")
@@ -39,7 +40,7 @@ def spec():
 
 
 def test_the_build_files_exist():
-    for path in (SPEC, BASLAT, DERLE):
+    for path in (SPEC, BASLAT, DERLE, PAKETLE):
         assert path.is_file(), f"{path} yok — paketleme tarifi eksik"
 
 
@@ -142,3 +143,73 @@ def test_the_build_script_removes_this_machines_settings():
     text = DERLE.read_text(encoding="utf-8", errors="replace")
     assert "arayuz-ayarlari.json" in text
     assert "del " in text, "silinmesi gerekiyor, sadece anilmasi degil"
+
+
+# --- the zip: what must never be in it ---------------------------------------
+
+def test_the_package_check_catches_a_roster_workbook(tmp_path):
+    """The one that got past the first hand-written check.
+
+    It looked for `personel.yaml` and `gmail.yaml` by name, and the roster —
+    `SYST03_TEMPIASUSERS.xlsx`, 181 real people with names, e-mail addresses,
+    departments and job titles — walked straight past it, into a zip destined for a
+    Release on a public repository.
+
+    So the rule is by KIND, not by name: no spreadsheet ships, whatever it is called.
+    """
+    import paketle
+
+    (tmp_path / "data" / "personel").mkdir(parents=True)
+    (tmp_path / "data" / "personel" / "her-neyse.xlsx").write_bytes(b"x")
+
+    import os
+
+    beklenen = os.path.join("data", "personel", "her-neyse.xlsx")
+    assert paketle.denetle(tmp_path) == [beklenen]
+
+
+def test_the_package_check_catches_the_two_secret_files(tmp_path):
+    import paketle
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "personel.yaml").write_text("x", encoding="utf-8")
+    (tmp_path / "config" / "gmail.yaml").write_text("x", encoding="utf-8")
+
+    kalan = paketle.denetle(tmp_path)
+    assert len(kalan) == 2, kalan
+
+
+def test_the_package_check_catches_a_generated_snapshot(tmp_path):
+    """`gonderim-*.json` holds names, e-mail addresses and hours. It is git-ignored
+    wherever it lands (AGENTS §3) and a zip is a place it can land."""
+    import paketle
+
+    (tmp_path / "gonderim-2026-07.json").write_text("{}", encoding="utf-8")
+    assert paketle.denetle(tmp_path) == ["gonderim-2026-07.json"]
+
+
+def test_the_package_check_passes_on_what_should_ship(tmp_path):
+    """The examples, the guide, the template and the note must NOT be flagged —
+    a check that refuses everything is a check nobody keeps."""
+    import paketle
+
+    (tmp_path / "config").mkdir()
+    for name in ("personel.example.yaml", "gmail.example.yaml", "settings.yaml",
+                 "mail-taslagi.yaml", "takvim-2026.yaml"):
+        (tmp_path / "config" / name).write_text("x", encoding="utf-8")
+    (tmp_path / "data" / "personel").mkdir(parents=True)
+    (tmp_path / "data" / "personel" / paketle.NOT_DOSYASI).write_text(
+        "x", encoding="utf-8")
+    for name in ("KULLANIM.txt", "SURUM.txt", "MesaiTakip.exe"):
+        (tmp_path / name).write_bytes(b"x")
+
+    assert paketle.denetle(tmp_path) == []
+
+
+def test_the_packaging_script_never_touches_the_build_folder():
+    """It works on a staging copy. Deleting from `dist/` would break the operator's own
+    install, which is the same folder they test from."""
+    text = Path("paketle.py").read_text(encoding="utf-8")
+
+    assert "copytree" in text
+    assert "TemporaryDirectory" in text

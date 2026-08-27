@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (80 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (81 ADR) | [DECISIONS.md](DECISIONS.md) |
 | **Programı kullanacak kişi için** | [KULLANIM.txt](../KULLANIM.txt) — sade Türkçe, exe ile birlikte gidiyor |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
@@ -23,7 +23,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **570 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **575 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -262,6 +262,24 @@ gerçekten pakete girdi mi ancak öyle anlaşılır.
 kurumsal antivirüs bazen doğrudan karantinaya alıyor. Kod imzalama sertifikası yoksa
 çözüm ya istisna ekletmek ya da ortak bir klasörden çalıştırmak. Hedef makinede hangi
 antivirüsün olduğu **henüz sorulmadı**.
+
+### 3b. Teslim: zip **`paketle.cmd`** ile, `dist/` elle ziplenmez
+
+`dist\MesaiTakip\` aynı zamanda kurulup **test edilen** klasör, yani içine gerçek
+`personel.yaml`, gerçek `gmail.yaml`, personel listesi Excel'i ve üretilmiş raporlar
+giriyor. 27.08'de o klasörde üçü de vardı. Depo **public**, ve `dist/` ignore'lu
+olmasaydı bir `git add -A` canlı uygulama şifresini ve 181 kişinin adını yayınlayacaktı.
+
+`paketle.cmd` zip'i bir **kopyadan** üretiyor, gizli olanları çıkarıyor, `SURUM.txt`
+yazıyor ve **yazmadan önce tekrar kontrol ediyor**. İkinci kontrol asıl olan: elle
+yapılan ilk tur `personel.yaml` ile `gmail.yaml`'ı adıyla çıkarıp "temiz" dedi, ve
+**personel listesi Excel'i yanından geçti**. Kural artık türe göre: pakete hiçbir Excel
+ve hiçbir `gonderim-*.json` girmiyor.
+
+`dist/` git'e **konmadı** ve konmamalı: ignore kuralı yukarıdaki tek koruma, ve 38 MB her
+derlemede geçmişe kalıcı olarak ekleniyor (`.git` 3,7 MB). Başka makineye hazır bir klasör
+gerekiyorsa yolu **GitHub Releases** — zip bir ek olarak duruyor, geçmişe girmiyor,
+klonda inmiyor.
 
 ### 4. Düzeltme turu — **istendi, yapılmadı** (ROADMAP 4d, Q24)
 

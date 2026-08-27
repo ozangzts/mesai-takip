@@ -91,6 +91,10 @@ if exist "dist\MesaiTakip\_internal\config" rmdir /S /Q "dist\MesaiTakip\_intern
 echo.
 echo TAMAM. Teslim edilecek klasor:  dist\MesaiTakip\
 echo.
+echo Teslim edilecek zip icin:  paketle.cmd
+echo   (bu klasoru DOGRUDAN ziplemeyin -- test ederken icine gercek config ve
+echo    personel listesi giriyor, paketle.cmd bir kopyadan uretip kontrol ediyor)
+echo.
 echo Kuran kisinin elle koymasi gerekenler:
 echo     config\personel.yaml   (ornegi: personel.example.yaml)
 echo     config\gmail.yaml      (ornegi: gmail.example.yaml)
