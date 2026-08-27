@@ -223,7 +223,7 @@ mesai-takip/
 └── tests/
 ```
 
-**Current state: Phase 1 complete and running.** 562 tests pass. The layout above is
+**Current state: Phase 1 complete and running.** 570 tests pass. The layout above is
 real: inputs live in `data/raw/<YYYY-MM>/`, reports in `data/out/<YYYY-MM>/`, and
 the vendor reference files in `docs/reference/`.
 
@@ -354,11 +354,16 @@ Because it is not month-specific it lives in **`data/personel/`**, outside the m
 folders, and is shared by every period. Its export date is read from the file
 timestamp and reported on the `Kontrol` sheet — never hard-code it.
 
-**Its filename and sheet name are not stable** — it arrived as
-`SYST03_TEMPIASUSERS.xlsx` and became `calisan_listesi.xlsx`. So: the file is matched
-by pattern (with a lone-file fallback in the roster folder), the sheet is found by
-its header columns rather than its name, and column positions are derived from the
-header. Do not reintroduce a hard-coded sheet name or column index here.
+**Its filename, sheet name, header row and column names are all unstable** — it
+arrived as `SYST03_TEMPIASUSERS.xlsx` and became `calisan_listesi.xlsx`. So: the file is
+matched by pattern (with a lone-file fallback in the roster folder), the sheet is found by
+its header columns rather than its name, the header row is **searched for** across the
+first ten rows, and column positions come from the header. Column names are matched
+against `roster.HEADER_ALIASES` on the **folded** text, so `Ad` reads as `İsim` and
+`E-POSTA` as `E-posta` (ADR-080). The alias list is closed and explicit — an unanticipated
+header stops the run and the message lists what is accepted. Do not reintroduce a
+hard-coded sheet name, column index or header row here, and do not turn the alias table
+into a fuzzy matcher.
 
 Two rules follow, both load-bearing (ADR-011):
 

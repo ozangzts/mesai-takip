@@ -12,42 +12,119 @@ from __future__ import annotations
 from pathlib import Path
 
 from ..models import NameKey, RosterEntry
-from ..normalize import display_name, name_key
+from ..normalize import display_name, fold, name_key
 from .base import LayoutError, as_text, open_sheets
+
+PREFERRED_SHEET = "TEMPIASUSERS"
+
+# How many rows to search for the header. Same budget as `base.find_header_row`.
+HEADER_SEARCH_ROWS = 10
+
+# Each field, and the header spellings accepted for it. Compared **folded** — upper
+# case, ASCII, whitespace-collapsed — so `E-Posta`, `e-posta` and `E-POSTA` are one
+# thing and a Turkish character cannot split a match (`İsim` vs `Isim`).
+#
+# Aliases exist because this file is exported by somebody else's system and has
+# already been renamed once (`SYST03_TEMPIASUSERS.xlsx` -> `calisan_listesi.xlsx`).
+# A column called `Ad` instead of `İsim` is the same column; refusing to read it
+# would be this program being fussy about a synonym, at month end, on a machine
+# where nobody can change the code.
+#
+# What is NOT here is a fuzzy matcher. The list is closed and explicit: an
+# unanticipated header stops the run and the message says what is accepted. That is
+# the AGENTS §2.1 rule — the program never guesses at payroll input, it says what it
+# found.
+#
+# ASCII spellings are NOT listed: folding already makes `Kullanici` and `Unvan`
+# the same as their Turkish forms, and the assertion below refuses a duplicate
+# rather than letting two entries quietly claim one spelling. It caught exactly
+# that on the first run.
+HEADER_ALIASES: dict[str, tuple[str, ...]] = {
+    "Kullanıcı": ("Kullanıcı", "Kullanıcı Adı", "Login"),
+    "Kontak No": ("Kontak No", "Kontak Numarası", "Sicil No", "Personel No"),
+    "İsim": ("İsim", "Ad", "Adı"),
+    "Soyad": ("Soyad", "Soyadı", "Soy Ad", "Soyisim"),
+    "E-posta": ("E-posta", "Eposta", "E-posta Adresi", "E-mail", "Email", "Mail"),
+    "Bölüm": ("Bölüm", "Departman", "Birim"),
+    "Tesis": ("Tesis", "Lokasyon", "Şube"),
+    "Görev": ("Görev", "Ünvan", "Pozisyon"),
+}
 
 EXPECTED_HEADERS = ("Kullanıcı", "Kontak No", "İsim", "Soyad", "E-posta")
 OPTIONAL_HEADERS = ("Bölüm", "Tesis", "Görev")
-PREFERRED_SHEET = "TEMPIASUSERS"
 
-# Columns are located by HEADER TEXT, not by position — see _find_sheet. Note that
-# `İsim` holds only the first given name, so the roster's display form is abbreviated
-# (ADR-010).
+# folded spelling -> canonical field. Built once; a spelling claimed by two fields
+# would be a bug in the table above, so it is asserted rather than resolved quietly.
+_BY_SPELLING: dict[str, str] = {}
+for _field, _spellings in HEADER_ALIASES.items():
+    for _spelling in _spellings:
+        _folded = fold(_spelling)
+        assert _folded not in _BY_SPELLING, f"iki alan aynı yazımı istiyor: {_spelling}"
+        _BY_SPELLING[_folded] = _field
+
+# Columns are located by HEADER TEXT, not by position, and the header is SEARCHED FOR
+# rather than assumed to be row 1 — see `_find_sheet`. Note that `İsim` holds only
+# the first given name, so the display form is abbreviated (ADR-010).
+
+
+def _row_fields(sheet, row_no: int) -> dict[str, int]:
+    """`{canonical field: 0-based column}` for one candidate header row.
+
+    First spelling wins if a sheet somehow carries two accepted names for one
+    field, so the result does not depend on column order.
+    """
+    found: dict[str, int] = {}
+    for col in range(1, sheet.ncols + 1):
+        field = _BY_SPELLING.get(fold(as_text(sheet.value(row_no, col))))
+        if field is not None:
+            found.setdefault(field, col - 1)
+    return found
 
 
 def _find_sheet(sheets, path: Path):
-    """Locate the roster sheet by its COLUMNS, not its name.
+    """Locate the roster sheet AND its header row, by the columns rather than names.
 
-    The file gets renamed by whoever exports it (`SYST03_TEMPIASUSERS.xlsx` became
-    `calisan_listesi.xlsx`), so the sheet name may change too. The columns are the
-    real contract. `TEMPIASUSERS` is tried first only as a fast path; the workbook
-    also holds a `Sayfa1` with just name and e-mail, which must not be picked.
+    Three things about this file are not stable, and all three have changed or will:
+
+    * **the file name** — it arrived as `SYST03_TEMPIASUSERS.xlsx` and became
+      `calisan_listesi.xlsx`, so `sources.roster` matches by pattern;
+    * **the sheet name** — hence the search here. `TEMPIASUSERS` is tried first only
+      as a fast path, and the workbook also holds a `Sayfa1` carrying just name and
+      e-mail, which must not be picked;
+    * **which row the header is on.** This used to read row 1 and nothing else. The
+      Macunköy export gained a title line above its header in July 2026 (ADR-020,
+      `DATA-SOURCES.md` D10) and its reader was fixed to search for the header; this
+      one was not, and would have failed the same way. It searches now.
+
+    `base.find_header_row` is not reused because it matches header text exactly, and
+    this file needs the folded alias table: `Ad` for `İsim` is the same column.
     """
     ordered = ([s for s in sheets if s.name == PREFERRED_SHEET]
                + [s for s in sheets if s.name != PREFERRED_SHEET])
 
     seen: list[str] = []
     for sheet in ordered:
-        header = [as_text(sheet.value(1, c)) for c in range(1, sheet.ncols + 1)]
-        missing = [h for h in EXPECTED_HEADERS if h not in header]
-        if not missing:
-            return sheet, header
-        seen.append(f"  '{sheet.name}': eksik kolonlar {missing}")
+        best: list[str] | None = None
+        for row_no in range(1, min(HEADER_SEARCH_ROWS, sheet.nrows) + 1):
+            found = _row_fields(sheet, row_no)
+            missing = [name for name in EXPECTED_HEADERS if name not in found]
+            if not missing:
+                return sheet, row_no, found
+            if best is None or len(missing) < len(best):
+                best = missing
+        seen.append(
+            f"  '{sheet.name}': eksik kolonlar {best or list(EXPECTED_HEADERS)}")
 
+    kabul = "\n".join(f"    {field}: {', '.join(HEADER_ALIASES[field])}"
+                      for field in EXPECTED_HEADERS)
     raise LayoutError(
         f"{path.name}: beklenen kolonları taşıyan sayfa bulunamadı.\n"
-        f"Aranan kolonlar: {list(EXPECTED_HEADERS)}\n"
-        + "\n".join(seen)
-        + "\n\n'E-posta' kolonu Faz 4 (otomatik mail) için zorunludur."
+        f"İlk {HEADER_SEARCH_ROWS} satırda başlık arandı.\n\n"
+        f"Kabul edilen kolon adları:\n{kabul}\n\n"
+        "Bakılan sayfalar:\n" + "\n".join(seen)
+        + "\n\n'E-posta' kolonu otomatik mail için zorunludur. "
+        "Büyük/küçük harf ve Türkçe karakter farkı sorun değildir; yukarıdaki "
+        "adlardan biri yeterli."
     )
 
 
@@ -65,10 +142,7 @@ def read(path: Path) -> tuple[dict[NameKey, RosterEntry], list[str]]:
     old account was never closed) with identical contact number, e-mail, department
     and title. Same person, two rows — deduplicated, not fatal.
     """
-    sheet, header = _find_sheet(open_sheets(path), path)
-    col = {name: header.index(name) for name in EXPECTED_HEADERS}
-    col.update({name: header.index(name)
-                for name in OPTIONAL_HEADERS if name in header})
+    sheet, header_row, col = _find_sheet(open_sheets(path), path)
 
     def cell(row: tuple, name: str) -> str | None:
         index = col.get(name)
@@ -82,7 +156,9 @@ def read(path: Path) -> tuple[dict[NameKey, RosterEntry], list[str]]:
     collisions: list[str] = []
     duplicates: list[str] = []
 
-    for row_no, row in enumerate(sheet.rows(2), start=2):
+    # Data starts after the header, wherever the header turned out to be.
+    first = header_row + 1
+    for row_no, row in enumerate(sheet.rows(first), start=first):
         given = cell(row, "İsim")
         if not given:
             continue

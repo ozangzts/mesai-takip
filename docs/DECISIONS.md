@@ -5329,3 +5329,97 @@ concept they have to locate.
   credential.
 - `pyinstaller>=6.10` added to `environment.yml` as a pip dependency — a build tool, not
   a runtime one. Nothing the program does at run time depends on it.
+
+---
+
+## ADR-080 — The roster reader searches for its header and accepts synonyms
+
+**Date:** 2026-08-27
+**Status:** Accepted
+**Extends ADR-020 to the one reader it had skipped.**
+
+### The question
+
+Asked before handing the `.exe` over: *"bu kişi listesi değiştiğinde başka bir excel
+falan, yine isim soyisim eposta falan bulur değil mi, takılmaz yani?"*
+
+Mostly yes, and worth writing down what was already true. The reader tolerated a renamed
+file (`sources.roster` matches by pattern, with a lone-file fallback), a renamed sheet
+(found by its columns, `TEMPIASUSERS` only a fast path), reordered columns, extra
+columns, missing optional columns and any of `.xlsx` / `.xlsm` / `.xls`.
+
+Two things it did not tolerate, and both are things this file will plausibly do.
+
+### 1. The header had to be on row 1
+
+`header = [as_text(sheet.value(1, c)) ...]` — row 1, hard-coded.
+
+This is precisely the change that broke the Macunköy export in July 2026: it gained a
+title line above its header and every fixed position shifted (ADR-020,
+`DATA-SOURCES.md` D10). That reader was fixed to search for the header;
+`base.find_header_row` was written for it, and AGENTS §6 states the rule for **every**
+source. The roster reader never got it — it was already immune to the *column* half of
+that lesson, which is probably why the *row* half went unnoticed.
+
+It searches the first ten rows now, the same budget as `find_header_row`, and the data
+loop starts from `header_row + 1` rather than row 2.
+
+`find_header_row` is not reused, for a reason that only exists here — see below.
+
+### 2. `Ad` was not the same column as `İsim`
+
+> *"bir de isim yerine ad falan da yazabilir belki"*
+
+It could, and it is the same column. Refusing to read it would be the program being
+fussy about a synonym, at month end, on a machine where nobody can change the code.
+
+`HEADER_ALIASES` names the accepted spellings per field, compared **folded** — upper
+case, ASCII, whitespace-collapsed — so `E-Posta`, `e-posta` and `E-POSTA` are one thing,
+and `İsim` cannot fail to match `isim` because of Turkish casing. That last part is not
+hypothetical: Turkish casing is where naive code in this project has gone wrong before
+(AGENTS §2.4), and it is why `find_header_row`, which compares exactly, could not be
+reused.
+
+```
+Kullanıcı   Kullanıcı, Kullanıcı Adı, Login
+Kontak No   Kontak No, Kontak Numarası, Sicil No, Personel No
+İsim        İsim, Ad, Adı
+Soyad       Soyad, Soyadı, Soy Ad, Soyisim
+E-posta     E-posta, Eposta, E-posta Adresi, E-mail, Email, Mail
+Bölüm       Bölüm, Departman, Birim          (optional)
+Tesis       Tesis, Lokasyon, Şube            (optional)
+Görev       Görev, Ünvan, Pozisyon           (optional)
+```
+
+**No ASCII spellings are listed.** Folding already makes `Kullanici` the same as
+`Kullanıcı`, so adding it is not tolerance, it is a duplicate — and the module asserts
+against two fields claiming one folded spelling rather than resolving it quietly. That
+assertion fired on the first run, on `Kullanıcı` / `Kullanici`. It is also a test, so the
+reason stays visible.
+
+**This is not a fuzzy matcher and must not become one.** The list is closed and explicit.
+A header nobody anticipated stops the run, and the message lists the accepted spellings
+rather than only naming the field, because the person who can fix it is whoever exported
+the file. AGENTS §2.1: the program never guesses at payroll input, it says what it found.
+
+### What is still guarded
+
+- **The thin sheet still loses.** The real workbook holds a `Sayfa1` carrying only name
+  and e-mail. Widening the accepted spellings could have let it win; it cannot, because
+  it has no login and no contact number and so cannot satisfy the required set. A test
+  holds this, because it is the failure that would be hardest to notice — a report built
+  from a sheet with no departments and no facilities looks plausible.
+- **The key-collision guard is untouched** (ADR-010): two different identities sharing a
+  `(first, last)` key still fail the run rather than merging payroll hours.
+
+### Consequences
+
+- 570 tests. Seven new: a title row above the header, `Ad`/`Soyadı`/`E-Posta Adresi` and
+  friends, folded case and Turkish characters, extra and reordered columns, a renamed
+  required column stopping the run with the spellings listed, the thin sheet still
+  losing, and no two fields claiming one spelling.
+- No figure moved: 17 103:58 / 27 166:19 / 26 233:17 on the real three months.
+- The `.exe` needs rebuilding for this to reach the operator — a reader is code, not
+  config. That is the general shape of the answer to "can we change this later": wording,
+  thresholds, holidays and the account are file edits; anything about what the program
+  *does* is a new build.

@@ -375,3 +375,152 @@ def test_the_roster_reader_refuses_a_workbook_with_the_wrong_columns(tmp_path):
 
     with pytest.raises(LayoutError, match="beklenen kolonları"):
         roster.read(path)
+
+
+# --- the roster's header: searched for, and synonyms accepted (ADR-080) -------
+
+def _roster_book(path, header, rows, *, title=None, sheet_name="TEMPIASUSERS"):
+    """A roster workbook with a header we choose, optionally under a title row."""
+    import openpyxl
+
+    book = openpyxl.Workbook()
+    sheet = book.active
+    sheet.title = sheet_name
+    if title is not None:
+        sheet.append([title])
+    sheet.append(header)
+    for row in rows:
+        sheet.append(row)
+    book.save(path)
+    return path
+
+
+_ROSTER_ROW = ["adeneme", "1001", "AYŞE", "DENEME", None, "Çalışan",
+               "ayse@example.com", "DEICO", "TEST EKİBİ", "DEICO TESİS",
+               "TEST GÖREVİ", "Profil", "Files/", None]
+
+
+def test_the_roster_header_does_not_have_to_be_the_first_row(tmp_path):
+    """The Macunköy export gained a title line above its header in July 2026 and its
+    reader was fixed to search (ADR-020). This one read row 1 and nothing else, so the
+    same change would have failed it — at month end, on a machine where nobody can edit
+    code.
+    """
+    path = _roster_book(tmp_path / "calisan.xlsx", ROSTER_HEADERS, [_ROSTER_ROW],
+                        title="PERSONEL LİSTESİ — 27.08.2026 tarihli dökümdür")
+
+    entries, _dupes = roster.read(path)
+
+    assert list(entries) == [("AYSE", "DENEME")]
+    assert entries[("AYSE", "DENEME")].email == "ayse@example.com"
+    # and the title row must not have become a person
+    assert len(entries) == 1
+
+
+def test_ad_is_accepted_where_isim_is_expected(tmp_path):
+    """*"isim yerine ad falan da yazabilir belki"* — and it is the same column.
+
+    Refusing a synonym would be the program being fussy about wording rather than about
+    correctness, which is the opposite of the trade this project makes everywhere else.
+    """
+    header = ["Kullanıcı Adı", "Sicil No", "Ad", "Soyadı", "Açıklama", "Kontak Tipi",
+              "E-Posta Adresi", "Firma", "Departman", "Lokasyon", "Ünvan",
+              "Profil", "Dosya Yolu", "Sektör Kodu"]
+    path = _roster_book(tmp_path / "personel.xlsx", header, [_ROSTER_ROW])
+
+    entries, _dupes = roster.read(path)
+    entry = entries[("AYSE", "DENEME")]
+
+    assert entry.email == "ayse@example.com"
+    assert entry.department == "TEST EKİBİ"
+    assert entry.facility == "DEICO TESİS"
+    assert entry.job_title == "TEST GÖREVİ"
+
+
+def test_case_and_turkish_characters_do_not_break_the_match(tmp_path):
+    """Compared folded, so `E-POSTA`, `e-posta` and `Eposta` are one thing.
+
+    This matters more than it looks: the same fold is what stops `İ` and `I` from being
+    two different columns, and Turkish casing is where naive code in this project has
+    gone wrong before (AGENTS §2.4).
+    """
+    header = ["KULLANICI", "kontak no", "isim", "SOYAD", "Açıklama", "Kontak Tipi",
+              "eposta", "Firma", "BÖLÜM", "tesis", "GÖREV",
+              "Profil", "Dosya Yolu", "Sektör Kodu"]
+    path = _roster_book(tmp_path / "calisan.xlsx", header, [_ROSTER_ROW])
+
+    entries, _dupes = roster.read(path)
+    assert entries[("AYSE", "DENEME")].email == "ayse@example.com"
+
+
+def test_extra_and_reordered_columns_are_ignored(tmp_path):
+    """Only the named columns are read, wherever they are."""
+    header = ["E-posta", "YENİ KOLON", "Soyad", "Başka Bir Şey", "İsim",
+              "Kontak No", "Kullanıcı", "Tesis"]
+    row = ["ayse@example.com", "alakasiz", "DENEME", 42, "AYŞE", "1001", "adeneme",
+           "DEICO TESİS"]
+    path = _roster_book(tmp_path / "calisan.xlsx", header, [row])
+
+    entries, _dupes = roster.read(path)
+    entry = entries[("AYSE", "DENEME")]
+
+    assert entry.email == "ayse@example.com"
+    assert entry.facility == "DEICO TESİS"
+    assert entry.department is None, "olmayan opsiyonel kolon boş geçmeli"
+
+
+def test_a_renamed_required_column_stops_the_run_and_says_what_is_accepted(tmp_path):
+    """Loud, never silent. A missing `E-posta` means nobody can be written to, and the
+    message has to be actionable by whoever exported the file — so it lists the
+    spellings rather than only naming the field.
+    """
+    header = [h if h != "E-posta" else "İletişim" for h in ROSTER_HEADERS]
+    path = _roster_book(tmp_path / "calisan.xlsx", header, [_ROSTER_ROW])
+
+    with pytest.raises(LayoutError) as hata:
+        roster.read(path)
+
+    metin = str(hata.value)
+    assert "E-posta" in metin
+    assert "E-mail" in metin, "kabul edilen yazımlar sayılmalı"
+    assert "10 satırda" in metin, "nerede arandığı yazılmalı"
+
+
+def test_the_thin_second_sheet_is_still_not_picked(tmp_path):
+    """The real workbook holds a `Sayfa1` with just name and e-mail. Widening the
+    accepted spellings must not let it win — it has no login and no contact number, so
+    it cannot satisfy the required set.
+    """
+    import openpyxl
+
+    path = tmp_path / "calisan.xlsx"
+    book = openpyxl.Workbook()
+    ince = book.active
+    ince.title = "Sayfa1"
+    ince.append(["Ad", "E-posta"])
+    ince.append(["AYŞE DENEME", "ayse@example.com"])
+    dogru = book.create_sheet("Personel Dökümü")
+    dogru.append(ROSTER_HEADERS)
+    dogru.append(_ROSTER_ROW)
+    book.save(path)
+
+    entries, _dupes = roster.read(path)
+
+    assert list(entries) == [("AYSE", "DENEME")]
+    assert entries[("AYSE", "DENEME")].job_title == "TEST GÖREVİ", \
+        "ince sayfa seçilmiş olurdu"
+
+
+def test_no_two_fields_claim_the_same_spelling():
+    """The table is hand-written, so a duplicate is a real possibility — and it happened
+    on the first run: `Kullanıcı` and `Kullanici` fold to one thing. The module asserts
+    at import; this makes the reason visible in the suite.
+    """
+    from mesai.normalize import fold
+
+    seen = {}
+    for field, spellings in roster.HEADER_ALIASES.items():
+        for spelling in spellings:
+            key = fold(spelling)
+            assert key not in seen, f"{spelling}: {field} ve {seen[key]}"
+            seen[key] = field
