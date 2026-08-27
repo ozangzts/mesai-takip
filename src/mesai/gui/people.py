@@ -87,14 +87,27 @@ class MailPreview:
                  highlightbackground=w.LINE, highlightcolor=w.ACCENT).grid(
             row=0, column=1, sticky="ew", ipady=4)
 
-        tk.Label(head, text="Konu", background=w.BG, foreground=w.MUTED,
+        # CC sits under `Kime`, which is where a reader looks for it, and it is
+        # editable like everything else here: the default comes from
+        # `config/gmail.yaml:bilgi` so the same two addresses need not be retyped every
+        # time, and this field is how one send differs from that default.
+        tk.Label(head, text="Bilgi (CC)", background=w.BG, foreground=w.MUTED,
                  font=(w.FACE, 9)).grid(row=1, column=0, sticky="w", padx=(0, 8),
+                                        pady=(8, 0))
+        self.cc_var = tk.StringVar(value=self._draft.cc)
+        tk.Entry(head, textvariable=self.cc_var, font=(w.FACE, 9), relief="flat",
+                 background=w.CARD, foreground=w.INK, highlightthickness=1,
+                 highlightbackground=w.LINE, highlightcolor=w.ACCENT).grid(
+            row=1, column=1, sticky="ew", ipady=4, pady=(8, 0))
+
+        tk.Label(head, text="Konu", background=w.BG, foreground=w.MUTED,
+                 font=(w.FACE, 9)).grid(row=2, column=0, sticky="w", padx=(0, 8),
                                         pady=(8, 0))
         self.subject_var = tk.StringVar(value=self._draft.subject)
         tk.Entry(head, textvariable=self.subject_var, font=(w.FACE, 9), relief="flat",
                  background=w.CARD, foreground=w.INK, highlightthickness=1,
                  highlightbackground=w.LINE, highlightcolor=w.ACCENT).grid(
-            row=1, column=1, sticky="ew", ipady=4, pady=(8, 0))
+            row=2, column=1, sticky="ew", ipady=4, pady=(8, 0))
 
         # What this window can and cannot show. It renders the PLAIN part — tkinter has
         # no HTML engine — and the message also carries an HTML part with the table,
@@ -166,6 +179,7 @@ class MailPreview:
         body = self.body.get("1.0", "end-1c")
         html = self._draft.html if body.strip() == self._draft.body.strip() else ""
         return replace(self._draft, to=self.to_var.get().strip(),
+                       cc=self.cc_var.get().strip(),
                        subject=self.subject_var.get().strip(),
                        body=body, html=html)
 
@@ -400,6 +414,10 @@ class PeopleScreen:
         # missing address earns one, because it is the one thing on a row that stops
         # the mail step from working. The note count stays plain text.
         self.tree.tag_configure("adres-yok", foreground=w.WARN)
+        # Which name the day panel belongs to. `selectmode="none"` (the row does two
+        # different things depending on where it is clicked, ADR-064), so the built-in
+        # selection cannot be used and the highlight is a tag.
+        self.tree.tag_configure("secili", background=w.ACCENT_SOFT)
 
         self._scroll = ttk.Scrollbar(card, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=self._scrolled)
@@ -711,7 +729,8 @@ class PeopleScreen:
                 if on_tick:
                     self._toggle(name)
                 else:
-                    self._person = name
+                    onceki, self._person = self._person, name
+                    self._mark_selected(onceki, name)
                     self._paint_days()
                 break
         return "break"
@@ -943,7 +962,15 @@ class PeopleScreen:
         tpl = mail_template.load(self.config_dir)
         draft = message.compose(person, chosen, self.snapshot.period, self.counted(),
                                 template=tpl)
-        return replace(draft, to=self.mail_var.get().strip())
+        # The default CC comes from the account file. Read here rather than baked into
+        # `compose`, which knows nothing about the machine — and missing credentials
+        # must not stop a preview: the operator may be reading the draft before the
+        # account is set up at all.
+        try:
+            cc = ", ".join(sender.load_account(self.config_dir).cc)
+        except sender.MailError:
+            cc = ""
+        return replace(draft, to=self.mail_var.get().strip(), cc=cc)
 
     def _preview_mail(self) -> None:
         """Show the message before anything leaves, and let it be edited.
@@ -1044,6 +1071,20 @@ class PeopleScreen:
 
     def _glyph(self, name: str) -> str:
         return "☐" if name in self.excluded else "☑"
+
+    def _mark_selected(self, onceki: str | None, yeni: str) -> None:
+        """Move the highlight without rebuilding the list.
+
+        Repainting would throw the reader back to the top of a list they are halfway
+        down, which is the same reason `_redraw_ticks` exists.
+        """
+        for name, row in self._rows:
+            if name not in (onceki, yeni):
+                continue
+            etiketler = [] if self.tree.set(row, "eposta") != "e-posta yok"                 else ["adres-yok"]
+            if name == yeni:
+                etiketler.append("secili")
+            self.tree.item(row, tags=tuple(etiketler))
 
     def _copy(self) -> None:
         people = recipients.selected(self.snapshot, self.filter_key, self.excluded,
@@ -1186,8 +1227,11 @@ class PeopleScreen:
             # ticks — 27 of them days that were counted in full — and 127 with one note
             # ticked. The truth is 419 and it does not move.
             gun = len(recipients.days_by_cost(person)[0])
+            etiketler = [] if person.email else ["adres-yok"]
+            if person.name == self._person:
+                etiketler.append("secili")
             row = self.tree.insert(
-                "", "end", tags=() if person.email else ("adres-yok",),
+                "", "end", tags=tuple(etiketler),
                 values=(self._glyph(person.name), person.name, person.hours_text,
                         gun or "",
                         person.email or "e-posta yok"))

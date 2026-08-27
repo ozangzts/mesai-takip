@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (81 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (82 ADR) | [DECISIONS.md](DECISIONS.md) |
 | **Programı kullanacak kişi için** | [KULLANIM.txt](../KULLANIM.txt) — sade Türkçe, exe ile birlikte gidiyor |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
@@ -23,11 +23,11 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **577 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **583 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
-| Toplam çalışma süresi | 17 103:58 | 27 166:19 | 26 233:17 |
+| Toplam çalışma süresi | 17 060:29 | 27 166:19 | 26 214:13 |
 | Kişi | 171 | 163 | 176 |
 | Şüpheli kayıt | 365 | 622 | 689 |
 | `Sorunu olanlar` | 83 | 73 | 88 |
@@ -35,7 +35,12 @@ Faz 1 çalışıyor, **üç ayın üçü de tam**, **577 test geçiyor**.
 | Panelde teklif edilen, işaretsiz gelen sayılan gün | 28 | 41 | 52 |
 | **Listede olup hiç kaydı olmayan** (ADR-071) | 21 | 27 | 14 |
 
-Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam. Son satır yeni ve **hiçbir
+Üçü de `0` koduyla çıkıyor, mutabakat TAMAM, kapsama tam.
+
+> **Toplamlar 27.08'de DÜŞTÜ** (17 103:58 → 17 060:29 ve 26 233:17 → 26 214:13) ve
+> doğrusu bu. İki kişi eksik alias yüzünden ikiye bölünmüştü; biri iki satırdayken
+> Macunköy günü ile Teknopark günü **iki ayrı kişinin günü** sayılıyor ve çakışan
+> süre iki kez toplanıyordu. ADR-082. Son satır yeni ve **hiçbir
 satırı olmayan** kişileri sayıyor: personel listesinde var, o ayda ne kart ne izin kaydı
 yok. `Kontrol` §5'te adlarıyla, tesise göre gruplu (ADR-071). Masaüstündeki üç ayın raporu ve
 veri dosyası **`format_version` 11** ile güncel.

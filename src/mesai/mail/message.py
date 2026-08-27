@@ -50,6 +50,10 @@ class Draft:
     subject: str
     body: str
     html: str = ""
+    # Comma-separated, as typed. One string rather than a tuple because that is what the
+    # field in the preview holds and what the `Cc` header wants; splitting and rejoining
+    # would only create a place for the two to disagree.
+    cc: str = ""
 
     @property
     def is_sendable(self) -> bool:

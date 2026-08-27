@@ -39,7 +39,8 @@ SETUP_HELP = (
     "Gmail hesabı ayarlanmamış. config/gmail.yaml dosyasını şu şekilde oluşturun:\n\n"
     "    adres: hesap@gmail.com\n"
     "    uygulama_sifresi: xxxxxxxxxxxxxxxx\n"
-    "    gorunen_ad: Mesai Takip\n\n"
+    "    gorunen_ad: Mesai Takip\n"
+    "    bilgi: kisi@deico.com.tr        # her maile CC, istege bagli\n\n"
     "Uygulama şifresi hesabın kendi şifresi değildir: Google hesabında iki adımlı "
     "doğrulama açıkken 'uygulama şifreleri' bölümünden 16 haneli bir şifre üretilir. "
     "Bu dosya git'e girmez."
@@ -50,11 +51,27 @@ class MailError(Exception):
     """Anything that stopped a message from leaving, in words for the operator."""
 
 
+def _adresler(raw: object) -> tuple[str, ...]:
+    """`bilgi` as a list of addresses, from a list or a comma-separated string.
+
+    Both shapes are accepted because a hand-edited YAML gets written both ways, and
+    refusing one of them would be a config file that is right but rejected.
+    """
+    if raw is None:
+        return ()
+    parcalar = raw if isinstance(raw, (list, tuple)) else str(raw).split(",")
+    return tuple(p for p in (str(x).strip() for x in parcalar) if p)
+
+
 @dataclass(frozen=True)
 class Account:
     address: str
     app_password: str
     display_name: str = ""
+    # Default CC, from `config/gmail.yaml:bilgi`. A default rather than a rule: the
+    # preview lets it be edited before every send, so nobody has to retype the same
+    # two addresses every time and nobody is stuck with them either.
+    cc: tuple[str, ...] = ()
 
     @property
     def sender(self) -> str:
@@ -88,7 +105,8 @@ def load_account(config_dir: Path) -> Account:
         raise MailError(f"{path.name} eksik: {', '.join(missing)}.\n\n{SETUP_HELP}")
     return Account(address=address,
                    app_password=password.replace(" ", ""),
-                   display_name=str(raw.get("gorunen_ad") or "").strip())
+                   display_name=str(raw.get("gorunen_ad") or "").strip(),
+                   cc=_adresler(raw.get("bilgi")))
 
 
 def build(draft: Draft, account: Account) -> EmailMessage:
@@ -104,6 +122,8 @@ def build(draft: Draft, account: Account) -> EmailMessage:
     mail = EmailMessage()
     mail["From"] = account.sender
     mail["To"] = draft.to
+    if draft.cc.strip():
+        mail["Cc"] = draft.cc
     mail["Subject"] = draft.subject
     mail.set_content(draft.body, subtype="plain", charset="utf-8")
     if draft.html.strip():

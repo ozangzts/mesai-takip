@@ -5499,3 +5499,70 @@ home; anything else found in it is the operator's data and is removed.
   directly.
 - `data/out/` was deleted from the working tree on request. Regenerable in seconds, and
   git-ignored either way.
+
+---
+
+## ADR-082 — CC, a highlighted row, and two aliases that were splitting people in two
+
+**Date:** 2026-08-27
+**Status:** Accepted
+
+### The aliases, which mattered more than the features
+
+Asked while installing on the manager's machine: *"bu alias ne işe yarıyor anlamadım?"*
+Explaining it turned up two entries that were missing, and both were **inflating payroll
+hours**.
+
+The key is `(first token, last token)` with single-letter initials dropped. Three
+candidate pairs existed in the real data; the evidence decided each one:
+
+| Pair | Verdict | Evidence |
+| --- | --- | --- |
+| `C. CEM MAFFIN` / `CHRİSTOPHER CEM MAFFIN` | same person | middle name identical, roster holds CHRISTOPHER with `cmaffin@` |
+| `MUHAMMED SİNAN GÖRÜNMEZ` / `MUHAMMET SİNAN GÖRÜNMEZ` | same person | D/T spelling, middle name and surname identical |
+| `ABDÜLKADİR ŞAHİN` / `ANIL ŞAHİN` | **different people** | separate e-mail addresses, both in the roster separately |
+
+The third is why this is checked rather than pattern-matched: merging it would have added
+two people's payroll hours together. `AGENTS §2.1` — no fuzzy matcher ships, a human
+decides, and the `Kontrol` sheet lists every entry in force for review.
+
+**The totals moved, downwards**, and that is the finding: May 17 103:58 → **17 060:29**
+(−43:29) and July 26 233:17 → **26 214:13** (−19:04). While one person was two rows, their
+Macunköy day and their Teknopark day were counted as two different people's days, so the
+overlap was **double-counted** (ADR-001's union never ran). The split was not cosmetic; it
+was making the month look bigger than it was. June was unaffected because that person had
+records at only one site.
+
+Note `config/personel.yaml` is git-ignored, so these entries live on one machine and in
+the `-ICERIDE` package. A clone does not get them.
+
+### CC
+
+`config/gmail.yaml:bilgi` holds the default, as a list or a comma-separated string —
+both, because a hand-edited YAML gets written both ways and refusing one would be a file
+that is correct and rejected. The preview shows it under `Kime`, editable, so the default
+is a default and not a rule. An absent or empty value sets **no** `Cc` header at all; an
+empty header shows as a blank row in some clients.
+
+Read from the account file at draft time rather than baked into `compose`, which knows
+nothing about the machine — and a missing account file must not stop a preview, because
+the operator may be reading the draft before the credentials are set up.
+
+### The highlighted row
+
+A `secili` tag in `ACCENT_SOFT`, not the Treeview's own selection: `selectmode` is `none`
+because the row does two different things depending on where it is clicked (ADR-064).
+Moving it re-tags two rows rather than repainting the list — repainting throws the reader
+back to the top of a list they are halfway down, the same reason `_redraw_ticks` exists.
+
+The `adres-yok` colour is re-applied alongside it. A test holds that, because the missing
+address is the one thing on a row that stops the mail step working, and losing it to a
+selection would hide it exactly when somebody is looking at that person.
+
+### Consequences
+
+- 583 tests. Six new, no more: CC from a string and from a list, no CC meaning no header,
+  the edited CC reaching the transport, the highlight moving, and the address colour
+  surviving it.
+- Per-alias comments were removed from `personel.yaml` on request — the file is a table,
+  and the reasoning belongs here.

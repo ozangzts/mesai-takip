@@ -2717,3 +2717,59 @@ def test_a_roster_file_that_moved_says_to_choose_it_again(tmp_path, settings):
 
     assert not state.ready
     assert "artık yok" in state.note and "Seç" in state.note, state.note
+
+
+def test_the_selected_person_row_is_highlighted(day_screen):
+    """Which name the day panel belongs to, visible in the list.
+
+    A tag rather than the Treeview's own selection: the row does two different things
+    depending on where it is clicked (ADR-064), so `selectmode` is `none`.
+    """
+    screen = day_screen()
+    first = screen._rows[0]
+    second = screen._rows[1]
+
+    _click(screen, first[1], on_tick=False)
+    assert "secili" in screen.tree.item(first[1], "tags")
+
+    _click(screen, second[1], on_tick=False)
+    assert "secili" in screen.tree.item(second[1], "tags")
+    assert "secili" not in screen.tree.item(first[1], "tags"), "vurgu tasinmali"
+
+
+def test_the_missing_address_colour_survives_the_highlight(people_screen, tmp_path):
+    """Both tags sit on the row at once; moving the highlight must not drop the other.
+
+    The missing address is the one thing on a row that stops the mail step working, so
+    losing its colour to a selection would hide it exactly when somebody is looking.
+    """
+    screen = people_screen._screens["kisiler"]
+    screen.load(_snapshot_file(tmp_path, [
+        _person("AYŞE DENEME", ["Çıkış yok"], days=[_pday(4)], email=None),
+        _person("BERK NUMUNE", ["Çıkış yok"], days=[_pday(5)]),
+    ]))
+    screen._repaint()
+
+    name, row = next((n, r) for n, r in screen._rows if n == "AYŞE DENEME")
+    _click(screen, row, on_tick=False)
+    etiketler = screen.tree.item(row, "tags")
+
+    assert "secili" in etiketler and "adres-yok" in etiketler, etiketler
+
+
+def test_the_preview_carries_the_edited_cc(day_screen):
+    from mesai.gui.people import MailPreview
+
+    screen = day_screen()
+    name, row = _person_with_days(screen)
+    _click(screen, row, on_tick=False)
+
+    sent = []
+    preview = MailPreview(screen.root, screen._draft(),
+                          lambda d: (sent.append(d), (True, ""))[1])
+    preview.show()
+    preview.cc_var.set("yonetici@deico.com.tr")
+    preview.confirm()
+
+    assert sent[0].cc == "yonetici@deico.com.tr"
+    preview.close()

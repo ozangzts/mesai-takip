@@ -13,3 +13,12 @@ uygulama_sifresi: xxxxxxxxxxxxxxxx
 # Alıcının "Kimden" satırında gördüğü ad. Boş bırakılırsa adres görünür.
 # Bir kişiyi ya da departmanı adlandırmaz — programın yazdığı hiçbir yer adlandırmaz.
 gorunen_ad: Mesai Takip
+
+# Her maile bilgi (CC) olarak eklenecek adresler. Virgulle ayrilir ya da liste
+# yazilir. Bos birakilabilir.
+#
+# Burada durmasinin sebebi: her gonderimde elle yazmak zorunda kalmamak. Gonderim
+# oncesi onizleme penceresinde yine duzenlenebiliyor, yani buradaki liste
+# varsayilan, kural degil.
+bilgi:
+  - ""

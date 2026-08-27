@@ -176,7 +176,7 @@ def test_the_committed_example_is_loadable_but_not_a_working_account(tpl):
     import yaml
     raw = yaml.safe_load(Path("config/gmail.example.yaml").read_text(encoding="utf-8"))
 
-    assert set(raw) == {"adres", "uygulama_sifresi", "gorunen_ad"}
+    assert set(raw) == {"adres", "uygulama_sifresi", "gorunen_ad", "bilgi"}
     assert raw["uygulama_sifresi"] == "x" * 16, "the example must be obviously fake"
 
 
@@ -376,3 +376,39 @@ def test_a_name_reaching_the_html_part_is_escaped(tmp_path):
     assert "&lt;b&gt;" in draft.html
     assert "<b>DENEME" not in draft.html
     assert "<b>DENEME</b>" in draft.body, "düz metin kısmı olduğu gibi kalır"
+
+
+def test_cc_comes_from_the_account_file_and_reaches_the_header(tmp_path, tpl):
+    """Default, not rule: typed once in `gmail.yaml`, editable before every send."""
+    (tmp_path / "gmail.yaml").write_text(
+        "adres: a@gmail.com\nuygulama_sifresi: x\nbilgi: bir@deico.com.tr, iki@deico.com.tr\n",
+        encoding="utf-8")
+    hesap = sender.load_account(tmp_path)
+    assert hesap.cc == ("bir@deico.com.tr", "iki@deico.com.tr")
+
+    from dataclasses import replace
+    draft = replace(message.compose(person(), [day(14)], "2026-07", set(), template=tpl),
+                    cc=", ".join(hesap.cc))
+    gonderilen = []
+    sender.send(draft, hesap, transport=lambda mail, acc: gonderilen.append(mail))
+
+    assert gonderilen[0]["Cc"] == "bir@deico.com.tr, iki@deico.com.tr"
+
+
+def test_cc_accepts_a_yaml_list_too(tmp_path):
+    """A hand-edited file gets written both ways; refusing one would be a config that
+    is right and rejected."""
+    (tmp_path / "gmail.yaml").write_text(
+        "adres: a@gmail.com\nuygulama_sifresi: x\nbilgi:\n  - bir@deico.com.tr\n  - iki@deico.com.tr\n",
+        encoding="utf-8")
+    assert sender.load_account(tmp_path).cc == ("bir@deico.com.tr", "iki@deico.com.tr")
+
+
+def test_no_cc_means_no_header(tmp_path, tpl):
+    """An empty `Cc:` header is worse than none — some clients show it as a blank row."""
+    hesap = sender.Account("a@gmail.com", "x")
+    draft = message.compose(person(), [day(14)], "2026-07", set(), template=tpl)
+    gonderilen = []
+    sender.send(draft, hesap, transport=lambda mail, acc: gonderilen.append(mail))
+
+    assert gonderilen[0]["Cc"] is None
