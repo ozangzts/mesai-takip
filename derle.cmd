@@ -59,6 +59,15 @@ for %%f in (config\*) do (
 )
 copy /Y "KULLANIM.txt" "dist\MesaiTakip\" >nul
 
+REM Bu makinenin ayarlari pakete GIRMEZ. Dosya exe'nin yanina yaziliyor, yani
+REM derlemeden sonra exe'yi bir kez calistirmak (test etmek) onu olusturuyor ve
+REM sonraki toplama adiminda oradan cikmiyor. Icinde bu makinenin yollari var:
+REM Masaustu yolu, ag surucusu, secilen personel listesi. Karsi makinede hicbiri
+REM yok -- ozellikle roster_file "secilen dosya artik yok" durumuna dusuruyor.
+REM Ayrica problem_notes_off burada calisan kisinin tercihi; yeni kurulum
+REM varsayilanla baslamali.
+if exist "dist\MesaiTakip\arayuz-ayarlari.json" del "dist\MesaiTakip\arayuz-ayarlari.json"
+
 REM Personel listesinin duracagi klasor. Bos olarak olusturuluyor: program burayi
 REM kendiliginden ariyor, ama paketten cikan klasorde yoksa "bulunamadi" mesaji
 REM olmayan bir yeri isaret ediyor. Icindeki not, klasoru bos goren kisiye ne

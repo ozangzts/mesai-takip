@@ -124,3 +124,21 @@ def test_the_lazily_imported_reader_is_a_hidden_import(spec):
     operator's machine that is a failed run at month end with no way to fix it locally.
     """
     assert "xlrd" in spec
+
+
+def test_the_build_script_removes_this_machines_settings():
+    """`arayuz-ayarlari.json` is written next to the exe, so testing the build creates it.
+
+    It holds this machine's paths — the Desktop, a network drive, the chosen roster file —
+    and none of them exist on the target machine; `roster_file` in particular lands the
+    new install straight in "seçilen dosya artık yok". It also carries
+    `problem_notes_off`, which is one operator's setup choice and not a default anybody
+    else should inherit silently.
+
+    Nothing about it is secret. It is simply the wrong machine's state, and it ships by
+    accident rather than by decision — which is why the assembly step deletes it rather
+    than relying on nobody having launched the exe.
+    """
+    text = DERLE.read_text(encoding="utf-8", errors="replace")
+    assert "arayuz-ayarlari.json" in text
+    assert "del " in text, "silinmesi gerekiyor, sadece anilmasi degil"
