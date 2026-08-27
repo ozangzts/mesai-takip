@@ -162,9 +162,15 @@ def roster_state(roster_dir: Path | None, folder: Path | None, settings,
         # others, and the full message — four glob patterns and two folder paths —
         # stretched the window half as wide again. A run that gets that far prints
         # all of it.
-        where = roster_dir.name if roster_dir else "?"
-        note = ("seçilen dosya artık yok" if chosen is not None
-                else f"bulunamadı — '{where}' klasörüne konmalı")
+        # NOT the folder name. It said "'personel' klasörüne konmalı", which fails
+        # twice on a fresh install: that folder does not exist yet in a packaged copy,
+        # so the instruction points at nothing — and `config/personel.yaml` is a
+        # different file with almost the same name, so the reader is told to put an
+        # Excel workbook where a YAML alias table lives. The button beside this row is
+        # the answer and it is always there.
+        note = ("seçilen dosya artık yok — 'Seç…' ile yeniden gösterin"
+                if chosen is not None
+                else "bulunamadı — sağdaki 'Seç…' ile gösterin")
         return SourceState("roster", ROSTER_LABEL, None, note, chosen is not None)
     return SourceState("roster", ROSTER_LABEL, found, found.name,
                        chosen=chosen is not None)

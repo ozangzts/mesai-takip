@@ -23,7 +23,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **560 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **562 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
@@ -193,8 +193,15 @@ dist\MesaiTakip\
   MesaiTakip.exe
   KULLANIM.txt          <- kullanacak kişi için, sade Türkçe
   config\               <- exe'nin YANINDA, içinde değil
+  data\personel\        <- boş; personel listesi buraya, içinde açıklayan bir not var
   _internal\            <- Python ve kütüphaneler. Kullanıcı buraya hiç girmez.
 ```
+
+> **İlk kurulumda çıkan tuzak:** `data\personel\` klasörü paketten çıkmıyordu ve
+> "bulunamadı — 'personel' klasörüne konmalı" mesajı **olmayan bir yeri** işaret
+> ediyordu. Üstelik `config\personel.yaml` neredeyse aynı ada sahip **başka** bir
+> dosya. Mesaj artık düğmeyi gösteriyor (`sağdaki 'Seç…' ile gösterin`) ve klasör
+> bir notla birlikte oluşturuluyor.
 
 **Üç karar ve gerekçeleri:**
 

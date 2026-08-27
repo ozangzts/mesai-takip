@@ -58,6 +58,24 @@ for %%f in (config\*) do (
     )
 )
 copy /Y "KULLANIM.txt" "dist\MesaiTakip\" >nul
+
+REM Personel listesinin duracagi klasor. Bos olarak olusturuluyor: program burayi
+REM kendiliginden ariyor, ama paketten cikan klasorde yoksa "bulunamadi" mesaji
+REM olmayan bir yeri isaret ediyor. Icindeki not, klasoru bos goren kisiye ne
+REM konacagini soyluyor.
+if not exist "dist\MesaiTakip\data\personel" mkdir "dist\MesaiTakip\data\personel"
+> "dist\MesaiTakip\data\personel\BURAYA-PERSONEL-LISTESI-KOYUN.txt" (
+  echo Personel listesi ^(calisan listesi^) Excel dosyasi buraya konur.
+  echo.
+  echo Program bu klasore kendiliginden bakar, yani dosyayi buraya koyarsaniz her ay
+  echo yeniden secmeniz gerekmez. Dosya adinin onemi yoktur.
+  echo.
+  echo Baska bir yerde durmasini tercih ederseniz: Rapor ekraninda "Personel listesi"
+  echo satirinin sagindaki "Sec..." dugmesiyle gosterin. Program secimi hatirlar.
+  echo.
+  echo DIKKAT: bu, config klasorundeki personel.yaml dosyasi DEGILDIR. O ayri bir
+  echo dosya ve isim yazim farkliliklarini tutuyor.
+)
 if exist "dist\MesaiTakip\_internal\KULLANIM.txt" del "dist\MesaiTakip\_internal\KULLANIM.txt"
 if exist "dist\MesaiTakip\_internal\config" rmdir /S /Q "dist\MesaiTakip\_internal\config"
 

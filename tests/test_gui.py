@@ -2688,3 +2688,32 @@ def test_a_plain_only_message_says_so_and_offers_no_button(day_screen):
 
     assert "yalnızca düz metin" in preview.note.cget("text")
     preview.close()
+
+
+def test_a_missing_roster_points_at_the_button_not_a_folder(tmp_path, settings):
+    """It said `bulunamadı — 'personel' klasörüne konmalı`, which fails twice.
+
+    On a packaged copy that folder does not exist yet, so the instruction points at
+    nothing — the operator hit exactly this: *"personel klasörüne konmalı diyor ama
+    personel klasörü yok?"* And `config/personel.yaml` is a different file with almost
+    the same name, so the sentence also reads as "put the employee workbook where the
+    alias table lives". The button beside the row is the answer and it is always there.
+    """
+    from mesai.gui.rapor import roster_state
+
+    state = roster_state(tmp_path / "yok", tmp_path, settings)
+
+    assert not state.ready
+    assert "Seç" in state.note, state.note
+    assert "klasörüne konmalı" not in state.note, state.note
+
+
+def test_a_roster_file_that_moved_says_to_choose_it_again(tmp_path, settings):
+    """The other branch. A remembered file that has since moved is a different problem
+    from never having chosen one, and the same button fixes both."""
+    from mesai.gui.rapor import roster_state
+
+    state = roster_state(tmp_path, tmp_path, settings, chosen=tmp_path / "gitti.xlsx")
+
+    assert not state.ready
+    assert "artık yok" in state.note and "Seç" in state.note, state.note

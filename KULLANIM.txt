@@ -38,8 +38,18 @@ Ayrıca AYA BAĞLI OLMAYAN bir dosya daha var:
 
   4) Personel listesi (çalışan listesi) (Excel)
 
-Bu dördüncü dosya her ay değişmiyor. Bir kere yerini gösterirsiniz, program
-hatırlar.
+Bu dördüncü dosya her ay değişmiyor. İki seçenek var:
+
+  - Programın yanındaki  data\personel\  klasörüne koyun. Program oraya
+    kendiliğinden bakar, bir daha hiç uğraşmazsınız.
+  - Ya da başka bir yerde bırakıp, Rapor ekranında o satırın sağındaki
+    "Seç..." düğmesiyle bir kere gösterin. Program seçimi hatırlar.
+
+DİKKAT - İSİM BENZERLİĞİ: bu dosya, config klasöründeki "personel.yaml" ile
+AYNI ŞEY DEĞİLDİR. İkisi ayrı:
+
+  data\personel\...xlsx    <- çalışan listesi, Excel
+  config\personel.yaml     <- isim yazım farklılıkları, metin dosyası
 
 Dosya adlarının bir önemi yok - program içeriğine bakarak hangisinin hangisi
 olduğunu buluyor. Önemli olan tek şey: BİR KLASÖRDE BİR AY OLMALI. Haziran ve

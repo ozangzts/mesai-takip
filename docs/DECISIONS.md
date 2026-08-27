@@ -5294,11 +5294,36 @@ warning and corporate antivirus sometimes quarantines it outright; with no code-
 certificate the answer is an exception or a shared folder. Which antivirus the target
 machine runs has not been answered.
 
+### A fourth one, found by the operator on the first install
+
+The roster row said `bulunamadı — 'personel' klasörüne konmalı`, and on a packaged copy
+that folder did not exist: `roster_dir` is `<exe>/data/personel`, which only the
+repository had. *"personel klasörüne konmalı diyor ama personel klasörü yok?"*
+
+Two separate faults in one short line:
+
+- **it named a folder rather than the action**, and the folder was not there to be
+  filled;
+- **`config/personel.yaml` is a different file with nearly the same name**, so the
+  sentence also reads as "put the employee workbook where the alias table lives" —
+  which would fail in a way that is harder to diagnose than the original problem.
+
+Fixed at both ends. The message is `bulunamadı — sağdaki 'Seç…' ile gösterin`: the button
+is beside the row, is always there, and works whatever the folder situation is. And
+`derle.cmd` now creates `data/personel/` with a note in it saying what goes there and
+spelling out that it is **not** `config/personel.yaml`. `KULLANIM.txt` names both files
+side by side for the same reason.
+
+A general lesson worth carrying: this is the second message today that described a
+process rather than an action (the first was the mail asking people to press Reply,
+ADR-075). A message that names a control the reader can see beats one that names a
+concept they have to locate.
+
 ### Consequences
 
-- 560 tests. Ten are new and cover the build recipe as text — weaker than exercising a
+- 562 tests. Twelve are new: ten cover the build recipe as text — weaker than exercising a
   build, but each encodes one of the three failures above, so a regression goes red
-  instead of shipping.
+  instead of shipping; two hold the roster message to naming the button.
 - `dist/` and `build/` are git-ignored: `dist/MesaiTakip/config/` is where somebody puts
   the real `personel.yaml` and `gmail.yaml`, so that tree can hold real names and a
   credential.
