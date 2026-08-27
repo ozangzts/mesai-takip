@@ -136,6 +136,10 @@ class MonthSummary:
     anomaly_count: int
     has_attendance: bool
     notes: tuple[str, ...] = ()
+    # Days that reached the Multinet threshold. Counted, never derived at display time
+    # in two places: the daily sheet marks the day and this is the month's total, and
+    # the two disagreeing is the class of defect ADR-077 is about.
+    multinet: int = 0
 
 
 @dataclass(frozen=True)

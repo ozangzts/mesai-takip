@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import calendar as _calendar
 from collections import defaultdict
+from dataclasses import replace
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -572,6 +573,10 @@ def _summarise(
         # what the name says and what `mesai verisi olan` counts. It used to mean "has a
         # day that could be counted" — a narrower thing, and the difference is 7 people
         # in July who badged on 12 to 21 days and had every reading refused. ADR-067.
+        # One per day whose gross reached the threshold. Gross, not net: the report
+        # pays gross and the entitlement must not move when `break.deduct` is flipped.
+        multinet = sum(1 for w in days if w.gross >= settings.multinet.daily_hours)
+
         has_attendance = bool(seen.get(key))
         if not has_attendance:
             anomalies.add(Anomaly(
@@ -590,6 +595,7 @@ def _summarise(
             leave_days=round(leave_days.get(key, 0.0), 2),
             anomaly_count=anomaly_counts.get(key, 0),
             has_attendance=has_attendance,
+            multinet=multinet,
         ))
 
     # Anomalies added above are not yet in the per-person counts; refresh them, and
@@ -605,13 +611,14 @@ def _summarise(
     # the day survived, so it is not this person's note — see `labels_by_key` and
     # ADR-068.
     labels = anomalies.labels_by_key(counted_days)
+    # `replace`, not a field-by-field rebuild. It WAS a rebuild, and it silently dropped
+    # `multinet` the day that field was added: the daily sheet marked 145 / 326 / 261
+    # days and every person's monthly total read zero. Only two fields are meant to
+    # change here; naming the other eight is an invitation to forget the ninth.
     return [
-        MonthSummary(
-            employee=s.employee, period=s.period, gross=s.gross, net=s.net,
-            worked_days=s.worked_days, remote_days=s.remote_days,
-            leave_days=s.leave_days,
+        replace(
+            s,
             anomaly_count=refreshed.get(s.employee.key, 0),
-            has_attendance=s.has_attendance,
             notes=(labels.get(s.employee.key, ())
                    + (() if s.employee.in_roster else ("Personel listesinde yok",))),
         )

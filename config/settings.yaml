@@ -127,6 +127,23 @@ facility_labels:
   MACUNKOY: "Macunköy"
   DEICO: "Teknopark"
 
+# --- Multinet (KULLANILIYOR) -----------------------------------------------
+#
+# Bir gun kac saati gecerse +1 Multinet kazandiriyor. Gunun BRUT suresi olculuyor:
+# ilk giristen son cikisa kadar, yani raporun odedigi sure (ADR-015, ADR-016). Net
+# olsaydi `break.deduct` anahtari degistigi gun hakedis de degisirdi; o anahtar
+# bordro saatiyle ilgili, yemek karti ile degil.
+#
+# Zorunlu anahtar, eksikse program durur -- `daily_hours` ile ayni sebep: bu
+# degisiklikten onceki bir config sessizce "hic Multinet yok" uygulayip kimsenin
+# hakedis kazanmadigi bir ay gibi gorunmemeli.
+#
+# DIKKAT: asagidaki `overtime.multinet` BASKA bir kural ve hala ONAYSIZ (Q6) --
+# fazla mesai saatine gore band veriyor (3-7,5 sa -> 1, 7,5+ -> 2). Hicbir kod onu
+# kullanmiyor. Kullanilan kural burasi.
+multinet:
+  daily_hours: 12
+
 # ---------------------------------------------------------------------------
 # Phase 2 parameters. Defined but NOT yet used by any code — the rules they
 # drive are blocked on Q5-Q8 in docs/ROADMAP.md. Do not wire these up until

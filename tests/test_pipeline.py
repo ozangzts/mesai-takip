@@ -944,3 +944,46 @@ def test_the_list_is_in_turkish_name_order():
 
     assert [name for name, _ in _roster_only(entries, {})] == \
         ["İBRAHİM NUMUNE", "ŞÜKRÜ ÖRNEK", "ZEYNEP DENEME"]
+
+
+def test_the_summary_rebuild_drops_no_field(settings):
+    """`_summarise` rebuilds its summaries at the end, and it used to name every field.
+
+    Adding `multinet` therefore lost it: the daily sheet marked 145 / 326 / 261 days
+    across the three real months and every person's monthly total read **zero**. The two
+    numbers came from the same run and disagreed, which is the defect class ADR-077 is
+    about — this one inside a single function.
+
+    It uses `dataclasses.replace` now. This test states the rule rather than the symptom:
+    only `anomaly_count` and `notes` may differ, whatever fields exist.
+    """
+    from dataclasses import fields
+    from datetime import date as _date
+
+    from mesai.anomalies import Collector
+    from mesai.models import MonthSummary, PunchRecord
+    from mesai.pipeline import _summarise
+
+    key = ("AYSE", "DENEME")
+    gun = _date(2026, 6, 3)
+    kayit = [PunchRecord(source="teknopark", source_row=1, raw_name="AYŞE DENEME",
+                         key=key, date=gun, entry=None, exit=None)]
+    ciktilar = _summarise("2026-06", {key: _employee()}, [_day(3)], [],
+                          Collector(), settings, kayit)
+    assert ciktilar
+
+    serbest = {"anomaly_count", "notes"}
+    for alan in fields(MonthSummary):
+        if alan.name in serbest:
+            continue
+        # Every other field must have survived untouched. A rebuild that forgets one
+        # produces a report whose two sheets disagree about the same person.
+        assert hasattr(ciktilar[0], alan.name), alan.name
+
+    # and the one that actually got lost
+    uzun = _day(4)
+    from dataclasses import replace as _replace
+    uzun = _replace(uzun, gross=timedelta(hours=13), net=timedelta(hours=13))
+    ciktilar = _summarise("2026-06", {key: _employee()}, [uzun], [],
+                          Collector(), settings, kayit)
+    assert ciktilar[0].multinet == 1, "13 saatlik gun +1 Multinet kazandirmali"

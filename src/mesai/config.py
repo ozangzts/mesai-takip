@@ -58,6 +58,26 @@ class Plausibility:
 
 
 @dataclass(frozen=True)
+class Multinet:
+    """When a day earns a Multinet. One rule, and it lives in `config/`.
+
+    `daily_hours` is measured against the day's **gross** figure — first entry to last
+    exit, which is what the report pays (ADR-015, ADR-016). Using net would mean the
+    entitlement changed the day somebody flipped `break.deduct`, and that switch is
+    about payroll hours, not about meal vouchers.
+
+    Required, not defaulted, for the same reason as `daily_hours` and `break.deduct`: a
+    config file predating this must not silently apply "no Multinet at all" and look
+    like a month where nobody earned one. AGENTS §6.
+
+    This is the SIMPLE daily rule that was asked for. `PRODUCT.md` §2 describes a
+    weekly/monthly entitlement as well, still blocked on Q6 — so nothing here should be
+    read as the final Multinet calculation.
+    """
+    daily_hours: timedelta
+
+
+@dataclass(frozen=True)
 class NominalDay:
     """The source system's placeholder for a workday it has no turnstile data for.
 
@@ -132,6 +152,7 @@ class Settings:
     worked_leave_types: frozenset[str]
     calendar: Calendar
     personnel: Personnel
+    multinet: Multinet
     # "envelope" (first entry -> last exit) or "union" (sum of intervals). ADR-015.
     daily_hours: str = "envelope"
     # Optional: absent from the config means "no placeholder pattern known".
@@ -311,6 +332,9 @@ def load(config_dir: Path, period: str) -> Settings:
         calendar=calendar,
         personnel=Personnel(exclude_prefixes=prefixes, aliases=aliases,
                             alias_pairs=tuple(pairs)),
+        multinet=Multinet(daily_hours=timedelta(
+            hours=float(_require(raw.get("multinet") or {}, "daily_hours",
+                                 "settings.yaml:multinet")))),
         daily_hours=daily_hours,
         nominal_day=nominal,
         remote_replaces=remote_replaces,

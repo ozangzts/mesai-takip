@@ -5566,3 +5566,75 @@ selection would hide it exactly when somebody is looking at that person.
   surviving it.
 - Per-alias comments were removed from `personel.yaml` on request — the file is a table,
   and the reasoning belongs here.
+
+---
+
+## ADR-083 — Multinet: one day, one threshold, two sheets that must agree
+
+**Date:** 2026-08-27
+**Status:** Accepted
+**Not** the Phase 2 Multinet rule. See below.
+
+### The rule
+
+A day whose **gross** duration reaches `config/settings.yaml:multinet.daily_hours`
+(12 h) earns one Multinet. `Günlük Detay` marks the day `+1` on a green cell;
+`Aylık Özet` carries the month's total per person, blank rather than `0` when nobody
+earned one — an empty cell reads as "not applicable", a `0` invites the question of what
+it is counting.
+
+**Gross, not net.** The report pays gross (ADR-015, ADR-016), and net would mean the
+entitlement moved the day somebody flipped `break.deduct` — a switch about payroll hours,
+not about meal vouchers.
+
+**Required config key**, not defaulted, for the same reason as `daily_hours` and
+`break.deduct`: a config file predating this must not silently apply "no Multinet at all"
+and look like a month where nobody earned one.
+
+Measured on the three real months: **145 / 326 / 261** qualifying days, over
+**51 / 70 / 59** people, most in one month 11 / 19 / 15. No hour moved —
+17 060:29 / 27 166:19 / 26 214:13 unchanged, because this counts days rather than
+changing them.
+
+### This is not the Multinet rule the config already proposed
+
+`settings.yaml` has carried an `overtime.multinet` block since Phase 0 — bands on
+**overtime** hours (3–7.5 h → 1, 7.5 h+ → 2), unconfirmed and unused, blocked on Q6. That
+is a different rule from "the day passed 12 hours", and the two will not agree. What is
+implemented is what was asked for; the banded version stays where it is, still unused,
+and the comment above the new key says so, so nobody wires up two Multinet rules.
+
+### The bug this shipped with for twenty minutes, and the fix that matters more
+
+The daily sheet marked 261 days in July and every person's monthly total read **zero**.
+
+`_summarise` builds its summaries, then rebuilds them at the end to refresh
+`anomaly_count` and `notes` — and that rebuild **named every field**. So the new one was
+dropped on the floor: two numbers, from one run, disagreeing about the same person. The
+same defect class as ADR-077, this time inside a single function.
+
+It uses `dataclasses.replace` now — only the two fields that are meant to change are
+named. A test states that as a rule rather than as a symptom: it walks
+`dataclasses.fields(MonthSummary)` and requires every field except those two to survive,
+so the tenth field added does not repeat this.
+
+**Only caught by measuring the real months.** The sheet looked right, the summary looked
+plausible, and 589 tests were green at the point the two disagreed.
+
+### One more fragility removed on the way
+
+The `Aylık Özet` number formats were applied at fixed offsets from the hours block, so
+putting `Multinet` in front of them moved `0.0#` onto the wrong three columns — a leave
+figure of `0.5` would have printed as `1` on a payroll sheet. Positions come from
+`headers.index(name)` now, and a test holds the two day columns to their format.
+
+The end-to-end tests indexed `Günlük Detay` positionally (`day[6]`, `day[8]`), so the new
+column shifted all of them. They read by column name now: a test should not be fragile in
+the way the readers were rewritten not to be.
+
+### Consequences
+
+- 589 tests. Six for Multinet itself, one for the rebuild rule, one for the number
+  formats.
+- No `format_version` change: the snapshot does not carry Multinet, because nothing
+  downstream asks for it yet.

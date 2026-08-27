@@ -132,10 +132,11 @@ def build(
 _SUMMARY_HEAD = ["Ad Soyad", "Sicil No", "Departman", "Görev", "Tesis",
                  "Kayıt Kaynağı", "Çalışılan Gün"]
 _SUMMARY_HEAD_WIDTHS = [28, 10, 30, 32, 17, 20, 13]
-_SUMMARY_TAIL = ["Uzaktan Çalışma (Gün)", "İzin Günü", "Şüpheli Kayıt", "Not"]
+_SUMMARY_TAIL = ["Multinet", "Uzaktan Çalışma (Gün)", "İzin Günü", "Şüpheli Kayıt",
+                 "Not"]
 # The Not column carries every note the person has, in the same words as the filter
 # list. Measured over three months: at most four notes, the longest text 93 characters.
-_SUMMARY_TAIL_WIDTHS = [14, 11, 12, 52]
+_SUMMARY_TAIL_WIDTHS = [10, 14, 11, 12, 52]
 
 
 def _hours_columns(settings: Settings) -> tuple[list[str], list[int]]:
@@ -164,9 +165,17 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
     first_hours = len(_SUMMARY_HEAD) + 1
     hours_cols = range(first_hours, first_hours + len(hours_headers))
     decimal_cols = {c for i, c in enumerate(hours_cols) if i % 2 == 1}
+
+    # The tail columns are found BY NAME rather than by offsets from the hours block.
+    # They were offsets, and adding `Multinet` in front of them silently moved the
+    # `0.0#` number format onto the wrong three columns — the same off-by-one this
+    # comment was already warning about, one column further along.
+    def col(name: str) -> int:
+        return headers.index(name) + 1
+
+    day_cols = {col("Uzaktan Çalışma (Gün)"), col("İzin Günü")}
     right_cols = set(hours_cols) | {len(_SUMMARY_HEAD)}          # + "Çalışılan Gün"
-    day_cols = {first_hours + len(hours_headers), first_hours + len(hours_headers) + 1}
-    right_cols |= day_cols | {first_hours + len(hours_headers) + 2}
+    right_cols |= day_cols | {col("Multinet"), col("Şüpheli Kayıt")}
 
     styles.write_title(sheet, 1, f"AYLIK ÇALIŞMA ÖZETİ — {_period_label(period)}", span)
     styles.write_banner(
@@ -234,6 +243,9 @@ def _sheet_summary(sheet: Worksheet, period: str, summaries: list[MonthSummary],
         else:
             values += [""] * (1 + len(hours_headers))
         values += [
+            # Blank rather than 0 when nobody earned one: an empty cell reads as "not
+            # applicable this month", a 0 invites the question of what it is counting.
+            summary.multinet or "",
             summary.remote_days or "",
             summary.leave_days or "",
             summary.anomaly_count or "",
@@ -281,8 +293,10 @@ TAG_TEXT_EMPTY = DESCRIPTIONS[AnomalyKind.EMPTY_RECORD][0]
 
 _DAILY_HEAD = ["Ad Soyad", "Tarih", "Gün", "İlk Giriş", "Son Çıkış", "Aralık Sayısı"]
 _DAILY_HEAD_WIDTHS = [28, 12, 13, 10, 10, 13]
-_DAILY_TAIL = ["Kaynak", "Etiket"]
-_DAILY_TAIL_WIDTHS = [24, 26]
+# `Multinet` sits before `Kaynak` so it reads next to the duration it is derived
+# from rather than after the audit columns.
+_DAILY_TAIL = ["Multinet", "Kaynak", "Etiket"]
+_DAILY_TAIL_WIDTHS = [10, 24, 26]
 
 
 def _daily_rows(
@@ -422,6 +436,7 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
                 day_label,
                 giris, cikis, "",
                 *middle_values,
+                "",              # Multinet — nothing was counted, so nothing is earned
                 kaynak,
                 etiket,
             ]
@@ -439,12 +454,18 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
                 workday.last_exit.strftime("%H:%M") if workday.last_exit else "",
                 len(workday.intervals),
                 *middle_values,
+                # `+1` rather than `1`: the column is an entitlement being added, and
+                # the plain number invited being read as a running total.
+                "+1" if workday.gross >= settings.multinet.daily_hours else "",
                 _day_sources_label(workday),
                 _tags_label(workday.tags),
             ]
+        multinet_col = headers.index("Multinet") + 1
         for index, value in enumerate(values, start=1):
             cell = sheet.cell(row=row, column=index, value=value)
             if index in right_cols:
+                cell.alignment = styles.RIGHT
+            if index == multinet_col:
                 cell.alignment = styles.RIGHT
         fill = None
         if workday is None:
@@ -456,6 +477,11 @@ def _sheet_daily(sheet: Worksheet, workdays: list[WorkDay],
         if settings.calendar.is_holiday(day):
             fill = styles.GREY_FILL
         styles.style_row(sheet, row, span, fill)
+        # After `style_row`, which paints the whole row: a green cell has to survive the
+        # amber of a flagged day and the grey of a holiday, both of which are about the
+        # day while this is about one figure on it.
+        if sheet.cell(row=row, column=multinet_col).value:
+            sheet.cell(row=row, column=multinet_col).fill = styles.GREEN_FILL
         row += 1
 
     styles.write_footer(sheet, row + 1, footer, span)

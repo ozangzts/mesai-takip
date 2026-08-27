@@ -899,3 +899,109 @@ def test_the_coverage_line_is_absent_when_the_roster_covers_everybody(
         for r in openpyxl.load_workbook(path, read_only=True)["Kontrol"].iter_rows(
             values_only=True))
     assert "hiç kaydı olmayan" not in control
+
+
+# --- Multinet ---------------------------------------------------------------
+
+def _long_day(hours: int) -> WorkDay:
+    start = datetime(2026, 5, 21, 7, 0)
+    end = start + timedelta(hours=hours)
+    return WorkDay(
+        key=KEY, date=DAY,
+        intervals=(Interval(start, end, frozenset({"teknopark"})),),
+        gross=timedelta(hours=hours), break_deduction=timedelta(),
+        net=timedelta(hours=hours), tags=frozenset())
+
+
+def test_a_day_over_the_threshold_earns_a_multinet(tmp_path, settings):
+    """12 saat ve uzeri gune +1. Threshold from `config/settings.yaml:multinet`."""
+    path = tmp_path / "mn.xlsx"
+    workbook.build(
+        path=path, period="2026-05", summaries=[_summary()],
+        workdays=[_long_day(13)], employees={KEY: _employee()}, leave=[],
+        anomalies=Collector(), stats=RunStats(files={"teknopark": "t.xlsx"}),
+        settings=settings, generated_at=datetime(2026, 8, 27, 12, 0))
+
+    book = openpyxl.load_workbook(path)
+    sheet = book["Günlük Detay"]
+    rows = list(sheet.iter_rows(values_only=True))
+    head = [c for c in rows[3] if c is not None]
+    assert "Multinet" in head
+
+    hedef = next(r for r in rows[4:] if r and r[1] == DAY.strftime("%d.%m.%Y"))
+    assert hedef[head.index("Multinet")] == "+1"
+
+    # green, and green on the CELL — a flagged day paints the whole row amber and a
+    # holiday paints it grey, and this figure is about neither.
+    for satir in sheet.iter_rows(min_row=5):
+        if satir[1].value == DAY.strftime("%d.%m.%Y"):
+            hucre = satir[head.index("Multinet")]
+            assert hucre.fill.fgColor.rgb.endswith("E2EFDA"), hucre.fill.fgColor.rgb
+            break
+
+
+def test_a_day_under_the_threshold_earns_nothing(tmp_path, settings):
+    path = tmp_path / "mn2.xlsx"
+    workbook.build(
+        path=path, period="2026-05", summaries=[_summary()],
+        workdays=[_long_day(11)], employees={KEY: _employee()}, leave=[],
+        anomalies=Collector(), stats=RunStats(files={"teknopark": "t.xlsx"}),
+        settings=settings, generated_at=datetime(2026, 8, 27, 12, 0))
+
+    rows = list(openpyxl.load_workbook(path, read_only=True)["Günlük Detay"]
+                .iter_rows(values_only=True))
+    head = [c for c in rows[3] if c is not None]
+    hedef = next(r for r in rows[4:] if r and r[1] == DAY.strftime("%d.%m.%Y"))
+    assert not hedef[head.index("Multinet")]
+
+
+def test_the_summary_totals_the_multinet_days(tmp_path, settings):
+    """The month's count, and blank rather than 0 when nobody earned one."""
+    from dataclasses import replace
+
+    path = tmp_path / "mn3.xlsx"
+    workbook.build(
+        path=path, period="2026-05",
+        summaries=[replace(_summary(), multinet=3)], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "t.xlsx"}), settings=settings,
+        generated_at=datetime(2026, 8, 27, 12, 0))
+
+    rows = list(openpyxl.load_workbook(path, read_only=True)["Aylık Özet"]
+                .iter_rows(values_only=True))
+    head = [c for c in rows[3] if c is not None]
+    assert head.index("Multinet") < head.index("Uzaktan Çalışma (Gün)")
+    assert rows[4][head.index("Multinet")] == 3
+
+
+def test_the_summary_leaves_multinet_blank_at_zero(tmp_path, settings):
+    path = tmp_path / "mn4.xlsx"
+    workbook.build(
+        path=path, period="2026-05", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "t.xlsx"}), settings=settings,
+        generated_at=datetime(2026, 8, 27, 12, 0))
+
+    rows = list(openpyxl.load_workbook(path, read_only=True)["Aylık Özet"]
+                .iter_rows(values_only=True))
+    head = [c for c in rows[3] if c is not None]
+    assert not rows[4][head.index("Multinet")]
+
+
+def test_the_day_columns_keep_their_number_format(tmp_path, settings):
+    """`Multinet` went in front of them and the `0.0#` format was on fixed offsets.
+
+    A leave figure of 0.5 rendering as `1` on a payroll sheet is the kind of quiet
+    wrongness this project treats as a defect, so the positions are derived by name now.
+    """
+    path = tmp_path / "mn5.xlsx"
+    workbook.build(
+        path=path, period="2026-05", summaries=[_summary()], workdays=[_workday()],
+        employees={KEY: _employee()}, leave=[], anomalies=Collector(),
+        stats=RunStats(files={"teknopark": "t.xlsx"}), settings=settings,
+        generated_at=datetime(2026, 8, 27, 12, 0))
+
+    sheet = openpyxl.load_workbook(path)["Aylık Özet"]
+    head = [c.value for c in sheet[4] if c.value is not None]
+    for ad in ("Uzaktan Çalışma (Gün)", "İzin Günü"):
+        assert sheet.cell(row=5, column=head.index(ad) + 1).number_format == "0.0#", ad

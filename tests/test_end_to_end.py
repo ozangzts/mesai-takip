@@ -123,16 +123,16 @@ def test_a_cross_site_day_is_counted_once(result):
     """AYŞE: Teknopark 08:00-17:00 with a Macunköy visit inside it. Nine hours, not
     nine plus forty-five minutes."""
     day = _day_of(result, "AYŞE DENEME", "01.06.2026")
-    assert day[6] == "9:00", f"got {day[6]}"
+    assert day["Çalışma Süresi"] == "9:00", day
 
 
 def test_a_midnight_crossing_is_repaired(result):
     """VELİ, 2nd: the source says -21:00 for a 23:00 -> 02:00 night shift."""
     day = _day_of(result, "VELİ ÖRNEK", "02.06.2026")
-    assert day[6] == "3:00"
+    assert day["Çalışma Süresi"] == "3:00"
     # The column prints the tag in words now, in the same wording as the
     # note label — the internal `gece-geçişi` never reaches a reader (ADR-050).
-    assert "Gece geçişi" in (day[9] or "")
+    assert "Gece geçişi" in (day["Etiket"] or "")
 
 
 def test_an_unrepairable_missing_punch_contributes_nothing(result):
@@ -146,10 +146,10 @@ def test_an_unrepairable_missing_punch_contributes_nothing(result):
     bug the operator found on a day whose exit was stamped at 19:56 (ADR-067).
     """
     day = _day_of(result, "VELİ ÖRNEK", "03.06.2026")
-    assert not day[6], f"süre yazılmış: {day[6]!r}"
-    assert day[8] == "Macunköy"
-    assert day[9] == "Çıkış yok"
-    assert day[3], "damganın kendisi satırda görünmeli"
+    assert not day["Çalışma Süresi"], day
+    assert day["Kaynak"] == "Macunköy"
+    assert day["Etiket"] == "Çıkış yok"
+    assert day["İlk Giriş"] or day["Son Çıkış"], "damganın kendisi satırda görünmeli"
 
     book = openpyxl.load_workbook(result["output"], read_only=True)
     anomalies = "\n".join(
@@ -164,14 +164,14 @@ def test_a_remote_day_overrides_the_nominal_placeholder(result):
     ADR-018 — the declaration wins, so nine hours rather than 07:30->18:00 = 10:30.
     """
     day = _day_of(result, "AYŞE DENEME", "05.06.2026")
-    assert day[6] == "9:00", f"got {day[6]} — placeholder was not set aside"
+    assert day["Çalışma Süresi"] == "9:00", day
 
 
 def test_a_short_day_is_flagged_but_still_counted(result):
     """ZEYNEP, 4th: two hours exactly is NOT under the threshold, so no flag."""
     day = _day_of(result, "ZEYNEP TASLAK", "04.06.2026")
-    assert day[6] == "2:00"
-    assert "kısa-gün" not in (day[9] or ""), "exactly 2:00 must not flag"
+    assert day["Çalışma Süresi"] == "2:00"
+    assert "kısa-gün" not in (day["Etiket"] or ""), "exactly 2:00 must not flag"
 
 
 def test_a_visitor_badge_never_reaches_the_summary(result):
@@ -269,10 +269,23 @@ def test_two_runs_produce_identical_figures(month, tmp_path, settings):
 
 # --- helpers ----------------------------------------------------------------
 
-def _day_of(result, name: str, date: str) -> tuple:
-    """One person's one day. Name AND date, because the sheet now holds every person's
-    every working day (ADR-063) — a date alone matches whoever sorts first."""
-    return next(w for w in _workdays(result) if w[0] == name and w[1] == date)
+def _day_of(result, name: str, date: str) -> dict:
+    """One person's one day, keyed BY COLUMN NAME.
+
+    Name AND date, because the sheet holds every person's every working day (ADR-063) —
+    a date alone matches whoever sorts first.
+
+    A dict rather than the raw tuple: these were positional (`day[6]`, `day[8]`) and
+    adding the `Multinet` column shifted every one of them, which is exactly the
+    off-by-one the readers were rewritten to stop happening to source files. A test
+    should not be fragile in the way the code refuses to be.
+    """
+    book = openpyxl.load_workbook(result["output"], read_only=True)
+    rows = list(book["Günlük Detay"].iter_rows(values_only=True))
+    head = next(row for row in rows if row[0] == "Ad Soyad")
+    basliklar = [c for c in head if c is not None]
+    row = next(w for w in _workdays(result) if w[0] == name and w[1] == date)
+    return {ad: row[i] for i, ad in enumerate(basliklar)}
 
 
 def _workdays(result) -> list[tuple]:

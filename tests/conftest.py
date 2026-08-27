@@ -4,7 +4,7 @@ from datetime import time, timedelta
 import pytest
 
 from mesai.config import (
-    BreakRule, Calendar, NominalDay, Personnel, Plausibility, Settings,
+    BreakRule, Calendar, Multinet, NominalDay, Personnel, Plausibility, Settings,
 )
 
 
@@ -70,6 +70,10 @@ def settings() -> Settings:
         },
         worked_leave_types=frozenset({"Uzaktan Çalışma"}),
         calendar=Calendar(holidays=frozenset(), rest_weekdays=frozenset({5, 6})),
+        # Mirrors config/settings.yaml:multinet. test_config.py fails if this
+        # drifts — the fixture has silently disagreed with the real config
+        # before, and a whole suite then passes against a rule nobody runs.
+        multinet=Multinet(daily_hours=timedelta(hours=12)),
         personnel=Personnel(exclude_prefixes=("ZIYARETCI", "GECICI", "STJ")),
         # Mirrors config/settings.yaml:facility_labels. Already folded, exactly as
         # `_facility_labels` would produce it. test_config.py fails if this drifts.
