@@ -5638,3 +5638,66 @@ the way the readers were rewritten not to be.
   formats.
 - No `format_version` change: the snapshot does not carry Multinet, because nothing
   downstream asks for it yet.
+
+---
+
+## ADR-084 — Two minutes is not a counted day
+
+**Date:** 2026-08-28
+**Status:** Accepted
+**Narrows ADR-074 / ADR-076.**
+
+### The report
+
+> *"EFE EMİN kişisinde temmuz ayında 2 tane günlük süre çok kısa var ve günü sayılmayan
+> olması lazım ama sayılan günlere dahil?"*
+
+Right, and it was a bug. Those two days:
+
+```
+17.07.2026   07:58 -> 08:00     2 dakika    Günlük süre çok kısa + Çıkış yok
+18.07.2026   15:05 -> 15:16    11 dakika    Günlük süre çok kısa
+```
+
+`ProblemDay.explained` asks only *were any minutes counted*, so two minutes made the day
+look whole and the panel filed it under `SAYILAN GÜNLER` — offered, unticked, and out of
+the mail list by default. On the 17th the exit is missing and roughly nine hours are gone.
+
+**45 days over the three months**, counting between **1 and 119 minutes** each. Fifteen of
+them under six minutes.
+
+### Decision
+
+A day carrying `Günlük süre çok kısa` goes to `lost`, whatever survived. That note is
+precisely the statement that the counted total is not credible — using it as the line is
+using the threshold the project already drew (`plausibility.short_day`), not inventing a
+second one.
+
+The label is read off `anomalies.DESCRIPTIONS` **by kind**, never spelled out: its text
+carries the threshold from config and moves with it (ADR-052).
+
+**Nothing about payroll changes.** The severity stays `included`, the minutes stay
+counted, ADR-019 is untouched: those two minutes are still paid and still in the totals —
+17 060:29 / 27 166:19 / 26 214:13, unmoved. This is about which question the panel asks,
+which is the ADR-055 distinction again: the note is about a record, the hours are about a
+day, and "should somebody be asked" is a third thing.
+
+`day_notes` follows the same line. It strips missing-punch notes from a counted day
+because there another record covered it (ADR-076) — reasoning that needs the day to have
+been *credibly* counted. On the 17th the missing exit is exactly what went wrong, so it
+stays and the message says both.
+
+### After
+
+No `Günlük süre çok kısa` day is left in the counted block, in any month. What remains
+there is what belongs: `Tesis birleştirme`, `Gece geçişi`, `Günlük süre çok uzun`,
+`Uzaktan + kart kaydı`, `Giriş-çıkış tutarsız` — days that really were worked and counted.
+
+### Consequences
+
+- 593 tests. Four new: the two-minute day is a loss, its missing-punch note survives, a
+  properly counted day still loses its own (ADR-076 intact), and the label is derived
+  rather than written out.
+- No figure moved and no `format_version` change.
+- Found by a person looking at one employee in the window. The three-month totals, the
+  reconciliation and 589 tests were all green while 45 days sat in the wrong block.

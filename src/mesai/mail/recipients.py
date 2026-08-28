@@ -22,12 +22,19 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from ..anomalies import DESCRIPTIONS
+from ..anomalies import DESCRIPTIONS, AnomalyKind
 
 # The `Eksik kayıt` family, read off `anomalies.py` rather than listed here so a note
 # added to that family cannot miss this rule. What these four have in common is that
 # they say a **punch was not recorded** — and on a day whose time was counted, that
 # means another record covered it and the person has nothing to answer for. ADR-076.
+# The day counted something, but not something anybody should call a worked day. That
+# is the whole statement this note makes, so a day carrying it belongs with the losses
+# no matter how many minutes survived. Read off `anomalies.py` by KIND rather than by
+# its text, because the text carries the threshold from config and changes with it
+# (ADR-052).
+INANDIRICI_DEGIL = frozenset({DESCRIPTIONS[AnomalyKind.SHORT_DAY][0]})
+
 MISSING_PUNCH = frozenset(
     label for label, _severity, _explanation, group in DESCRIPTIONS.values()
     if group == "Eksik kayıt")
@@ -320,7 +327,7 @@ def day_notes(day: ProblemDay) -> tuple[str, ...]:
     The record still carries its own note on `Şüpheli Kayıtlar`. This is about the two
     places that ask somebody a question: the day panel and the message.
     """
-    if not day.minutes:
+    if not day.minutes or set(day.problems) & INANDIRICI_DEGIL:
         return tuple(day.problems)
     kept = tuple(label for label in day.problems if label not in MISSING_PUNCH)
     return kept or tuple(day.problems)
@@ -370,12 +377,12 @@ def days_by_cost(person: Person) -> tuple[tuple[ProblemDay, ...],
     """
     lost, kept = [], []
     for day in person.days:
-        if day.minutes:
+        if day.minutes and not (set(day.problems) & INANDIRICI_DEGIL):
             if set(day.problems) - MISSING_PUNCH:
                 kept.append(day)     # counted, and something to ask: offered, unticked
             # else: counted from another record — nothing to ask, so not here
         elif not day.covered_by:
-            lost.append(day)         # nothing counted and no leave: a real loss
+            lost.append(day)         # nothing was really worked, and no leave
         # else: leave covers it — not a question for anybody, so not here at all
     return tuple(lost), tuple(kept)
 

@@ -594,3 +594,53 @@ def test_the_missing_punch_family_is_read_off_the_anomaly_table():
     without anybody remembering this file exists."""
     assert recipients.MISSING_PUNCH == {
         "Giriş yok", "Çıkış yok", "Hem giriş hem çıkış yok", "Kart bilgisi yok"}
+
+
+def test_a_two_minute_day_is_a_loss_not_a_counted_day():
+    """*"2 tane günlük süre çok kısa var ve günü sayılmayan olması lazım ama sayılan
+    günlere dahil?"* — right, and it was a bug.
+
+    17 July 2026: badged 07:58, next stamp 08:00. Two minutes counted, the exit missing,
+    and roughly nine hours gone. `explained` asked only "were any minutes counted", so
+    two minutes made the day look whole. 45 such days over the three months, 1 to 119
+    minutes each.
+
+    `Günlük süre çok kısa` is the note that says the counted total is not credible, so a
+    day carrying it belongs with the losses however many minutes survived. The severity
+    stays `included` and the hours stay counted (ADR-019) — this is about which question
+    the panel asks, not about what payroll pays.
+    """
+    gun = _day(4, minutes=2, problems=("Günlük süre çok kısa (<2 saat)", "Çıkış yok"))
+    kisi = Person(**{**person("ESRA DENEME",
+                             problems=("Günlük süre çok kısa (<2 saat)",)).__dict__,
+                     "days": (gun,)})
+
+    lost, kept = recipients.days_by_cost(kisi)
+    assert lost == (gun,)
+    assert kept == ()
+
+
+def test_the_missing_punch_note_survives_on_an_implausible_day():
+    """It is the reason the day is two minutes, so it must not be stripped.
+
+    `day_notes` drops missing-punch notes from a counted day, because there another
+    record covered it (ADR-076). That reasoning needs the day to have been *credibly*
+    counted; here the missing exit is exactly what went wrong.
+    """
+    gun = _day(4, minutes=2, problems=("Günlük süre çok kısa (<2 saat)", "Çıkış yok"))
+    assert set(recipients.day_notes(gun)) == {
+        "Günlük süre çok kısa (<2 saat)", "Çıkış yok"}
+
+
+def test_a_properly_counted_day_still_loses_its_missing_punch_note():
+    """The other half of ADR-076 — untouched."""
+    gun = _day(5, minutes=545, problems=("Hem giriş hem çıkış yok", "Tesis birleştirme"))
+    assert recipients.day_notes(gun) == ("Tesis birleştirme",)
+
+
+def test_the_implausible_note_is_read_off_the_anomaly_table():
+    """Its text carries the threshold from config and moves with it (ADR-052), so it is
+    looked up by kind and never spelled out here."""
+    from mesai.anomalies import DESCRIPTIONS, AnomalyKind
+
+    assert recipients.INANDIRICI_DEGIL == {DESCRIPTIONS[AnomalyKind.SHORT_DAY][0]}

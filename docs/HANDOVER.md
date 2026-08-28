@@ -8,7 +8,7 @@
 > | Ne öğrenmek istiyorsan | Nereye bak |
 > | --- | --- |
 > | Nasıl çalışılır, tavizsiz kurallar | [AGENTS.md](../AGENTS.md) — **önce bunu oku** |
-> | Neden böyle karar verildi (83 ADR) | [DECISIONS.md](DECISIONS.md) |
+> | Neden böyle karar verildi (84 ADR) | [DECISIONS.md](DECISIONS.md) |
 | **Programı kullanacak kişi için** | [KULLANIM.txt](../KULLANIM.txt) — sade Türkçe, exe ile birlikte gidiyor |
 > | Hesap kuralları | [DOMAIN-RULES.md](DOMAIN-RULES.md) |
 > | **Kurallar, sade Türkçe — birine gösterilebilir** | [KURALLAR.md](KURALLAR.md) |
@@ -23,7 +23,7 @@
 
 ## Durum
 
-Faz 1 çalışıyor, **üç ayın üçü de tam**, **589 test geçiyor**.
+Faz 1 çalışıyor, **üç ayın üçü de tam**, **593 test geçiyor**.
 
 | | Mayıs | Haziran | Temmuz |
 | --- | --- | --- | --- |
